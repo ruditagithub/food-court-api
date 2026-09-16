@@ -2,9 +2,11 @@ import { Elysia, t } from "elysia";
 import { authPlugin, requireAuth } from "../../common/middlewares/auth";
 import {
   CreateOrderDTO,
+  JoinSessionDTO,
   OrderQueryDTO,
   UpdateOrderItemStatusDTO,
   UpdateOrderStatusDTO,
+  UpdateTenantOrderStatusDTO,
 } from "./model";
 import { orderService } from "./service";
 
@@ -25,7 +27,7 @@ export const ordersController = new Elysia({ prefix: "/api/orders" })
       detail: {
         tags: ["Orders"],
         summary:
-          "Place a new order (multi-tenant supported, guest or logged in)",
+          "Place a new order (multi-tier, dining sessions, and snapshots)",
       },
     },
   )
@@ -35,6 +37,7 @@ export const ordersController = new Elysia({ prefix: "/api/orders" })
       const data = await orderService.getAll(user, {
         status: query.status,
         tableId: query.tableId,
+        sessionId: query.sessionId,
       });
       return { data };
     },
@@ -42,7 +45,41 @@ export const ordersController = new Elysia({ prefix: "/api/orders" })
       query: OrderQueryDTO,
       detail: {
         tags: ["Orders"],
-        summary: "Get orders list (filtered by role or query)",
+        summary: "Get orders list (filtered by role, table, or session)",
+      },
+    },
+  )
+  .get(
+    "/track/:orderNumber",
+    async ({ params: { orderNumber } }) => {
+      const data = await orderService.trackByOrderNumber(orderNumber);
+      return { data };
+    },
+    {
+      params: t.Object({
+        orderNumber: t.String(),
+      }),
+      detail: {
+        tags: ["Orders"],
+        summary: "Public tracking of order status and kitchen queue",
+      },
+    },
+  )
+  .post(
+    "/sessions/join",
+    async ({ body, user, set }) => {
+      const result = await orderService.joinSession(body, user);
+      set.status = 200;
+      return {
+        message: "Joined dining session successfully",
+        data: result,
+      };
+    },
+    {
+      body: JoinSessionDTO,
+      detail: {
+        tags: ["Orders"],
+        summary: "Join an active dining table session",
       },
     },
   )
@@ -58,7 +95,7 @@ export const ordersController = new Elysia({ prefix: "/api/orders" })
       }),
       detail: {
         tags: ["Orders"],
-        summary: "Get full order details by id",
+        summary: "Get full order details with tenant sub-orders and bills",
       },
     },
   )
@@ -79,7 +116,30 @@ export const ordersController = new Elysia({ prefix: "/api/orders" })
       body: UpdateOrderStatusDTO,
       detail: {
         tags: ["Orders"],
-        summary: "Update overall order status (Admin only)",
+        summary:
+          "Update overall order status and close session/release table (Admin or Tenant involved)",
+      },
+    },
+  )
+  .patch(
+    "/tenant-orders/:id/status",
+    async ({ params: { id }, body, user }) => {
+      requireAuth(user);
+      const updated = await orderService.updateTenantOrderStatus(id, body, user);
+      return {
+        message: "Tenant order status updated successfully",
+        data: updated,
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: UpdateTenantOrderStatusDTO,
+      detail: {
+        tags: ["Orders"],
+        summary:
+          "Update cooking status of tenant sub-order (Tenant stall owner)",
       },
     },
   )
@@ -100,8 +160,7 @@ export const ordersController = new Elysia({ prefix: "/api/orders" })
       body: UpdateOrderItemStatusDTO,
       detail: {
         tags: ["Orders"],
-        summary:
-          "Update cooking/serving status of an order item (Tenant owner)",
+        summary: "Update item-level status (Tenant owner)",
       },
     },
   );

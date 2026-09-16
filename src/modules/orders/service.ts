@@ -440,9 +440,14 @@ export class OrderService {
 
     const firstPayment = order.paymentGroups.flatMap((pg) => pg.payments)[0];
 
+    const statusMapped =
+      order.orderStatus === "DRAFT"
+        ? "pending"
+        : order.orderStatus.toLowerCase();
+
     return {
       ...order,
-      status: order.orderStatus.toLowerCase(),
+      status: statusMapped,
       totalPrice: order.totalAmount,
       tableId: order.session?.tableId ?? null,
       table: order.session?.table ?? null,

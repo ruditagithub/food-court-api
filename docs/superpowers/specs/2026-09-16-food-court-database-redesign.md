@@ -288,6 +288,19 @@ erDiagram
 * **Pemicu Otomatis (Auto-Completion)**:
   - Ketika seluruh `tenant_orders` di bawah master order yang sama telah berstatus `COMPLETED` dan pembayaran lunas (`PAID`), sistem secara otomatis mengubah status order menjadi `COMPLETED`, mengubah `dining_sessions.status` menjadi `COMPLETED`, dan mengubah status meja terkait kembali menjadi `AVAILABLE`.
 
+### 4.2. Alur Pembayaran Tunai (Cash Flow) & Verifikasi Kasir/Tenant
+* **Checkout dengan Metode CASH**:
+  - Pelanggan memilih metode `CASH` saat memesan.
+  - Status tagihan di `payment_groups` tetap `PENDING`, dan status pesanan stan di `tenant_orders` tetap `WAITING_PAYMENT` (dapur belum memasak untuk mencegah pesanan fiktif).
+* **Verifikasi Penerimaan Uang Fisik**:
+  - Pelanggan membawa `order_number` atau nomor meja ke Kasir Pusat atau Tenant stan terkait dan menyerahkan uang tunai.
+  - Kasir (Admin) atau Tenant memproses konfirmasi pembayaran tunai (`POST /api/payments` dengan `paymentMethod: 'CASH'`, `orderId` atau `paymentGroupId`).
+  - Sistem mencatat record di `payments` dengan status `SUCCESS`.
+  - Tagihan di `payment_groups` berubah menjadi `PAID`.
+  - Master order berubah status menjadi `CONFIRMED` dan pembayaran `PAID`.
+  - Sub-order tenant (`tenant_orders.status`) otomatis bergeser dari `WAITING_PAYMENT` ke `QUEUED` untuk mulai dimasak oleh dapur stan.
+  - Perubahan dicatat di `order_status_logs` ("Cash payment verified by cashier/tenant").
+
 ---
 
 ## 5. Rencana Pengujian & Verifikasi

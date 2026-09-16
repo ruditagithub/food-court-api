@@ -1,16 +1,17 @@
 import { t } from "elysia";
 
 export const CreateTableDTO = t.Object({
+  foodCourtId: t.Optional(t.String()),
   tableNumber: t.String({ minLength: 1, maxLength: 20 }),
   capacity: t.Optional(t.Integer({ minimum: 1, default: 4 })),
   status: t.Optional(
     t.Union([
       t.Literal("available"),
       t.Literal("occupied"),
-      t.Literal("reserved"),
+      t.Literal("disabled"),
     ]),
   ),
-  qrCode: t.Optional(t.String()),
+  qrToken: t.Optional(t.String()),
 });
 
 export const UpdateTableDTO = t.Object({
@@ -19,10 +20,10 @@ export const UpdateTableDTO = t.Object({
     t.Union([
       t.Literal("available"),
       t.Literal("occupied"),
-      t.Literal("reserved"),
+      t.Literal("disabled"),
     ]),
   ),
-  qrCode: t.Optional(t.String()),
+  qrToken: t.Optional(t.String()),
 });
 
 export type CreateTableDTOType = typeof CreateTableDTO.static;

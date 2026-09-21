@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { ForbiddenError, NotFoundError } from "../../common/errors";
 import type { AuthUser } from "../../common/middlewares/auth";
 import { db } from "../../db";
@@ -20,10 +20,15 @@ export class TenantService {
     return id;
   }
 
-  async getAll(isOpenFilter?: boolean) {
-    if (typeof isOpenFilter === "boolean") {
+  async getAll(filter?: { isOpen?: boolean }) {
+    const conditions = [];
+    if (typeof filter?.isOpen === "boolean") {
+      conditions.push(eq(tenants.isOpen, filter.isOpen));
+    }
+
+    if (conditions.length > 0) {
       return db.query.tenants.findMany({
-        where: eq(tenants.isOpen, isOpenFilter),
+        where: and(...conditions),
         with: {
           categories: true,
         },
@@ -41,6 +46,7 @@ export class TenantService {
     const tenant = await db.query.tenants.findFirst({
       where: eq(tenants.id, id),
       with: {
+        foodCourt: true,
         categories: {
           with: {
             menus: true,

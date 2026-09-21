@@ -18,7 +18,7 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
           : query.isOpen === "false"
             ? false
             : undefined;
-      const data = await tenantService.getAll(isOpen);
+      const data = await tenantService.getAll({ isOpen });
       return { data };
     },
     {

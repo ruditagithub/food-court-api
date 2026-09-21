@@ -22,6 +22,22 @@ export const app = new Elysia()
           description:
             "High-performance REST API for Food Court operations built with ElysiaJS, Bun, and Drizzle ORM.",
         },
+        components: {
+          securitySchemes: {
+            bearerAuth: {
+              type: "http",
+              scheme: "bearer",
+              bearerFormat: "JWT",
+              description:
+                "Enter JWT token (obtained from POST /api/auth/login)",
+            },
+          },
+        },
+        security: [
+          {
+            bearerAuth: [],
+          },
+        ],
         tags: [
           {
             name: "General",

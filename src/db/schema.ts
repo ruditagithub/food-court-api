@@ -1,4 +1,3 @@
-
 import { relations } from "drizzle-orm";
 import {
   boolean,
@@ -361,7 +360,6 @@ export const orders = mysqlTable("orders", {
   ])
     .notNull()
     .default("DRAFT"),
-  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });

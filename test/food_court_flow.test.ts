@@ -192,7 +192,6 @@ describe("Food Court End-to-End Workflow", () => {
     const orderPayload = {
       tableId,
       customerName: "Budi Santoso",
-      notes: "Jangan terlalu pedas ya",
       items: [
         { menuId: rawonMenuId, quantity: 2, specialNotes: "Kecambah banyak" },
         { menuId: esJerukMenuId, quantity: 1, specialNotes: "Sedikit es" },

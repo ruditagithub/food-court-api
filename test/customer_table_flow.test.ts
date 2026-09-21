@@ -187,7 +187,6 @@ describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
     const orderPayload = {
       tableId,
       customerName: "Rudi Hartono",
-      notes: "Tanpa penyedap berlebih",
       items: [
         {
           menuId: rawonMenuId,

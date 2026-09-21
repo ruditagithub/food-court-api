@@ -291,7 +291,6 @@ export class OrderService {
       totalAmount: overallTotal,
       paymentStatus: "PENDING",
       orderStatus: "DRAFT",
-      notes: data.notes ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

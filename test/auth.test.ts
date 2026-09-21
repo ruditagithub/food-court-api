@@ -58,6 +58,11 @@ describe("Auth Module", () => {
     expect(json.data.token).toBeDefined();
     expect(json.data.user.email).toBe(testUser.email);
     authToken = json.data.token;
+
+    // Verify token contains user name in payload
+    const payloadBase64 = authToken.split(".")[1];
+    const payload = JSON.parse(Buffer.from(payloadBase64, "base64").toString());
+    expect(payload.name).toBe(testUser.name);
   });
 
   it("should get user profile with Bearer token", async () => {

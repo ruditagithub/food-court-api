@@ -29,6 +29,7 @@ export const authController = new Elysia({ prefix: "/api/auth" })
       const user = await authService.login(body);
       const token = await jwt.sign({
         id: user.id,
+        name: user.name,
         email: user.email,
         role: user.role,
       });

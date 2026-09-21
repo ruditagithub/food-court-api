@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import { authPlugin, requireRoles } from "../../common/middlewares/auth";
-import { CreateTableDTO, UpdateTableDTO } from "./model";
+import { CreateTableDTO, TableQueryDTO, UpdateTableDTO } from "./model";
 import { tableService } from "./service";
 
 export const tablesController = new Elysia({ prefix: "/api/tables" })
@@ -8,21 +8,13 @@ export const tablesController = new Elysia({ prefix: "/api/tables" })
   .get(
     "/",
     async ({ query }) => {
-      const data = await tableService.getAll(
-        query.status as "available" | "occupied" | "reserved" | undefined,
-      );
+      const data = await tableService.getAll({
+        status: query.status,
+      });
       return { data };
     },
     {
-      query: t.Object({
-        status: t.Optional(
-          t.Union([
-            t.Literal("available"),
-            t.Literal("occupied"),
-            t.Literal("reserved"),
-          ]),
-        ),
-      }),
+      query: TableQueryDTO,
       detail: {
         tags: ["Tables"],
         summary: "Get list of tables (optionally filter by status)",

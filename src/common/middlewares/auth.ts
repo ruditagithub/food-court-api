@@ -5,6 +5,7 @@ import { ForbiddenError, UnauthorizedError } from "../errors";
 
 export interface AuthUser {
   id: string;
+  name: string;
   email: string;
   role: "admin" | "tenant" | "customer";
 }
@@ -34,6 +35,7 @@ export const authPlugin = new Elysia({ name: "authPlugin" })
     return {
       user: {
         id: String(payload.id),
+        name: String(payload.name ?? ""),
         email: String(payload.email),
         role: payload.role as AuthUser["role"],
       },

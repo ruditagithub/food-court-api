@@ -26,5 +26,10 @@ export const UpdateTableDTO = t.Object({
   qrToken: t.Optional(t.String()),
 });
 
+export const TableQueryDTO = t.Object({
+  status: t.Optional(t.String()),
+  foodCourtId: t.Optional(t.String()),
+});
+
 export type CreateTableDTOType = typeof CreateTableDTO.static;
 export type UpdateTableDTOType = typeof UpdateTableDTO.static;

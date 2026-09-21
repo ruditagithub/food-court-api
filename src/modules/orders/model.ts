@@ -15,7 +15,6 @@ export const CreateOrderDTO = t.Object({
   orderType: t.Optional(
     t.Union([t.Literal("DINE_IN"), t.Literal("TAKEAWAY")]),
   ),
-  notes: t.Optional(t.String({ maxLength: 500 })),
   items: t.Array(OrderItemInput, { minItems: 1 }),
 });
 

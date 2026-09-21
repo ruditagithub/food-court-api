@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { ConflictError, NotFoundError } from "../../common/errors";
 import { db } from "../../db";
 import { foodCourts, tables } from "../../db/schema";
@@ -19,13 +19,26 @@ export class TableService {
     return id;
   }
 
-  async getAll(statusFilter?: "available" | "occupied" | "disabled") {
-    if (statusFilter) {
+  async getAll(filter?: { status?: string }) {
+    const conditions = [];
+    if (filter?.status) {
+      conditions.push(eq(tables.status, filter.status as any));
+    }
+
+    if (conditions.length > 0) {
       return db.query.tables.findMany({
-        where: eq(tables.status, statusFilter),
+        where: and(...conditions),
+        with: {
+          foodCourt: true,
+        },
       });
     }
-    return db.query.tables.findMany();
+
+    return db.query.tables.findMany({
+      with: {
+        foodCourt: true,
+      },
+    });
   }
 
   async getById(id: string) {
@@ -82,7 +95,8 @@ export class TableService {
 
     const id = crypto.randomUUID();
     const qrToken =
-      data.qrToken ?? `qr-${data.tableNumber.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`;
+      data.qrToken ??
+      `qr-${data.tableNumber.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`;
 
     const newTable = {
       id,

@@ -1,8 +1,8 @@
-import { and, eq, like } from "drizzle-orm";
+import { and, eq, inArray, like, or } from "drizzle-orm";
 import { ForbiddenError, NotFoundError } from "../../common/errors";
 import type { AuthUser } from "../../common/middlewares/auth";
 import { db } from "../../db";
-import { categories, menus, tenants } from "../../db/schema";
+import { categories, foodCourts, menus, tenants } from "../../db/schema";
 import type {
   CreateCategoryDTOType,
   CreateMenuDTOType,
@@ -15,10 +15,22 @@ export class MenuService {
 
     const tenant = await db.query.tenants.findFirst({
       where: eq(tenants.id, tenantId),
+      with: {
+        foodCourt: true,
+      },
     });
 
     if (!tenant) {
       throw new NotFoundError(`Tenant '${tenantId}' not found`);
+    }
+
+    if (user.role === "admin-food-court") {
+      if (tenant.foodCourt?.managerId !== user.id) {
+        throw new ForbiddenError(
+          "You do not have permission to manage this food court's menu",
+        );
+      }
+      return;
     }
 
     if (tenant.ownerId !== user.id) {
@@ -28,17 +40,85 @@ export class MenuService {
     }
   }
 
-  async getAll(params: {
-    tenantId?: string;
-    categoryId?: string;
-    isAvailable?: boolean;
-    search?: string;
-  }) {
+  async getAll(
+    params: {
+      tenantId?: string;
+      categoryId?: string;
+      isAvailable?: boolean;
+      search?: string;
+    },
+    currentUser?: AuthUser | null,
+  ) {
     const conditions = [];
 
-    if (params.tenantId) {
-      conditions.push(eq(menus.tenantId, params.tenantId));
+    // Resolve tenantId if provided (support UUID or slug)
+    let targetTenantId = params.tenantId;
+    if (targetTenantId) {
+      const foundTenant = await db.query.tenants.findFirst({
+        where: or(
+          eq(tenants.id, targetTenantId),
+          eq(tenants.slug, targetTenantId),
+        ),
+      });
+      if (foundTenant) {
+        targetTenantId = foundTenant.id;
+      }
     }
+
+    if (currentUser?.role === "tenant") {
+      // Akun tenant hanya melihat menu milik kios miliknya
+      const ownedTenants = await db
+        .select({ id: tenants.id })
+        .from(tenants)
+        .where(eq(tenants.ownerId, currentUser.id));
+
+      const ownedIds = ownedTenants.map((t) => t.id);
+      if (ownedIds.length === 0) {
+        return [];
+      }
+
+      if (targetTenantId) {
+        if (!ownedIds.includes(targetTenantId)) {
+          return [];
+        }
+        conditions.push(eq(menus.tenantId, targetTenantId));
+      } else {
+        conditions.push(inArray(menus.tenantId, ownedIds));
+      }
+    } else if (currentUser?.role === "admin-food-court") {
+      // Akun admin-food-court hanya melihat menu dari tenant di food court miliknya
+      const managedCourts = await db
+        .select({ id: foodCourts.id })
+        .from(foodCourts)
+        .where(eq(foodCourts.managerId, currentUser.id));
+
+      const courtIds = managedCourts.map((c) => c.id);
+      if (courtIds.length === 0) {
+        return [];
+      }
+
+      const courtTenants = await db
+        .select({ id: tenants.id })
+        .from(tenants)
+        .where(inArray(tenants.foodCourtId, courtIds));
+
+      const allowedTenantIds = courtTenants.map((t) => t.id);
+      if (allowedTenantIds.length === 0) {
+        return [];
+      }
+
+      if (targetTenantId) {
+        if (!allowedTenantIds.includes(targetTenantId)) {
+          return [];
+        }
+        conditions.push(eq(menus.tenantId, targetTenantId));
+      } else {
+        conditions.push(inArray(menus.tenantId, allowedTenantIds));
+      }
+    } else if (targetTenantId) {
+      conditions.push(eq(menus.tenantId, targetTenantId));
+    }
+
     if (params.categoryId) {
       conditions.push(eq(menus.categoryId, params.categoryId));
     }
@@ -79,15 +159,33 @@ export class MenuService {
   async create(data: CreateMenuDTOType, user: AuthUser) {
     await this.checkTenantOwnership(data.tenantId, user);
 
+    let categoryId: string | null = null;
+    const rawCategoryId = data.categoryId?.trim();
+    if (rawCategoryId) {
+      const category = await db.query.categories.findFirst({
+        where: and(
+          eq(categories.id, rawCategoryId),
+          eq(categories.tenantId, data.tenantId),
+        ),
+      });
+
+      if (!category) {
+        throw new NotFoundError(
+          `Category '${rawCategoryId}' not found for tenant '${data.tenantId}'`,
+        );
+      }
+      categoryId = category.id;
+    }
+
     const id = crypto.randomUUID();
     const newMenu = {
       id,
       tenantId: data.tenantId,
-      categoryId: data.categoryId ?? null,
+      categoryId,
       name: data.name,
-      description: data.description ?? null,
-      price: data.price,
-      imageUrl: data.imageUrl ?? null,
+      description: data.description?.trim() ? data.description.trim() : null,
+      price: Number(data.price),
+      imageUrl: data.imageUrl?.trim() ? data.imageUrl.trim() : null,
       isAvailable: data.isAvailable ?? true,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -101,8 +199,42 @@ export class MenuService {
     const existing = await this.getById(id);
     await this.checkTenantOwnership(existing.tenantId, user);
 
+    let categoryId: string | null | undefined = undefined;
+    if (data.categoryId !== undefined) {
+      const rawCategoryId = data.categoryId?.trim();
+      if (rawCategoryId) {
+        const category = await db.query.categories.findFirst({
+          where: and(
+            eq(categories.id, rawCategoryId),
+            eq(categories.tenantId, existing.tenantId),
+          ),
+        });
+
+        if (!category) {
+          throw new NotFoundError(
+            `Category '${rawCategoryId}' not found for tenant '${existing.tenantId}'`,
+          );
+        }
+        categoryId = category.id;
+      } else {
+        categoryId = null;
+      }
+    }
+
     const updateData: Partial<typeof menus.$inferInsert> = {
       ...data,
+      ...(categoryId !== undefined ? { categoryId } : {}),
+      ...(data.price !== undefined ? { price: Number(data.price) } : {}),
+      ...(data.description !== undefined
+        ? {
+            description: data.description?.trim()
+              ? data.description.trim()
+              : null,
+          }
+        : {}),
+      ...(data.imageUrl !== undefined
+        ? { imageUrl: data.imageUrl?.trim() ? data.imageUrl.trim() : null }
+        : {}),
       updatedAt: new Date(),
     };
 
@@ -134,11 +266,102 @@ export class MenuService {
     return newCategory;
   }
 
-  async getCategoriesByTenant(tenantId: string) {
-    return db.query.categories.findMany({
-      where: eq(categories.tenantId, tenantId),
+  async getCategoriesByTenant(
+    tenantIdOrSlug: string,
+    currentUser?: AuthUser | null,
+  ) {
+    const tenant = await db.query.tenants.findFirst({
+      where: or(
+        eq(tenants.id, tenantIdOrSlug),
+        eq(tenants.slug, tenantIdOrSlug),
+      ),
       with: {
-        menus: true,
+        foodCourt: true,
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundError(`Tenant '${tenantIdOrSlug}' not found`);
+    }
+
+    if (currentUser?.role === "admin-food-court") {
+      if (tenant.foodCourt?.managerId !== currentUser.id) {
+        throw new ForbiddenError(
+          "You do not have permission to view categories for this tenant",
+        );
+      }
+    } else if (currentUser?.role === "tenant") {
+      if (tenant.ownerId !== currentUser.id) {
+        throw new ForbiddenError(
+          "You do not have permission to view categories for this tenant",
+        );
+      }
+    }
+
+    return db.query.categories.findMany({
+      where: eq(categories.tenantId, tenant.id),
+      with: {
+        menus: {
+          where: eq(menus.tenantId, tenant.id),
+        },
+      },
+    });
+  }
+
+  async getMenusByTenant(
+    tenantIdOrSlug: string,
+    params?: {
+      categoryId?: string;
+      isAvailable?: boolean;
+      search?: string;
+    },
+    currentUser?: AuthUser | null,
+  ) {
+    const tenant = await db.query.tenants.findFirst({
+      where: or(
+        eq(tenants.id, tenantIdOrSlug),
+        eq(tenants.slug, tenantIdOrSlug),
+      ),
+      with: {
+        foodCourt: true,
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundError(`Tenant '${tenantIdOrSlug}' not found`);
+    }
+
+    if (currentUser?.role === "admin-food-court") {
+      if (tenant.foodCourt?.managerId !== currentUser.id) {
+        throw new ForbiddenError(
+          "You do not have permission to view menus for this tenant",
+        );
+      }
+    } else if (currentUser?.role === "tenant") {
+      if (tenant.ownerId !== currentUser.id) {
+        throw new ForbiddenError(
+          "You do not have permission to view menus for this tenant",
+        );
+      }
+    }
+
+    const conditions = [eq(menus.tenantId, tenant.id)];
+
+    if (params?.categoryId) {
+      conditions.push(eq(menus.categoryId, params.categoryId));
+    }
+    if (typeof params?.isAvailable === "boolean") {
+      conditions.push(eq(menus.isAvailable, params.isAvailable));
+    }
+    if (params?.search) {
+      conditions.push(like(menus.name, `%${params.search}%`));
+    }
+
+    return db.query.menus.findMany({
+      where: and(...conditions),
+      with: {
+        category: true,
+        tenant: true,
       },
     });
   }

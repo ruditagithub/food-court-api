@@ -16,7 +16,7 @@ export const menusController = new Elysia({ prefix: "/api/menus" })
   .use(authPlugin)
   .get(
     "/",
-    async ({ query }) => {
+    async ({ query, user }) => {
       const isAvailable =
         query.isAvailable === "true"
           ? true
@@ -24,12 +24,15 @@ export const menusController = new Elysia({ prefix: "/api/menus" })
             ? false
             : undefined;
 
-      const data = await menuService.getAll({
-        tenantId: query.tenantId,
-        categoryId: query.categoryId,
-        isAvailable,
-        search: query.search,
-      });
+      const data = await menuService.getAll(
+        {
+          tenantId: query.tenantId,
+          categoryId: query.categoryId,
+          isAvailable,
+          search: query.search,
+        },
+        user,
+      );
 
       return { data };
     },
@@ -43,8 +46,8 @@ export const menusController = new Elysia({ prefix: "/api/menus" })
   )
   .get(
     "/categories/:tenantId",
-    async ({ params: { tenantId } }) => {
-      const data = await menuService.getCategoriesByTenant(tenantId);
+    async ({ params: { tenantId }, user }) => {
+      const data = await menuService.getCategoriesByTenant(tenantId, user);
       return { data };
     },
     {
@@ -57,10 +60,47 @@ export const menusController = new Elysia({ prefix: "/api/menus" })
       },
     },
   )
+  .get(
+    "/tenant/:tenantId",
+    async ({ params: { tenantId }, query, user }) => {
+      const isAvailable =
+        query.isAvailable === "true"
+          ? true
+          : query.isAvailable === "false"
+            ? false
+            : undefined;
+
+      const data = await menuService.getMenusByTenant(
+        tenantId,
+        {
+          categoryId: query.categoryId,
+          isAvailable,
+          search: query.search,
+        },
+        user,
+      );
+
+      return { data };
+    },
+    {
+      params: t.Object({
+        tenantId: t.String(),
+      }),
+      query: t.Object({
+        categoryId: t.Optional(t.String()),
+        isAvailable: t.Optional(t.String()),
+        search: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Menus"],
+        summary: "Get all menu items for a specific tenant (by tenant ID or slug)",
+      },
+    },
+  )
   .post(
     "/categories",
     async ({ body, user, set }) => {
-      requireRoles(user, ["admin", "tenant"]);
+      requireRoles(user, ["admin", "tenant", "admin-food-court"]);
       const category = await menuService.createCategory(body, user);
       set.status = 201;
       return {
@@ -95,7 +135,7 @@ export const menusController = new Elysia({ prefix: "/api/menus" })
   .post(
     "/",
     async ({ body, user, set }) => {
-      requireRoles(user, ["admin", "tenant"]);
+      requireRoles(user, ["admin", "tenant", "admin-food-court"]);
       const newMenu = await menuService.create(body, user);
       set.status = 201;
       return {

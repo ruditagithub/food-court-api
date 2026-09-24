@@ -10,8 +10,8 @@ export const CreateMenuDTO = t.Object({
   categoryId: t.Optional(t.String()),
   name: t.String({ minLength: 2, maxLength: 100 }),
   description: t.Optional(t.String({ maxLength: 500 })),
-  price: t.Integer({ minimum: 0 }),
-  imageUrl: t.Optional(t.String({ format: "uri" })),
+  price: t.Numeric({ minimum: 0 }),
+  imageUrl: t.Optional(t.String()),
   isAvailable: t.Optional(t.Boolean()),
 });
 
@@ -19,8 +19,8 @@ export const UpdateMenuDTO = t.Object({
   categoryId: t.Optional(t.String()),
   name: t.Optional(t.String({ minLength: 2, maxLength: 100 })),
   description: t.Optional(t.String({ maxLength: 500 })),
-  price: t.Optional(t.Integer({ minimum: 0 })),
-  imageUrl: t.Optional(t.String({ format: "uri" })),
+  price: t.Optional(t.Numeric({ minimum: 0 })),
+  imageUrl: t.Optional(t.String()),
   isAvailable: t.Optional(t.Boolean()),
 });
 

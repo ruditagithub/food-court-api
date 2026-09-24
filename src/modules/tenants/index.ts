@@ -6,19 +6,23 @@ import {
 } from "../../common/middlewares/auth";
 import { CreateTenantDTO, TenantQueryDTO, UpdateTenantDTO } from "./model";
 import { tenantService } from "./service";
+import { menuService } from "../menus/service";
 
 export const tenantsController = new Elysia({ prefix: "/api/tenants" })
   .use(authPlugin)
   .get(
     "/",
-    async ({ query }) => {
+    async ({ query, user }) => {
       const isOpen =
         query.isOpen === "true"
           ? true
           : query.isOpen === "false"
             ? false
             : undefined;
-      const data = await tenantService.getAll({ isOpen });
+      const data = await tenantService.getAll(
+        { isOpen, foodCourtId: query.foodCourtId },
+        user,
+      );
       return { data };
     },
     {
@@ -45,10 +49,47 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
       },
     },
   )
+  .get(
+    "/:id/menus",
+    async ({ params: { id }, query, user }) => {
+      const isAvailable =
+        query.isAvailable === "true"
+          ? true
+          : query.isAvailable === "false"
+            ? false
+            : undefined;
+
+      const data = await menuService.getMenusByTenant(
+        id,
+        {
+          categoryId: query.categoryId,
+          isAvailable,
+          search: query.search,
+        },
+        user,
+      );
+
+      return { data };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      query: t.Object({
+        categoryId: t.Optional(t.String()),
+        isAvailable: t.Optional(t.String()),
+        search: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Tenants"],
+        summary: "Get all menu items for a specific tenant",
+      },
+    },
+  )
   .post(
     "/",
     async ({ body, user, set }) => {
-      requireRoles(user, ["admin", "tenant"]);
+      requireRoles(user, ["admin", "tenant", "admin-food-court"]);
       const newTenant = await tenantService.create(body, user);
       set.status = 201;
       return {
@@ -60,7 +101,8 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
       body: CreateTenantDTO,
       detail: {
         tags: ["Tenants"],
-        summary: "Create a new food court stall (Admin or Tenant)",
+        summary:
+          "Create a new food court stall (Admin, Tenant, or Admin Food Court)",
       },
     },
   )

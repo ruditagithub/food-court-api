@@ -317,4 +317,383 @@ describe("Food Courts Module", () => {
       }),
     );
   });
+
+  it("should isolate GET /api/tenants to only tenants in food courts managed by the caller", async () => {
+    // 1. Manager A creates food court A
+    const fcARes = await app.handle(
+      new Request("http://localhost/api/food-courts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${managerAToken}`,
+        },
+        body: JSON.stringify({ name: `FC Alpha ${Date.now()}` }),
+      }),
+    );
+    const fcA = await fcARes.json();
+
+    // 2. Manager B creates food court B
+    const fcBRes = await app.handle(
+      new Request("http://localhost/api/food-courts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${managerBToken}`,
+        },
+        body: JSON.stringify({ name: `FC Beta ${Date.now()}` }),
+      }),
+    );
+    const fcB = await fcBRes.json();
+
+    // 3. Manager A adds Tenant A1
+    const tA1Res = await app.handle(
+      new Request("http://localhost/api/tenants", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${managerAToken}`,
+        },
+        body: JSON.stringify({
+          foodCourtId: fcA.data.id,
+          name: "Tenant Alpha 1",
+          stallNumber: "A-01",
+        }),
+      }),
+    );
+    expect(tA1Res.status).toBe(201);
+    const tA1 = await tA1Res.json();
+
+    // 4. Manager B adds Tenant B1
+    const tB1Res = await app.handle(
+      new Request("http://localhost/api/tenants", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${managerBToken}`,
+        },
+        body: JSON.stringify({
+          foodCourtId: fcB.data.id,
+          name: "Tenant Beta 1",
+          stallNumber: "B-01",
+        }),
+      }),
+    );
+    expect(tB1Res.status).toBe(201);
+    const tB1 = await tB1Res.json();
+
+    // 5. Manager A queries GET /api/tenants
+    const listARes = await app.handle(
+      new Request("http://localhost/api/tenants", {
+        headers: {
+          Authorization: `Bearer ${managerAToken}`,
+        },
+      }),
+    );
+    expect(listARes.status).toBe(200);
+    const listA = await listARes.json();
+    const idsInA = listA.data.map((t: { id: string }) => t.id);
+    expect(idsInA).toContain(tA1.data.id);
+    expect(idsInA).not.toContain(tB1.data.id);
+
+    // 6. Manager B queries GET /api/tenants
+    const listBRes = await app.handle(
+      new Request("http://localhost/api/tenants", {
+        headers: {
+          Authorization: `Bearer ${managerBToken}`,
+        },
+      }),
+    );
+    expect(listBRes.status).toBe(200);
+    const listB = await listBRes.json();
+    const idsInB = listB.data.map((t: { id: string }) => t.id);
+    expect(idsInB).toContain(tB1.data.id);
+    expect(idsInB).not.toContain(tA1.data.id);
+
+    // Cleanup
+    await app.handle(
+      new Request(`http://localhost/api/food-courts/${fcA.data.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${adminToken}` },
+      }),
+    );
+    await app.handle(
+      new Request(`http://localhost/api/food-courts/${fcB.data.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${adminToken}` },
+      }),
+    );
+  });
+
+  it("should generate unique slug and enforce stallNumber uniqueness for active tenants", async () => {
+    // 1. Create a food court
+    const fcRes = await app.handle(
+      new Request("http://localhost/api/food-courts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${managerAToken}`,
+        },
+        body: JSON.stringify({ name: `FC Stall Test ${Date.now()}` }),
+      }),
+    );
+    const fc = await fcRes.json();
+
+    // 2. Create first tenant (active, stallNumber: "STAN-01")
+    const t1Res = await app.handle(
+      new Request("http://localhost/api/tenants", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${managerAToken}`,
+        },
+        body: JSON.stringify({
+          foodCourtId: fc.data.id,
+          name: "Warung Sederhana",
+          stallNumber: "STAN-01",
+          isOpen: true,
+        }),
+      }),
+    );
+    expect(t1Res.status).toBe(201);
+    const t1 = await t1Res.json();
+    expect(t1.data.slug).toBe("warung-sederhana");
+
+    // 3. Create second tenant with identical name (should get unique slug: "warung-sederhana-1")
+    // and different stallNumber: "STAN-02"
+    const t2Res = await app.handle(
+      new Request("http://localhost/api/tenants", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${managerAToken}`,
+        },
+        body: JSON.stringify({
+          foodCourtId: fc.data.id,
+          name: "Warung Sederhana",
+          stallNumber: "STAN-02",
+          isOpen: true,
+        }),
+      }),
+    );
+    expect(t2Res.status).toBe(201);
+    const t2 = await t2Res.json();
+    expect(t2.data.slug).toBe("warung-sederhana-1");
+
+    // 4. Try to create third active tenant with duplicate stallNumber: "STAN-01" -> 409 Conflict
+    const tDuplicateStallRes = await app.handle(
+      new Request("http://localhost/api/tenants", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${managerAToken}`,
+        },
+        body: JSON.stringify({
+          foodCourtId: fc.data.id,
+          name: "Bakso Berkah",
+          stallNumber: "STAN-01",
+          isOpen: true,
+        }),
+      }),
+    );
+    expect(tDuplicateStallRes.status).toBe(409);
+    const dupJson = await tDuplicateStallRes.json();
+    expect(dupJson.error).toBe("ConflictError");
+
+    // 5. Create fourth tenant with duplicate stallNumber but inactive (isOpen: false) -> 201 OK
+    const tInactiveRes = await app.handle(
+      new Request("http://localhost/api/tenants", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${managerAToken}`,
+        },
+        body: JSON.stringify({
+          foodCourtId: fc.data.id,
+          name: "Bakso Berkah Tutup",
+          stallNumber: "STAN-01",
+          isOpen: false,
+        }),
+      }),
+    );
+    expect(tInactiveRes.status).toBe(201);
+
+    // 6. Test menu creation with empty string categoryId (e.g. from Swagger) vs invalid categoryId
+    // 6a. Empty string categoryId -> null, 201 OK
+    const menuEmptyCatRes = await app.handle(
+      new Request("http://localhost/api/menus", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${managerAToken}`,
+        },
+        body: JSON.stringify({
+          tenantId: t1.data.id,
+          categoryId: "",
+          name: "Sate Ayam Madura",
+          description: "Sate bumbu kacang",
+          price: "25000",
+          imageUrl: "/sate.jpg",
+          isAvailable: true,
+        }),
+      }),
+    );
+    expect(menuEmptyCatRes.status).toBe(201);
+    const menuEmptyCatJson = await menuEmptyCatRes.json();
+    expect(menuEmptyCatJson.data.categoryId).toBeNull();
+    expect(menuEmptyCatJson.data.price).toBe(25000);
+
+    // 6b. Invalid non-existent categoryId -> 404 NotFoundError
+    const menuInvalidCatRes = await app.handle(
+      new Request("http://localhost/api/menus", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${managerAToken}`,
+        },
+        body: JSON.stringify({
+          tenantId: t1.data.id,
+          categoryId: "test",
+          name: "Sate Kambing",
+          price: 30000,
+        }),
+      }),
+    );
+    expect(menuInvalidCatRes.status).toBe(404);
+    const invalidCatJson = await menuInvalidCatRes.json();
+    expect(invalidCatJson.error).toBe("NotFoundError");
+
+    // 6c. Unknown tenant -> 404 NotFound
+    const catUnknownRes = await app.handle(
+      new Request("http://localhost/api/menus/categories/unknown-tenant-id", {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(catUnknownRes.status).toBe(404);
+
+    // 6d. Foreign manager accessing tenant categories -> 403 Forbidden
+    const catForeignManagerRes = await app.handle(
+      new Request(`http://localhost/api/menus/categories/${t1.data.id}`, {
+        headers: { Authorization: `Bearer ${managerBToken}` },
+      }),
+    );
+    expect(catForeignManagerRes.status).toBe(403);
+
+    // 6e. Owning manager accessing tenant categories -> 200 OK with isolated tenant categories
+    const catOwnerRes = await app.handle(
+      new Request(`http://localhost/api/menus/categories/${t1.data.id}`, {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(catOwnerRes.status).toBe(200);
+
+    // 6f. Accessing tenant categories by slug -> 200 OK
+    const catSlugRes = await app.handle(
+      new Request(`http://localhost/api/menus/categories/${t1.data.slug}`, {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(catSlugRes.status).toBe(200);
+
+    // 7. Test GET /api/menus isolation
+    // 7a. Manager A calling GET /api/menus should see menus from their tenant (t1)
+    const menusManagerARes = await app.handle(
+      new Request("http://localhost/api/menus", {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(menusManagerARes.status).toBe(200);
+    const menusManagerAJson = await menusManagerARes.json();
+    const menuIdsA = menusManagerAJson.data.map((m: any) => m.id);
+    expect(menuIdsA).toContain(menuEmptyCatJson.data.id);
+
+    // 7b. Foreign Manager B calling GET /api/menus should NOT see Manager A's tenant menus
+    const menusManagerBRes = await app.handle(
+      new Request("http://localhost/api/menus", {
+        headers: { Authorization: `Bearer ${managerBToken}` },
+      }),
+    );
+    expect(menusManagerBRes.status).toBe(200);
+    const menusManagerBJson = await menusManagerBRes.json();
+    const menuIdsB = menusManagerBJson.data.map((m: any) => m.id);
+    expect(menuIdsB).not.toContain(menuEmptyCatJson.data.id);
+
+    // 7c. Querying GET /api/menus?tenantId=<slug> returns tenant's menus
+    const menusSlugRes = await app.handle(
+      new Request(`http://localhost/api/menus?tenantId=${t1.data.slug}`, {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(menusSlugRes.status).toBe(200);
+    const menusSlugJson = await menusSlugRes.json();
+    expect(menusSlugJson.data.length).toBeGreaterThan(0);
+    expect(menusSlugJson.data[0].tenantId).toBe(t1.data.id);
+
+    // 7d. Foreign Manager B querying Manager A's tenantId returns empty array
+    const menusForeignTenantRes = await app.handle(
+      new Request(`http://localhost/api/menus?tenantId=${t1.data.id}`, {
+        headers: { Authorization: `Bearer ${managerBToken}` },
+      }),
+    );
+    expect(menusForeignTenantRes.status).toBe(200);
+    const menusForeignTenantJson = await menusForeignTenantRes.json();
+    expect(menusForeignTenantJson.data).toEqual([]);
+
+    // 8. Test new dedicated tenant menus endpoints
+    // 8a. GET /api/menus/tenant/:tenantId with ID
+    const dedicatedMenuRes = await app.handle(
+      new Request(`http://localhost/api/menus/tenant/${t1.data.id}`, {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(dedicatedMenuRes.status).toBe(200);
+    const dedicatedMenuJson = await dedicatedMenuRes.json();
+    expect(dedicatedMenuJson.data.length).toBeGreaterThan(0);
+    expect(dedicatedMenuJson.data[0].tenantId).toBe(t1.data.id);
+
+    // 8b. GET /api/menus/tenant/:tenantId with Slug
+    const dedicatedSlugRes = await app.handle(
+      new Request(`http://localhost/api/menus/tenant/${t1.data.slug}`, {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(dedicatedSlugRes.status).toBe(200);
+    const dedicatedSlugJson = await dedicatedSlugRes.json();
+    expect(dedicatedSlugJson.data.length).toBeGreaterThan(0);
+    expect(dedicatedSlugJson.data[0].tenantId).toBe(t1.data.id);
+
+    // 8c. GET /api/menus/tenant/unknown-id -> 404
+    const dedicatedUnknownRes = await app.handle(
+      new Request("http://localhost/api/menus/tenant/non-existent-tenant-id", {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(dedicatedUnknownRes.status).toBe(404);
+
+    // 8d. GET /api/menus/tenant/:tenantId with foreign manager -> 403
+    const dedicatedForeignRes = await app.handle(
+      new Request(`http://localhost/api/menus/tenant/${t1.data.id}`, {
+        headers: { Authorization: `Bearer ${managerBToken}` },
+      }),
+    );
+    expect(dedicatedForeignRes.status).toBe(403);
+
+    // 8e. GET /api/tenants/:id/menus
+    const tenantNestedMenusRes = await app.handle(
+      new Request(`http://localhost/api/tenants/${t1.data.id}/menus`, {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(tenantNestedMenusRes.status).toBe(200);
+    const tenantNestedMenusJson = await tenantNestedMenusRes.json();
+    expect(tenantNestedMenusJson.data.length).toBeGreaterThan(0);
+    expect(tenantNestedMenusJson.data[0].tenantId).toBe(t1.data.id);
+
+    // Cleanup
+    await app.handle(
+      new Request(`http://localhost/api/food-courts/${fc.data.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${adminToken}` },
+      }),
+    );
+  });
 });

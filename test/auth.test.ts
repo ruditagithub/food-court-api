@@ -87,4 +87,23 @@ describe("Auth Module", () => {
     const json = await res.json();
     expect(json.error).toBe("UnauthorizedError");
   });
+
+  it("should register a new user with admin-food-court role", async () => {
+    const res = await app.handle(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Manager Plaza",
+          email: `manager_${Date.now()}@foodcourt.com`,
+          password: "password123",
+          role: "admin-food-court",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.data.role).toBe("admin-food-court");
+  });
 });

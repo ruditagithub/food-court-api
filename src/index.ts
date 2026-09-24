@@ -9,6 +9,7 @@ import { ordersController } from "./modules/orders";
 import { paymentsController } from "./modules/payments";
 import { tablesController } from "./modules/tables";
 import { tenantsController } from "./modules/tenants";
+import { foodCourtsController } from "./modules/food-courts";
 
 export const app = new Elysia()
   .use(cors())
@@ -49,6 +50,10 @@ export const app = new Elysia()
           { name: "Tables", description: "Food court dining table management" },
           { name: "Orders", description: "Multi-tenant food ordering" },
           { name: "Payments", description: "Payment processing and invoices" },
+          {
+            name: "Food Courts",
+            description: "Food court location and management",
+          },
         ],
       },
     }),
@@ -114,7 +119,8 @@ export const app = new Elysia()
   .use(menusController)
   .use(tablesController)
   .use(ordersController)
-  .use(paymentsController);
+  .use(paymentsController)
+  .use(foodCourtsController);
 
 if (process.env.NODE_ENV !== "test") {
   app.listen(env.PORT, () => {

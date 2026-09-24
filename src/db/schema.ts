@@ -18,7 +18,7 @@ export const users = mysqlTable("users", {
   name: varchar("name", { length: 100 }).notNull(),
   email: varchar("email", { length: 191 }).notNull().unique(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
-  role: mysqlEnum("role", ["admin", "tenant", "customer"])
+  role: mysqlEnum("role", ["admin", "admin-food-court", "tenant", "customer"])
     .notNull()
     .default("customer"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -28,6 +28,7 @@ export const users = mysqlTable("users", {
 export const usersRelations = relations(users, ({ many }) => ({
   tenants: many(tenants),
   sessionParticipants: many(sessionParticipants),
+  managedFoodCourts: many(foodCourts),
 }));
 
 // ==========================================
@@ -35,6 +36,9 @@ export const usersRelations = relations(users, ({ many }) => ({
 // ==========================================
 export const foodCourts = mysqlTable("food_courts", {
   id: varchar("id", { length: 36 }).primaryKey(),
+  managerId: varchar("manager_id", { length: 36 }).references(() => users.id, {
+    onDelete: "set null",
+  }),
   name: varchar("name", { length: 150 }).notNull(),
   slug: varchar("slug", { length: 150 }).notNull().unique(),
   address: text("address"),
@@ -47,7 +51,11 @@ export const foodCourts = mysqlTable("food_courts", {
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });
 
-export const foodCourtsRelations = relations(foodCourts, ({ many }) => ({
+export const foodCourtsRelations = relations(foodCourts, ({ one, many }) => ({
+  manager: one(users, {
+    fields: [foodCourts.managerId],
+    references: [users.id],
+  }),
   tables: many(tables),
   kiosks: many(kiosks),
   tenants: many(tenants),

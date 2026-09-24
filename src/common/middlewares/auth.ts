@@ -7,7 +7,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "tenant" | "customer";
+  role: "admin" | "admin-food-court" | "tenant" | "customer";
 }
 
 export const jwtPlugin = new Elysia({ name: "jwtPlugin" }).use(
@@ -50,7 +50,7 @@ export function requireAuth(user: AuthUser | null): asserts user is AuthUser {
 
 export function requireRoles(
   user: AuthUser | null,
-  roles: Array<"admin" | "tenant" | "customer">,
+  roles: Array<"admin" | "admin-food-court" | "tenant" | "customer">,
 ): asserts user is AuthUser {
   requireAuth(user);
   if (!roles.includes(user.role)) {

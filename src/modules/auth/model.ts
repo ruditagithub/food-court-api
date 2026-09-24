@@ -1,17 +1,31 @@
 import { t } from "elysia";
 
 export const RegisterDTO = t.Object({
-  name: t.String({ minLength: 2, maxLength: 100 }),
-  email: t.String({ format: "email" }),
-  password: t.String({ minLength: 6 }),
+  name: t.String({
+    minLength: 2,
+    maxLength: 100,
+    default: "Admin Food Court",
+  }),
+  email: t.String({ format: "email", default: "admin@foodcourt.com" }),
+  password: t.String({ minLength: 6, default: "password123" }),
   role: t.Optional(
-    t.Union([t.Literal("admin"), t.Literal("tenant"), t.Literal("customer")]),
+    t.Union(
+      [
+        t.Literal("admin"),
+        t.Literal("admin-food-court"),
+        t.Literal("tenant"),
+        t.Literal("customer"),
+      ],
+      {
+        default: "admin",
+      },
+    ),
   ),
 });
 
 export const LoginDTO = t.Object({
-  email: t.String({ format: "email" }),
-  password: t.String({ minLength: 1 }),
+  email: t.String({ format: "email", default: "admin@foodcourt.com" }),
+  password: t.String({ minLength: 1, default: "password123" }),
 });
 
 export const UserResponse = t.Object({

@@ -42,5 +42,7 @@ describe("Drizzle Schema Integrity Check", () => {
     expect(paymentGroups).toBeDefined();
     expect(paymentGroupItems).toBeDefined();
     expect(payments).toBeDefined();
+    expect(foodCourts.managerId).toBeDefined();
+    expect(users.role).toBeDefined();
   });
 });

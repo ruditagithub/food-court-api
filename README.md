@@ -13,7 +13,7 @@ RESTful API berperforma tinggi untuk manajemen operasional Food Court modern. Di
    - [1. General & Health](#1-general--health)
    - [2. Autentikasi (`/api/auth`)](#2-autentikasi-apiauth)
    - [3. Food Courts (`/api/food-courts`)](#3-food-courts-apifood-courts)
-   - [4. Tenants / Kios (`/api/tenants`, `/api/food-courts/:id/tenants`, `/api/food-court/:id/tenant`)](#4-tenants--kios-apitenants-apifood-courtsidtenants-apifood-courtidtenant)
+   - [4. Tenants / Kios (`/api/tenants`, `/api/food-court/:id/tenant`)](#4-tenants--kios-apitenants-apifood-courtidtenant)
    - [5. Menus & Kategori (`/api/menus`)](#5-menus--kategori-apimenus)
    - [6. Meja Food Court (`/api/tables`)](#6-meja-food-court-apitables)
    - [7. Pemesanan / Orders (`/api/orders`)](#7-pemesanan--orders-apiorders)
@@ -83,7 +83,7 @@ Sistem ini memiliki 4 tingkatan Role dan 1 akses Publik/Tamu:
 
 ## Matriks Hak Akses & Response Antar Role Seluruh Endpoint
 
-Tabel berikut menyajikan seluruh 40 endpoint aktif hasil pemindaian spesifikasi Swagger OpenAPI (`/swagger/json`). Endpoint telah dikelompokkan sesuai dengan folder/tag pada Swagger:
+Tabel berikut menyajikan seluruh 38 endpoint aktif hasil pemindaian spesifikasi Swagger OpenAPI (`/swagger/json`). Endpoint telah dikelompokkan sesuai dengan folder/tag pada Swagger:
 
 ### 1. General & Health
 
@@ -118,9 +118,7 @@ Tabel berikut menyajikan seluruh 40 endpoint aktif hasil pemindaian spesifikasi 
 | 12 | `GET` | `/api/tenants/{id}` | Mengembalikan detail profil gerai | Mengembalikan detail profil gerai | Mengembalikan detail profil gerai | Mengembalikan detail profil gerai | Detail tenant lengkap dengan daftar kategori & menu (menerima ID/slug). |
 | 13 | `PUT` | `/api/tenants/{id}` | Diizinkan update gerai manapun | Diizinkan **hanya jika tenant di food court miliknya** | Diizinkan **hanya untuk gerai miliknya sendiri** | `403 Forbidden` | Update data tenant (nama, nomor stan, jam buka/tutup, status operasional). |
 | 14 | `DELETE` | `/api/tenants/{id}` | Diizinkan hapus gerai | `403 Forbidden` | Diizinkan **hanya untuk gerai miliknya sendiri** | `403 Forbidden` | Menghapus tenant dari food court. |
-| 15 | `GET` | `/api/tenants/{id}/menus` | Mengembalikan seluruh menu tenant | Mengembalikan seluruh menu tenant | Mengembalikan seluruh menu tenant | Mengembalikan seluruh menu tenant (katalog belanja pembeli) | Mengambil seluruh menu milik tenant tertentu dari modul Tenants. |
-| 16 | `GET` | `/api/food-court/{id}/tenant` | Mengembalikan seluruh tenant di food court tersebut | Diizinkan **hanya jika food court miliknya**; ditolak `403` jika food court lain | `403 Forbidden` | `403 Forbidden` | Mengambil daftar seluruh gerai/tenant di food court tertentu (rute singular). |
-| 17 | `GET` | `/api/food-courts/{id}/tenants` | Mengembalikan seluruh tenant di food court tersebut | Diizinkan **hanya jika food court miliknya**; ditolak `403` jika food court lain | `403 Forbidden` | `403 Forbidden` | Mengambil daftar seluruh gerai/tenant di food court tertentu (rute plural). |
+| 15 | `GET` | `/api/food-court/{id}/tenant` | Mengembalikan seluruh tenant di food court tersebut | Diizinkan **hanya jika food court miliknya**; ditolak `403` jika food court lain | `403 Forbidden` | `403 Forbidden` | Mengambil daftar seluruh gerai/tenant di food court tertentu. |
 
 ### 5. Menus
 
@@ -139,11 +137,11 @@ Tabel berikut menyajikan seluruh 40 endpoint aktif hasil pemindaian spesifikasi 
 
 | No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Public | Keterangan & Perilaku |
 | :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 26 | `GET` | `/api/tables/` | Mengembalikan seluruh meja | Mengembalikan seluruh meja | Mengembalikan seluruh meja | Mengembalikan seluruh meja | Mengambil daftar meja makan food court (dapat difilter status). |
-| 27 | `POST` | `/api/tables/` | Diizinkan membuat meja | `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Membuat meja makan baru dan otomatis membuat token QR (`qrToken`) unik. |
-| 28 | `GET` | `/api/tables/{id}` | Mengembalikan detail meja | Mengembalikan detail meja | Mengembalikan detail meja | Mengembalikan detail meja | Mengambil data detail meja makan food court berdasarkan ID. |
-| 29 | `PUT` | `/api/tables/{id}` | Diizinkan update meja | `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Memperbarui kapasitas atau status meja (`available`, `occupied`, `disabled`). |
-| 30 | `DELETE` | `/api/tables/{id}` | Diizinkan hapus meja | `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Menghapus meja dari food court (hanya Super Admin). |
+| 26 | `GET` | `/api/tables/` | Mengembalikan seluruh meja | Hanya meja dari food court kelolaannya | Hanya meja dari food court tempat kiosnya berada | `403 Forbidden` | Mengambil daftar meja makan (terisolasi per Role). |
+| 27 | `POST` | `/api/tables/` | Diizinkan membuat meja | Diizinkan jika di food court kelolaannya | `403 Forbidden` | `403 Forbidden` | Membuat meja makan baru dan otomatis membuat token QR (`qrToken`) unik. |
+| 28 | `GET` | `/api/tables/{id}` | Mengembalikan detail meja | Hanya meja dari food court kelolaannya | Hanya meja dari food court tempat kiosnya berada | `403 Forbidden` | Mengambil data detail meja makan berdasarkan ID (terisolasi per Role). |
+| 29 | `PUT` | `/api/tables/{id}` | Diizinkan update meja | Diizinkan jika meja di food court kelolaannya | `403 Forbidden` | `403 Forbidden` | Memperbarui kapasitas atau status meja (`available`, `occupied`, `disabled`). |
+| 30 | `DELETE` | `/api/tables/{id}` | Diizinkan hapus meja | Diizinkan jika meja di food court kelolaannya | `403 Forbidden` | `403 Forbidden` | Menghapus meja dari food court. |
 
 ### 7. Orders
 
@@ -346,7 +344,7 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
 
 ---
 
-### 4. Tenants / Kios (`/api/tenants`, `/api/food-courts/:id/tenants`, `/api/food-court/:id/tenant`)
+### 4. Tenants / Kios (`/api/tenants`, `/api/food-court/:id/tenant`)
 
 #### `POST /api/tenants`
 - **Fungsi**: Membuat tenant/kios baru di dalam food court.
@@ -407,19 +405,12 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
 - **Fungsi**: Mengambil data detail gerai lengkap dengan daftar menu dan kategorinya.
 - **Akses**: Public / Semua Role
 
-#### `GET /api/tenants/:id/menus`
-- **Fungsi**: Mengambil seluruh menu milik tenant tertentu dari rute tenant. Parameter `:id` mendukung ID ataupun slug tenant.
-- **Akses**: Public / Semua Role (Digunakan pembeli untuk melihat daftar menu gerai).
-
-#### `GET /api/food-courts/:id/tenants` dan `GET /api/food-court/:id/tenant`
+#### `GET /api/food-court/:id/tenant`
 - **Fungsi**: Mengambil daftar seluruh gerai/tenant yang berada di suatu food court.
 - **Folder di Swagger**: **Tenants**
 - **Akses**: `admin`, `admin-food-court` pemiliknya (`tenant` dan `customer` **tidak memiliki akses** / `403 Forbidden`).
 - **Parameter**: `:id` berupa UUID atau slug food court (misal: `grand-city-food-court-lantai-2`).
 - **Query Opsional**: `?isOpen=true&search=Rawon`
-- **Rute yang Didukung**:
-  - `GET /api/food-court/:id/tenant` (rute singular)
-  - `GET /api/food-courts/:id/tenants` (rute plural)
 - **Contoh Response (200 OK)**:
 ```json
 {

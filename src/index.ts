@@ -155,34 +155,6 @@ export const app = new Elysia()
           },
         },
       )
-      .get(
-        "/:id/tenants",
-        async ({ params: { id }, query, user }) => {
-          requireRoles(user, ["admin", "admin-food-court"]);
-          const isOpen =
-            query.isOpen === "true"
-              ? true
-              : query.isOpen === "false"
-                ? false
-                : undefined;
-          const data = await foodCourtService.getTenantsByFoodCourt(
-            id,
-            { isOpen, search: query.search as string | undefined },
-            user,
-          );
-          return { data };
-        },
-        {
-          params: t.Object({ id: t.String() }),
-          query: t.Object({
-            isOpen: t.Optional(t.String()),
-            search: t.Optional(t.String()),
-          }),
-          detail: {
-            hide: true,
-          },
-        },
-      ),
   );
 
 if (process.env.NODE_ENV !== "test") {

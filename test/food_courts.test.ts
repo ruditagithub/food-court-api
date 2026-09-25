@@ -594,13 +594,7 @@ describe("Food Courts Module", () => {
     );
     expect(catOwnerRes.status).toBe(200);
 
-    // 6f. Accessing tenant categories by slug -> 200 OK
-    const catSlugRes = await app.handle(
-      new Request(`http://localhost/api/menus/categories/${t1.data.slug}`, {
-        headers: { Authorization: `Bearer ${managerAToken}` },
-      }),
-    );
-    expect(catSlugRes.status).toBe(200);
+
 
     // 7. Test GET /api/menus isolation
     // 7a. Manager A calling GET /api/menus should see menus from their tenant (t1)
@@ -625,16 +619,7 @@ describe("Food Courts Module", () => {
     const menuIdsB = menusManagerBJson.data.map((m: any) => m.id);
     expect(menuIdsB).not.toContain(menuEmptyCatJson.data.id);
 
-    // 7c. Querying GET /api/menus?tenantId=<slug> returns tenant's menus
-    const menusSlugRes = await app.handle(
-      new Request(`http://localhost/api/menus?tenantId=${t1.data.slug}`, {
-        headers: { Authorization: `Bearer ${managerAToken}` },
-      }),
-    );
-    expect(menusSlugRes.status).toBe(200);
-    const menusSlugJson = await menusSlugRes.json();
-    expect(menusSlugJson.data.length).toBeGreaterThan(0);
-    expect(menusSlugJson.data[0].tenantId).toBe(t1.data.id);
+
 
     // 7d. Foreign Manager B querying Manager A's tenantId returns empty array
     const menusForeignTenantRes = await app.handle(
@@ -666,16 +651,7 @@ describe("Food Courts Module", () => {
     expect(dedicatedMenuJson.data.length).toBeGreaterThan(0);
     expect(dedicatedMenuJson.data[0].tenantId).toBe(t1.data.id);
 
-    // 8b. GET /api/menus/tenant/:tenantId with Slug
-    const dedicatedSlugRes = await app.handle(
-      new Request(`http://localhost/api/menus/tenant/${t1.data.slug}`, {
-        headers: { Authorization: `Bearer ${managerAToken}` },
-      }),
-    );
-    expect(dedicatedSlugRes.status).toBe(200);
-    const dedicatedSlugJson = await dedicatedSlugRes.json();
-    expect(dedicatedSlugJson.data.length).toBeGreaterThan(0);
-    expect(dedicatedSlugJson.data[0].tenantId).toBe(t1.data.id);
+
 
     // 8c. GET /api/menus/tenant/unknown-id -> 404
     const dedicatedUnknownRes = await app.handle(
@@ -693,16 +669,7 @@ describe("Food Courts Module", () => {
     );
     expect(dedicatedForeignRes.status).toBe(403);
 
-    // 8e. GET /api/tenants/:id/menus
-    const tenantNestedMenusRes = await app.handle(
-      new Request(`http://localhost/api/tenants/${t1.data.id}/menus`, {
-        headers: { Authorization: `Bearer ${managerAToken}` },
-      }),
-    );
-    expect(tenantNestedMenusRes.status).toBe(200);
-    const tenantNestedMenusJson = await tenantNestedMenusRes.json();
-    expect(tenantNestedMenusJson.data.length).toBeGreaterThan(0);
-    expect(tenantNestedMenusJson.data[0].tenantId).toBe(t1.data.id);
+
 
     // 9. Test GET tenants by food court
     // 9a. GET /api/food-courts/:id/tenant with food court ID
@@ -728,13 +695,7 @@ describe("Food Courts Module", () => {
     expect(fcTenantsBySlugJson.data.length).toBeGreaterThan(0);
     expect(fcTenantsBySlugJson.data[0].foodCourtId).toBe(fc.data.id);
 
-    // 9c. Plural alias: GET /api/food-courts/:id/tenants
-    const fcTenantsPluralRes = await app.handle(
-      new Request(`http://localhost/api/food-courts/${fc.data.id}/tenants`, {
-        headers: { Authorization: `Bearer ${managerAToken}` },
-      }),
-    );
-    expect(fcTenantsPluralRes.status).toBe(200);
+
 
     // 9d. Singular alias: GET /api/food-court/:id/tenant
     const fcSingularRes = await app.handle(

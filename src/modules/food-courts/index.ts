@@ -94,38 +94,7 @@ export const foodCourtsController = new Elysia({ prefix: "/api/food-courts" })
       },
     },
   )
-  .get(
-    "/:id/tenants",
-    async ({ params: { id }, query, user }) => {
-      requireRoles(user, ["admin", "admin-food-court"]);
-      const isOpen =
-        query.isOpen === "true"
-          ? true
-          : query.isOpen === "false"
-            ? false
-            : undefined;
 
-      const data = await foodCourtService.getTenantsByFoodCourt(
-        id,
-        { isOpen, search: query.search },
-        user,
-      );
-
-      return { data };
-    },
-    {
-      params: t.Object({ id: t.String() }),
-      query: t.Object({
-        isOpen: t.Optional(t.String()),
-        search: t.Optional(t.String()),
-      }),
-      detail: {
-        tags: ["Tenants"],
-        summary:
-          "Get all tenants belonging to a specific food court (Admin and Admin Food Court only)",
-      },
-    },
-  )
   .put(
     "/:id",
     async ({ params: { id }, body, user }) => {

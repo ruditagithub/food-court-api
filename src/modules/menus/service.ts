@@ -135,7 +135,6 @@ export class MenuService {
       where: whereClause,
       with: {
         category: true,
-        tenant: true,
       },
     });
   }
@@ -361,7 +360,6 @@ export class MenuService {
       where: and(...conditions),
       with: {
         category: true,
-        tenant: true,
       },
     });
   }

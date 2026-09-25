@@ -1,7 +1,8 @@
-import { and, eq } from "drizzle-orm";
-import { ConflictError, NotFoundError } from "../../common/errors";
+import { and, eq, inArray } from "drizzle-orm";
+import { ConflictError, ForbiddenError, NotFoundError } from "../../common/errors";
 import { db } from "../../db";
-import { foodCourts, tables } from "../../db/schema";
+import { foodCourts, tables, tenants } from "../../db/schema";
+import type { AuthUser } from "../../common/middlewares/auth";
 import type { CreateTableDTOType, UpdateTableDTOType } from "./model";
 
 export class TableService {
@@ -19,29 +20,46 @@ export class TableService {
     return id;
   }
 
-  async getAll(filter?: { status?: string }) {
+  async getAll(filter?: { status?: string }, currentUser?: AuthUser | null) {
     const conditions = [];
+
+    if (currentUser?.role === "admin-food-court") {
+      const managedCourts = await db
+        .select({ id: foodCourts.id })
+        .from(foodCourts)
+        .where(eq(foodCourts.managerId, currentUser.id));
+      
+      const courtIds = managedCourts.map((c) => c.id);
+      if (courtIds.length === 0) return [];
+      
+      conditions.push(inArray(tables.foodCourtId, courtIds));
+    } else if (currentUser?.role === "tenant") {
+      const tenantStalls = await db
+        .select({ foodCourtId: tenants.foodCourtId })
+        .from(tenants)
+        .where(eq(tenants.ownerId, currentUser.id));
+
+      const courtIds = [...new Set(tenantStalls.map((t) => t.foodCourtId))];
+      if (courtIds.length === 0) return [];
+
+      conditions.push(inArray(tables.foodCourtId, courtIds));
+    }
+
     if (filter?.status) {
       conditions.push(eq(tables.status, filter.status as any));
     }
 
-    if (conditions.length > 0) {
-      return db.query.tables.findMany({
-        where: and(...conditions),
-        with: {
-          foodCourt: true,
-        },
-      });
-    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     return db.query.tables.findMany({
+      where: whereClause,
       with: {
         foodCourt: true,
       },
     });
   }
 
-  async getById(id: string) {
+  async getById(id: string, currentUser?: AuthUser | null) {
     const table = await db.query.tables.findFirst({
       where: eq(tables.id, id),
       with: {
@@ -54,6 +72,26 @@ export class TableService {
 
     if (!table) {
       throw new NotFoundError(`Table with id '${id}' not found`);
+    }
+
+    if (currentUser?.role === "admin-food-court") {
+      if (table.foodCourt?.managerId !== currentUser.id) {
+        throw new ForbiddenError(
+          "You do not have permission to view this table",
+        );
+      }
+    } else if (currentUser?.role === "tenant") {
+      const tenantStalls = await db
+        .select({ foodCourtId: tenants.foodCourtId })
+        .from(tenants)
+        .where(eq(tenants.ownerId, currentUser.id));
+
+      const courtIds = tenantStalls.map((t) => t.foodCourtId);
+      if (!table.foodCourtId || !courtIds.includes(table.foodCourtId)) {
+        throw new ForbiddenError(
+          "You do not have permission to view this table",
+        );
+      }
     }
 
     return table;
@@ -77,9 +115,20 @@ export class TableService {
     return table;
   }
 
-  async create(data: CreateTableDTOType) {
+  async create(data: CreateTableDTOType, currentUser?: AuthUser | null) {
     const foodCourtId =
       data.foodCourtId ?? (await this.getOrCreateDefaultFoodCourt());
+
+    if (currentUser?.role === "admin-food-court") {
+      const court = await db.query.foodCourts.findFirst({
+        where: eq(foodCourts.id, foodCourtId)
+      });
+      if (!court || court.managerId !== currentUser.id) {
+        throw new ForbiddenError(
+          "You can only create tables for your own food court",
+        );
+      }
+    }
 
     const [existing] = await db
       .select()
@@ -113,18 +162,18 @@ export class TableService {
     return newTable;
   }
 
-  async update(id: string, data: UpdateTableDTOType) {
-    await this.getById(id);
+  async update(id: string, data: UpdateTableDTOType, currentUser?: AuthUser | null) {
+    await this.getById(id, currentUser);
 
     await db
       .update(tables)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(tables.id, id));
-    return this.getById(id);
+    return this.getById(id, currentUser);
   }
 
-  async delete(id: string) {
-    const existing = await this.getById(id);
+  async delete(id: string, currentUser?: AuthUser | null) {
+    const existing = await this.getById(id, currentUser);
     await db.delete(tables).where(eq(tables.id, id));
     return {
       success: true,

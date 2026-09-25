@@ -238,7 +238,9 @@ describe("Food Court End-to-End Workflow", () => {
 
     // Check that table is now marked occupied
     const tableRes = await app.handle(
-      new Request(`http://localhost/api/tables/${tableId}`),
+      new Request(`http://localhost/api/tables/${tableId}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      }),
     );
     const tableBody = await tableRes.json();
     expect(tableBody.data.status).toBe("occupied");
@@ -319,7 +321,9 @@ describe("Food Court End-to-End Workflow", () => {
 
     // Table should now be available again
     const tableRes = await app.handle(
-      new Request(`http://localhost/api/tables/${tableId}`),
+      new Request(`http://localhost/api/tables/${tableId}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      }),
     );
     const tableBody = await tableRes.json();
     expect(tableBody.data.status).toBe("available");

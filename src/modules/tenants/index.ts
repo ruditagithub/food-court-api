@@ -51,43 +51,7 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
       },
     },
   )
-  .get(
-    "/:id/menus",
-    async ({ params: { id }, query, user }) => {
-      const isAvailable =
-        query.isAvailable === "true"
-          ? true
-          : query.isAvailable === "false"
-            ? false
-            : undefined;
 
-      const data = await menuService.getMenusByTenant(
-        id,
-        {
-          categoryId: query.categoryId,
-          isAvailable,
-          search: query.search,
-        },
-        user,
-      );
-
-      return { data };
-    },
-    {
-      params: t.Object({
-        id: t.String(),
-      }),
-      query: t.Object({
-        categoryId: t.Optional(t.String()),
-        isAvailable: t.Optional(t.String()),
-        search: t.Optional(t.String()),
-      }),
-      detail: {
-        tags: ["Tenants"],
-        summary: "Get all menu items for a specific tenant",
-      },
-    },
-  )
   .get(
     "/food-court/:id",
     async ({ params: { id }, query, user }) => {

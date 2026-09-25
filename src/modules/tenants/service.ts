@@ -58,35 +58,15 @@ export class TenantService {
     if (conditions.length > 0) {
       return db.query.tenants.findMany({
         where: and(...conditions),
-        with: {
-          categories: true,
-          foodCourt: true,
-        },
       });
     }
 
-    return db.query.tenants.findMany({
-      with: {
-        categories: true,
-        foodCourt: true,
-      },
-    });
+    return db.query.tenants.findMany();
   }
 
   async getById(id: string) {
     const tenant = await db.query.tenants.findFirst({
       where: eq(tenants.id, id),
-      with: {
-        foodCourt: true,
-        categories: {
-          with: {
-            menus: {
-              where: eq(menus.tenantId, id),
-            },
-          },
-        },
-        menus: true,
-      },
     });
 
     if (!tenant) {

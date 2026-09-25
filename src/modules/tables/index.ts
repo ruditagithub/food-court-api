@@ -7,10 +7,12 @@ export const tablesController = new Elysia({ prefix: "/api/tables" })
   .use(authPlugin)
   .get(
     "/",
-    async ({ query }) => {
-      const data = await tableService.getAll({
-        status: query.status,
-      });
+    async ({ query, user }) => {
+      requireRoles(user, ["admin", "admin-food-court", "tenant"]);
+      const data = await tableService.getAll(
+        { status: query.status },
+        user
+      );
       return { data };
     },
     {
@@ -23,8 +25,9 @@ export const tablesController = new Elysia({ prefix: "/api/tables" })
   )
   .get(
     "/:id",
-    async ({ params: { id } }) => {
-      const data = await tableService.getById(id);
+    async ({ params: { id }, user }) => {
+      requireRoles(user, ["admin", "admin-food-court", "tenant"]);
+      const data = await tableService.getById(id, user);
       return { data };
     },
     {
@@ -40,8 +43,8 @@ export const tablesController = new Elysia({ prefix: "/api/tables" })
   .post(
     "/",
     async ({ body, user, set }) => {
-      requireRoles(user, ["admin"]);
-      const table = await tableService.create(body);
+      requireRoles(user, ["admin", "admin-food-court"]);
+      const table = await tableService.create(body, user);
       set.status = 201;
       return {
         message: "Table created successfully",
@@ -52,15 +55,15 @@ export const tablesController = new Elysia({ prefix: "/api/tables" })
       body: CreateTableDTO,
       detail: {
         tags: ["Tables"],
-        summary: "Create a new table (Admin only)",
+        summary: "Create a new table (Admin, Admin Food Court)",
       },
     },
   )
   .put(
     "/:id",
     async ({ params: { id }, body, user }) => {
-      requireRoles(user, ["admin"]);
-      const updated = await tableService.update(id, body);
+      requireRoles(user, ["admin", "admin-food-court"]);
+      const updated = await tableService.update(id, body, user);
       return {
         message: "Table updated successfully",
         data: updated,
@@ -73,15 +76,15 @@ export const tablesController = new Elysia({ prefix: "/api/tables" })
       body: UpdateTableDTO,
       detail: {
         tags: ["Tables"],
-        summary: "Update table status or capacity (Admin only)",
+        summary: "Update table status or capacity (Admin, Admin Food Court)",
       },
     },
   )
   .delete(
     "/:id",
     async ({ params: { id }, user }) => {
-      requireRoles(user, ["admin"]);
-      const result = await tableService.delete(id);
+      requireRoles(user, ["admin", "admin-food-court"]);
+      const result = await tableService.delete(id, user);
       return result;
     },
     {
@@ -90,7 +93,7 @@ export const tablesController = new Elysia({ prefix: "/api/tables" })
       }),
       detail: {
         tags: ["Tables"],
-        summary: "Delete table (Admin only)",
+        summary: "Delete table (Admin, Admin Food Court)",
       },
     },
   );

@@ -188,10 +188,6 @@ export class FoodCourtService {
 
     return db.query.tenants.findMany({
       where: and(...conditions),
-      with: {
-        categories: true,
-        foodCourt: true,
-      },
     });
   }
 }

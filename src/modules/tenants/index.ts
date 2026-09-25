@@ -14,6 +14,7 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
   .get(
     "/",
     async ({ query, user }) => {
+      requireRoles(user, ["admin", "admin-food-court"]);
       const isOpen =
         query.isOpen === "true"
           ? true
@@ -30,7 +31,7 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
       query: TenantQueryDTO,
       detail: {
         tags: ["Tenants"],
-        summary: "Get all food court tenants/stalls",
+        summary: "Get all food court tenants/stalls (Admin and Admin Food Court only)",
       },
     },
   )
@@ -90,6 +91,7 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
   .get(
     "/food-court/:id",
     async ({ params: { id }, query, user }) => {
+      requireRoles(user, ["admin", "admin-food-court"]);
       const isOpen =
         query.isOpen === "true"
           ? true
@@ -115,7 +117,7 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
       }),
       detail: {
         tags: ["Tenants"],
-        summary: "Get all tenants for a specific food court (by ID or slug)",
+        summary: "Get all tenants for a specific food court (Admin and Admin Food Court only)",
       },
     },
   )

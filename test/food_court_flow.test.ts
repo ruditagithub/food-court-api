@@ -179,13 +179,31 @@ describe("Food Court End-to-End Workflow", () => {
   });
 
   it("5. Customer searches and filters menus", async () => {
-    const res = await app.handle(
+    // 5a. Unauthenticated / Customer is rejected from GET /api/menus
+    const unauthRes = await app.handle(
       new Request("http://localhost/api/menus?search=Rawon"),
     );
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.data.length).toBeGreaterThan(0);
-    expect(body.data[0].name).toContain("Rawon");
+    expect(unauthRes.status).toBe(401);
+
+    // 5b. Tenant can search their own menus via GET /api/menus
+    const tenantMenuRes = await app.handle(
+      new Request("http://localhost/api/menus?search=Rawon", {
+        headers: { Authorization: `Bearer ${tenantToken}` },
+      }),
+    );
+    expect(tenantMenuRes.status).toBe(200);
+    const tenantBody = await tenantMenuRes.json();
+    expect(tenantBody.data.length).toBeGreaterThan(0);
+    expect(tenantBody.data[0].name).toContain("Rawon");
+
+    // 5c. Customer can view menus of specific tenant via GET /api/menus/tenant/:tenantId
+    const publicTenantMenuRes = await app.handle(
+      new Request(`http://localhost/api/menus/tenant/${tenantId}?search=Rawon`),
+    );
+    expect(publicTenantMenuRes.status).toBe(200);
+    const publicBody = await publicTenantMenuRes.json();
+    expect(publicBody.data.length).toBeGreaterThan(0);
+    expect(publicBody.data[0].name).toContain("Rawon");
   });
 
   it("6. Customer places multi-item order for the table", async () => {

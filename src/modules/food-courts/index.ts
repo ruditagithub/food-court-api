@@ -67,6 +67,7 @@ export const foodCourtsController = new Elysia({ prefix: "/api/food-courts" })
   .get(
     "/:id/tenant",
     async ({ params: { id }, query, user }) => {
+      requireRoles(user, ["admin", "admin-food-court"]);
       const isOpen =
         query.isOpen === "true"
           ? true
@@ -91,13 +92,14 @@ export const foodCourtsController = new Elysia({ prefix: "/api/food-courts" })
       detail: {
         tags: ["Food Courts"],
         summary:
-          "Get all tenants belonging to a specific food court (by ID or slug)",
+          "Get all tenants belonging to a specific food court (Admin and Admin Food Court only)",
       },
     },
   )
   .get(
     "/:id/tenants",
     async ({ params: { id }, query, user }) => {
+      requireRoles(user, ["admin", "admin-food-court"]);
       const isOpen =
         query.isOpen === "true"
           ? true
@@ -122,7 +124,7 @@ export const foodCourtsController = new Elysia({ prefix: "/api/food-courts" })
       detail: {
         tags: ["Food Courts"],
         summary:
-          "Get all tenants belonging to a specific food court (alias /tenants)",
+          "Get all tenants belonging to a specific food court (Admin and Admin Food Court only, alias /tenants)",
       },
     },
   )

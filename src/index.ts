@@ -2,7 +2,7 @@ import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysia/openapi";
 import { Elysia, t } from "elysia";
 import { AppError } from "./common/errors";
-import { authPlugin } from "./common/middlewares/auth";
+import { authPlugin, requireRoles } from "./common/middlewares/auth";
 import { env } from "./config/env";
 import { authController } from "./modules/auth";
 import { menusController } from "./modules/menus";
@@ -129,6 +129,7 @@ export const app = new Elysia()
       .get(
         "/:id/tenant",
         async ({ params: { id }, query, user }) => {
+          requireRoles(user, ["admin", "admin-food-court"]);
           const isOpen =
             query.isOpen === "true"
               ? true
@@ -157,6 +158,7 @@ export const app = new Elysia()
       .get(
         "/:id/tenants",
         async ({ params: { id }, query, user }) => {
+          requireRoles(user, ["admin", "admin-food-court"]);
           const isOpen =
             query.isOpen === "true"
               ? true

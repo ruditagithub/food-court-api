@@ -17,6 +17,7 @@ export const menusController = new Elysia({ prefix: "/api/menus" })
   .get(
     "/",
     async ({ query, user }) => {
+      requireRoles(user, ["admin", "admin-food-court", "tenant"]);
       const isAvailable =
         query.isAvailable === "true"
           ? true
@@ -40,7 +41,8 @@ export const menusController = new Elysia({ prefix: "/api/menus" })
       query: MenuQueryDTO,
       detail: {
         tags: ["Menus"],
-        summary: "Get list of menu items with optional filters",
+        summary:
+          "Get list of menu items with optional filters (Admin, Admin Food Court, and Tenant only)",
       },
     },
   )

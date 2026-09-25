@@ -409,6 +409,14 @@ describe("Food Courts Module", () => {
     expect(idsInB).toContain(tB1.data.id);
     expect(idsInB).not.toContain(tA1.data.id);
 
+    // 7. Customer calling GET /api/tenants -> 403 Forbidden
+    const listCustomerRes = await app.handle(
+      new Request("http://localhost/api/tenants", {
+        headers: { Authorization: `Bearer ${customerToken}` },
+      }),
+    );
+    expect(listCustomerRes.status).toBe(403);
+
     // Cleanup
     await app.handle(
       new Request(`http://localhost/api/food-courts/${fcA.data.id}`, {
@@ -638,6 +646,14 @@ describe("Food Courts Module", () => {
     const menusForeignTenantJson = await menusForeignTenantRes.json();
     expect(menusForeignTenantJson.data).toEqual([]);
 
+    // 7e. Customer calling GET /api/menus -> 403 Forbidden
+    const menusCustomerRes = await app.handle(
+      new Request("http://localhost/api/menus", {
+        headers: { Authorization: `Bearer ${customerToken}` },
+      }),
+    );
+    expect(menusCustomerRes.status).toBe(403);
+
     // 8. Test new dedicated tenant menus endpoints
     // 8a. GET /api/menus/tenant/:tenantId with ID
     const dedicatedMenuRes = await app.handle(
@@ -743,6 +759,14 @@ describe("Food Courts Module", () => {
       }),
     );
     expect(fcForeignManagerRes.status).toBe(403);
+
+    // 9g. Customer accessing food court tenants -> 403 Forbidden
+    const fcCustomerRes = await app.handle(
+      new Request(`http://localhost/api/food-courts/${fc.data.id}/tenant`, {
+        headers: { Authorization: `Bearer ${customerToken}` },
+      }),
+    );
+    expect(fcCustomerRes.status).toBe(403);
 
     // 9g. Unknown food court -> 404 NotFound
     const fcUnknownRes = await app.handle(

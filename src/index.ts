@@ -1,7 +1,8 @@
 import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysia/openapi";
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { AppError } from "./common/errors";
+import { authPlugin } from "./common/middlewares/auth";
 import { env } from "./config/env";
 import { authController } from "./modules/auth";
 import { menusController } from "./modules/menus";
@@ -10,6 +11,7 @@ import { paymentsController } from "./modules/payments";
 import { tablesController } from "./modules/tables";
 import { tenantsController } from "./modules/tenants";
 import { foodCourtsController } from "./modules/food-courts";
+import { foodCourtService } from "./modules/food-courts/service";
 
 export const app = new Elysia()
   .use(cors())
@@ -120,7 +122,67 @@ export const app = new Elysia()
   .use(tablesController)
   .use(ordersController)
   .use(paymentsController)
-  .use(foodCourtsController);
+  .use(foodCourtsController)
+  .use(
+    new Elysia({ prefix: "/api/food-court" })
+      .use(authPlugin)
+      .get(
+        "/:id/tenant",
+        async ({ params: { id }, query, user }) => {
+          const isOpen =
+            query.isOpen === "true"
+              ? true
+              : query.isOpen === "false"
+                ? false
+                : undefined;
+          const data = await foodCourtService.getTenantsByFoodCourt(
+            id,
+            { isOpen, search: query.search as string | undefined },
+            user,
+          );
+          return { data };
+        },
+        {
+          params: t.Object({ id: t.String() }),
+          query: t.Object({
+            isOpen: t.Optional(t.String()),
+            search: t.Optional(t.String()),
+          }),
+          detail: {
+            tags: ["Food Courts"],
+            summary: "Get all tenants for a food court (alias /api/food-court/:id/tenant)",
+          },
+        },
+      )
+      .get(
+        "/:id/tenants",
+        async ({ params: { id }, query, user }) => {
+          const isOpen =
+            query.isOpen === "true"
+              ? true
+              : query.isOpen === "false"
+                ? false
+                : undefined;
+          const data = await foodCourtService.getTenantsByFoodCourt(
+            id,
+            { isOpen, search: query.search as string | undefined },
+            user,
+          );
+          return { data };
+        },
+        {
+          params: t.Object({ id: t.String() }),
+          query: t.Object({
+            isOpen: t.Optional(t.String()),
+            search: t.Optional(t.String()),
+          }),
+          detail: {
+            tags: ["Food Courts"],
+            summary: "Get all tenants for a food court (alias /api/food-court/:id/tenants)",
+          },
+        },
+      ),
+  );
 
 if (process.env.NODE_ENV !== "test") {
   app.listen(env.PORT, () => {

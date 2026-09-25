@@ -49,7 +49,7 @@ describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
   });
 
   it("2. Setup: Admin creates a table with auto-generated qrToken", async () => {
-    const tableNumber = `T-${timestamp.toString().slice(-4)}`;
+    const tableNumber = `T-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
     const res = await app.handle(
       new Request("http://localhost/api/tables", {
         method: "POST",
@@ -109,7 +109,7 @@ describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
         },
         body: JSON.stringify({
           name: "Warung Rawon Bu Siti",
-          stallNumber: `S-${timestamp.toString().slice(-3)}`,
+          stallNumber: `S-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`,
           description: "Rawon khas Surabaya rempah hitam gurih",
           isOpen: true,
         }),

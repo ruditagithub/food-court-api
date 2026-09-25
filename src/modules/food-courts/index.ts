@@ -64,6 +64,68 @@ export const foodCourtsController = new Elysia({ prefix: "/api/food-courts" })
       },
     },
   )
+  .get(
+    "/:id/tenant",
+    async ({ params: { id }, query, user }) => {
+      const isOpen =
+        query.isOpen === "true"
+          ? true
+          : query.isOpen === "false"
+            ? false
+            : undefined;
+
+      const data = await foodCourtService.getTenantsByFoodCourt(
+        id,
+        { isOpen, search: query.search },
+        user,
+      );
+
+      return { data };
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      query: t.Object({
+        isOpen: t.Optional(t.String()),
+        search: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Food Courts"],
+        summary:
+          "Get all tenants belonging to a specific food court (by ID or slug)",
+      },
+    },
+  )
+  .get(
+    "/:id/tenants",
+    async ({ params: { id }, query, user }) => {
+      const isOpen =
+        query.isOpen === "true"
+          ? true
+          : query.isOpen === "false"
+            ? false
+            : undefined;
+
+      const data = await foodCourtService.getTenantsByFoodCourt(
+        id,
+        { isOpen, search: query.search },
+        user,
+      );
+
+      return { data };
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      query: t.Object({
+        isOpen: t.Optional(t.String()),
+        search: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Food Courts"],
+        summary:
+          "Get all tenants belonging to a specific food court (alias /tenants)",
+      },
+    },
+  )
   .put(
     "/:id",
     async ({ params: { id }, body, user }) => {

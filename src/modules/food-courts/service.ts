@@ -1,7 +1,8 @@
-import { and, desc, eq, like } from "drizzle-orm";
+import { and, desc, eq, like, or } from "drizzle-orm";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../common/errors";
+import type { AuthUser } from "../../common/middlewares/auth";
 import { db } from "../../db";
-import { foodCourts } from "../../db/schema";
+import { foodCourts, tenants } from "../../db/schema";
 import type {
   CreateFoodCourtDTOType,
   FoodCourtsQueryDTOType,
@@ -151,6 +152,47 @@ export class FoodCourtService {
 
     await db.delete(foodCourts).where(eq(foodCourts.id, id));
     return { success: true, message: "Food court deleted successfully" };
+  }
+
+  async getTenantsByFoodCourt(
+    foodCourtIdOrSlug: string,
+    filter?: { isOpen?: boolean; search?: string },
+    user?: AuthUser | null,
+  ) {
+    const fc = await db.query.foodCourts.findFirst({
+      where: or(
+        eq(foodCourts.id, foodCourtIdOrSlug),
+        eq(foodCourts.slug, foodCourtIdOrSlug),
+      ),
+    });
+
+    if (!fc) {
+      throw new NotFoundError(`Food court '${foodCourtIdOrSlug}' not found`);
+    }
+
+    if (user && user.role === "admin-food-court" && fc.managerId !== user.id) {
+      throw new ForbiddenError(
+        "You do not have permission to view tenants for this food court",
+      );
+    }
+
+    const conditions = [eq(tenants.foodCourtId, fc.id)];
+
+    if (typeof filter?.isOpen === "boolean") {
+      conditions.push(eq(tenants.isOpen, filter.isOpen));
+    }
+
+    if (filter?.search) {
+      conditions.push(like(tenants.name, `%${filter.search}%`));
+    }
+
+    return db.query.tenants.findMany({
+      where: and(...conditions),
+      with: {
+        categories: true,
+        foodCourt: true,
+      },
+    });
   }
 }
 

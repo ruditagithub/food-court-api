@@ -7,6 +7,7 @@ import {
 import { CreateTenantDTO, TenantQueryDTO, UpdateTenantDTO } from "./model";
 import { tenantService } from "./service";
 import { menuService } from "../menus/service";
+import { foodCourtService } from "../food-courts/service";
 
 export const tenantsController = new Elysia({ prefix: "/api/tenants" })
   .use(authPlugin)
@@ -83,6 +84,38 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
       detail: {
         tags: ["Tenants"],
         summary: "Get all menu items for a specific tenant",
+      },
+    },
+  )
+  .get(
+    "/food-court/:id",
+    async ({ params: { id }, query, user }) => {
+      const isOpen =
+        query.isOpen === "true"
+          ? true
+          : query.isOpen === "false"
+            ? false
+            : undefined;
+
+      const data = await foodCourtService.getTenantsByFoodCourt(
+        id,
+        { isOpen, search: query.search },
+        user,
+      );
+
+      return { data };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      query: t.Object({
+        isOpen: t.Optional(t.String()),
+        search: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Tenants"],
+        summary: "Get all tenants for a specific food court (by ID or slug)",
       },
     },
   )

@@ -688,6 +688,70 @@ describe("Food Courts Module", () => {
     expect(tenantNestedMenusJson.data.length).toBeGreaterThan(0);
     expect(tenantNestedMenusJson.data[0].tenantId).toBe(t1.data.id);
 
+    // 9. Test GET tenants by food court
+    // 9a. GET /api/food-courts/:id/tenant with food court ID
+    const fcTenantsByIdRes = await app.handle(
+      new Request(`http://localhost/api/food-courts/${fc.data.id}/tenant`, {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(fcTenantsByIdRes.status).toBe(200);
+    const fcTenantsByIdJson = await fcTenantsByIdRes.json();
+    expect(Array.isArray(fcTenantsByIdJson.data)).toBe(true);
+    expect(fcTenantsByIdJson.data.length).toBeGreaterThan(0);
+    expect(fcTenantsByIdJson.data[0].foodCourtId).toBe(fc.data.id);
+
+    // 9b. GET /api/food-courts/:id/tenant with food court Slug
+    const fcTenantsBySlugRes = await app.handle(
+      new Request(`http://localhost/api/food-courts/${fc.data.slug}/tenant`, {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(fcTenantsBySlugRes.status).toBe(200);
+    const fcTenantsBySlugJson = await fcTenantsBySlugRes.json();
+    expect(fcTenantsBySlugJson.data.length).toBeGreaterThan(0);
+    expect(fcTenantsBySlugJson.data[0].foodCourtId).toBe(fc.data.id);
+
+    // 9c. Plural alias: GET /api/food-courts/:id/tenants
+    const fcTenantsPluralRes = await app.handle(
+      new Request(`http://localhost/api/food-courts/${fc.data.id}/tenants`, {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(fcTenantsPluralRes.status).toBe(200);
+
+    // 9d. Singular alias: GET /api/food-court/:id/tenant
+    const fcSingularRes = await app.handle(
+      new Request(`http://localhost/api/food-court/${fc.data.id}/tenant`, {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(fcSingularRes.status).toBe(200);
+
+    // 9e. Tenants controller route: GET /api/tenants/food-court/:id
+    const tenantsFcRouteRes = await app.handle(
+      new Request(`http://localhost/api/tenants/food-court/${fc.data.id}`, {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(tenantsFcRouteRes.status).toBe(200);
+
+    // 9f. Foreign manager accessing foreign food court's tenants -> 403 Forbidden
+    const fcForeignManagerRes = await app.handle(
+      new Request(`http://localhost/api/food-courts/${fc.data.id}/tenant`, {
+        headers: { Authorization: `Bearer ${managerBToken}` },
+      }),
+    );
+    expect(fcForeignManagerRes.status).toBe(403);
+
+    // 9g. Unknown food court -> 404 NotFound
+    const fcUnknownRes = await app.handle(
+      new Request("http://localhost/api/food-courts/non-existent-fc-id/tenant", {
+        headers: { Authorization: `Bearer ${managerAToken}` },
+      }),
+    );
+    expect(fcUnknownRes.status).toBe(404);
+
     // Cleanup
     await app.handle(
       new Request(`http://localhost/api/food-courts/${fc.data.id}`, {

@@ -150,8 +150,8 @@ export const app = new Elysia()
             search: t.Optional(t.String()),
           }),
           detail: {
-            tags: ["Food Courts"],
-            summary: "Get all tenants for a food court (alias /api/food-court/:id/tenant)",
+            tags: ["Tenants"],
+            summary: "Get all tenants for a food court (Admin and Admin Food Court only)",
           },
         },
       )
@@ -179,8 +179,7 @@ export const app = new Elysia()
             search: t.Optional(t.String()),
           }),
           detail: {
-            tags: ["Food Courts"],
-            summary: "Get all tenants for a food court (alias /api/food-court/:id/tenants)",
+            hide: true,
           },
         },
       ),

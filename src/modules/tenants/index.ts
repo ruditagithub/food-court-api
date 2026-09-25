@@ -116,8 +116,7 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
         search: t.Optional(t.String()),
       }),
       detail: {
-        tags: ["Tenants"],
-        summary: "Get all tenants for a specific food court (Admin and Admin Food Court only)",
+        hide: true,
       },
     },
   )

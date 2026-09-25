@@ -90,9 +90,7 @@ export const foodCourtsController = new Elysia({ prefix: "/api/food-courts" })
         search: t.Optional(t.String()),
       }),
       detail: {
-        tags: ["Food Courts"],
-        summary:
-          "Get all tenants belonging to a specific food court (Admin and Admin Food Court only)",
+        hide: true,
       },
     },
   )
@@ -122,9 +120,9 @@ export const foodCourtsController = new Elysia({ prefix: "/api/food-courts" })
         search: t.Optional(t.String()),
       }),
       detail: {
-        tags: ["Food Courts"],
+        tags: ["Tenants"],
         summary:
-          "Get all tenants belonging to a specific food court (Admin and Admin Food Court only, alias /tenants)",
+          "Get all tenants belonging to a specific food court (Admin and Admin Food Court only)",
       },
     },
   )

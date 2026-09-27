@@ -1,7 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../common/errors";
 import { db } from "../../db";
-import { foodCourts, tables, tenants } from "../../db/schema";
+import { diningSessions, foodCourts, tables, tenants } from "../../db/schema";
 import type { AuthUser } from "../../common/middlewares/auth";
 import type { CreateTableDTOType, UpdateTableDTOType } from "./model";
 
@@ -170,6 +170,72 @@ export class TableService {
       .set({ ...data, updatedAt: new Date() })
       .where(eq(tables.id, id));
     return this.getById(id, currentUser);
+  }
+
+  async regenerateQrToken(id: string, currentUser?: AuthUser | null) {
+    const table = await this.getById(id, currentUser);
+    // Format to match the test expectation `QR-T-TEST-...`
+    const newQrToken = `QR-${table.tableNumber.toUpperCase()}-${crypto.randomUUID().slice(0, 8)}`;
+    
+    await db
+      .update(tables)
+      .set({ qrToken: newQrToken, updatedAt: new Date() })
+      .where(eq(tables.id, id));
+      
+    return this.getById(id, currentUser);
+  }
+
+  // ALIASES for Test Compatibility (test/tables_qr.test.ts)
+  async generateQrCode(id: string) {
+    const res = await this.regenerateQrToken(id);
+    return { ...res, qrCode: res.qrToken };
+  }
+
+  async resolveByQrCode(qrCode: string) {
+    const table = await this.getByQrToken(qrCode);
+    return { table, isAvailable: table.status === "available" };
+  }
+
+  async getSessionHistory(
+    tableId: string,
+    options: {
+      status?: string;
+      limit?: number;
+      offset?: number;
+    } = {},
+    currentUser?: AuthUser | null,
+  ) {
+    // Validate table exists and user has access
+    await this.getById(tableId, currentUser);
+
+    const { status, limit = 10, offset = 0 } = options;
+
+    const conditions = [eq(diningSessions.tableId, tableId)];
+
+    if (status) {
+      conditions.push(eq(diningSessions.status, status as any));
+    }
+
+    const sessions = await db.query.diningSessions.findMany({
+      where: and(...conditions),
+      orderBy: [desc(diningSessions.startedAt)],
+      limit,
+      offset,
+      with: {
+        participants: true,
+        orders: {
+          with: {
+            tenantOrders: {
+              with: {
+                tenant: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return sessions;
   }
 
   async delete(id: string, currentUser?: AuthUser | null) {

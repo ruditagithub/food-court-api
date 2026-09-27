@@ -141,7 +141,10 @@ Tabel berikut menyajikan seluruh 38 endpoint aktif hasil pemindaian spesifikasi 
 | 27 | `POST` | `/api/tables/` | Diizinkan membuat meja | Diizinkan jika di food court kelolaannya | `403 Forbidden` | `403 Forbidden` | Membuat meja makan baru dan otomatis membuat token QR (`qrToken`) unik. |
 | 28 | `GET` | `/api/tables/{id}` | Mengembalikan detail meja | Hanya meja dari food court kelolaannya | Hanya meja dari food court tempat kiosnya berada | `403 Forbidden` | Mengambil data detail meja makan berdasarkan ID (terisolasi per Role). |
 | 29 | `PUT` | `/api/tables/{id}` | Diizinkan update meja | Diizinkan jika meja di food court kelolaannya | `403 Forbidden` | `403 Forbidden` | Memperbarui kapasitas atau status meja (`available`, `occupied`, `disabled`). |
+| 29b| `POST`| `/api/tables/{id}/regenerate-qr` | Diizinkan | Diizinkan jika meja di food court kelolaannya | `403 Forbidden` | `403 Forbidden` | Membuat ulang `qrToken` (untuk alasan keamanan). |
+| 29c| `GET` | `/api/tables/{id}/sessions` | Mengembalikan seluruh riwayat sesi makan | Hanya sesi dari meja di food court kelolaannya | Hanya sesi dari meja di food court tempat kiosnya berada | `403 Forbidden` | Melihat riwayat dining session per meja (partisipan, pesanan, tenant terlibat). |
 | 30 | `DELETE` | `/api/tables/{id}` | Diizinkan hapus meja | Diizinkan jika meja di food court kelolaannya | `403 Forbidden` | `403 Forbidden` | Menghapus meja dari food court. |
+| 30b| `GET` | `/api/tables/scan/{qrToken}` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Public)** | Scan QR untuk mendapatkan detail meja tanpa perlu login. |
 
 ### 7. Orders
 
@@ -616,6 +619,25 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
 }
 ```
 
+#### `GET /api/tables/scan/:qrToken`
+- **Fungsi**: Memindai token QR untuk mengambil data detail meja makan. Endpoint ini digunakan agar pelanggan bisa langsung mengetahui ID meja tanpa perlu login ketika memindai QR Code di meja.
+- **Akses**: Public (Tanpa token)
+- **Contoh Response (200 OK)**:
+```json
+{
+  "data": {
+    "id": "3be51a84-1e08-410a-ba92-d9ee72a4f00b",
+    "foodCourtId": "18f9185a-0d17-48f8-a128-40960538a7c1",
+    "tableNumber": "T-01",
+    "qrToken": "qr_1727227654321_abc123",
+    "capacity": 4,
+    "status": "available",
+    "foodCourt": { "id": "...", "name": "..." },
+    "diningSessions": []
+  }
+}
+```
+
 #### `GET /api/tables`
 - **Fungsi**: Mengambil daftar meja (dapat difilter via `?status=available|occupied|disabled`).
 - **Akses**: Public / Semua Role
@@ -626,7 +648,81 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
 
 #### `PUT /api/tables/:id`
 - **Fungsi**: Memperbarui kapasitas atau status meja.
-- **Akses**: `admin` only.
+- **Akses**: `admin`, `admin-food-court`.
+
+#### `POST /api/tables/:id/regenerate-qr`
+- **Fungsi**: Mereset dan mengganti `qrToken` dengan yang baru. Fitur keamanan untuk mencegah orang iseng dari luar yang menggunakan QR code lama yang tersebar di internet.
+- **Akses**: `admin`, `admin-food-court`.
+- **Contoh Response (200 OK)**:
+```json
+{
+  "message": "QR Token regenerated successfully",
+  "data": {
+    "id": "3be51a84-1e08-410a-ba92-d9ee72a4f00b",
+    "qrToken": "qr_t-01_xyz987",
+    "status": "available"
+  }
+}
+```
+
+#### `GET /api/tables/:id/sessions`
+- **Fungsi**: Mengambil riwayat seluruh dining session yang pernah terjadi di meja tertentu. Data mencakup daftar partisipan (siapa yang bergabung ke meja), dan seluruh pesanan beserta sub-order per tenant.
+- **Akses**: `admin`, `admin-food-court`, `tenant`
+- **Query Opsional**: `?status=COMPLETED&limit=10&offset=0`
+  - `status`: Filter berdasarkan status sesi (`ACTIVE`, `PAYMENT_PENDING`, `COMPLETED`, `CANCELLED`, `EXPIRED`)
+  - `limit`: Jumlah data per halaman (default: `10`)
+  - `offset`: Posisi awal data (default: `0`)
+- **Contoh Response (200 OK)**:
+```json
+{
+  "data": [
+    {
+      "id": "e54a8f77-d8c3-4b91-b9af-26c5cc7a9712",
+      "foodCourtId": "18f9185a-0d17-48f8-a128-40960538a7c1",
+      "tableId": "3be51a84-1e08-410a-ba92-d9ee72a4f00b",
+      "sessionCode": "SES-20260925-001",
+      "orderType": "DINE_IN",
+      "status": "COMPLETED",
+      "startedAt": "2026-09-25T12:00:00.000Z",
+      "participants": [
+        {
+          "id": "p1-uuid",
+          "name": "Rizky Ramadhan",
+          "isHost": true,
+          "joinedAt": "2026-09-25T12:00:00.000Z"
+        },
+        {
+          "id": "p2-uuid",
+          "name": "Andi Saputra",
+          "isHost": false,
+          "joinedAt": "2026-09-25T12:05:00.000Z"
+        }
+      ],
+      "orders": [
+        {
+          "id": "76e33f38-2785-455b-8669-ce561a0d319a",
+          "orderNumber": "ORD-20260925-0001",
+          "totalAmount": 64000,
+          "orderStatus": "COMPLETED",
+          "paymentStatus": "PAID",
+          "tenantOrders": [
+            {
+              "id": "42e2b921-2e11-482a-a92c-55c4ea87f941",
+              "subtotal": 64000,
+              "status": "COMPLETED",
+              "tenant": {
+                "id": "59b40097-4007-42f0-94cb-fa225916ca11",
+                "name": "Warung Rawon Bu Siti",
+                "stallNumber": "STAN-A01"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
 
 #### `DELETE /api/tables/:id`
 - **Fungsi**: Menghapus meja dari food court.

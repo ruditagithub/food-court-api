@@ -1,10 +1,26 @@
 import { Elysia, t } from "elysia";
 import { authPlugin, requireRoles } from "../../common/middlewares/auth";
-import { CreateTableDTO, TableQueryDTO, UpdateTableDTO } from "./model";
+import { CreateTableDTO, SessionHistoryQueryDTO, TableQueryDTO, UpdateTableDTO } from "./model";
 import { tableService } from "./service";
 
 export const tablesController = new Elysia({ prefix: "/api/tables" })
   .use(authPlugin)
+  .get(
+    "/scan/:qrToken",
+    async ({ params: { qrToken } }) => {
+      const data = await tableService.getByQrToken(qrToken);
+      return { data };
+    },
+    {
+      params: t.Object({
+        qrToken: t.String(),
+      }),
+      detail: {
+        tags: ["Tables"],
+        summary: "Get table details by QR token (Public)",
+      },
+    },
+  )
   .get(
     "/",
     async ({ query, user }) => {
@@ -37,6 +53,33 @@ export const tablesController = new Elysia({ prefix: "/api/tables" })
       detail: {
         tags: ["Tables"],
         summary: "Get table details by id",
+      },
+    },
+  )
+  .get(
+    "/:id/sessions",
+    async ({ params: { id }, query, user }) => {
+      requireRoles(user, ["admin", "admin-food-court", "tenant"]);
+      const data = await tableService.getSessionHistory(
+        id,
+        {
+          status: query.status,
+          limit: query.limit ? parseInt(query.limit) : undefined,
+          offset: query.offset ? parseInt(query.offset) : undefined,
+        },
+        user,
+      );
+      return { data };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      query: SessionHistoryQueryDTO,
+      detail: {
+        tags: ["Tables"],
+        summary:
+          "Get dining session history for a table (Admin, Admin Food Court, Tenant)",
       },
     },
   )
@@ -77,6 +120,26 @@ export const tablesController = new Elysia({ prefix: "/api/tables" })
       detail: {
         tags: ["Tables"],
         summary: "Update table status or capacity (Admin, Admin Food Court)",
+      },
+    },
+  )
+  .post(
+    "/:id/regenerate-qr",
+    async ({ params: { id }, user }) => {
+      requireRoles(user, ["admin", "admin-food-court"]);
+      const updated = await tableService.regenerateQrToken(id, user);
+      return {
+        message: "QR Token regenerated successfully",
+        data: updated,
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      detail: {
+        tags: ["Tables"],
+        summary: "Regenerate QR token for a table (Admin, Admin Food Court)",
       },
     },
   )

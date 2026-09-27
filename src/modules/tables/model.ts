@@ -33,3 +33,17 @@ export const TableQueryDTO = t.Object({
 
 export type CreateTableDTOType = typeof CreateTableDTO.static;
 export type UpdateTableDTOType = typeof UpdateTableDTO.static;
+
+export const SessionHistoryQueryDTO = t.Object({
+  status: t.Optional(
+    t.Union([
+      t.Literal("ACTIVE"),
+      t.Literal("PAYMENT_PENDING"),
+      t.Literal("COMPLETED"),
+      t.Literal("CANCELLED"),
+      t.Literal("EXPIRED"),
+    ]),
+  ),
+  limit: t.Optional(t.String({ default: "10" })),
+  offset: t.Optional(t.String({ default: "0" })),
+});

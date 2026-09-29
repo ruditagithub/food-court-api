@@ -9,6 +9,7 @@ import {
   tenantOrders,
 } from "../../db/schema";
 import type { ProcessPaymentDTOType } from "./model";
+import { orderService } from "../orders/service";
 
 export class PaymentService {
   async processPayment(data: ProcessPaymentDTOType) {
@@ -144,6 +145,9 @@ export class PaymentService {
         description: `Payment completed via ${methodEnum}. Order forwarded to kitchen.`,
         createdAt: new Date(),
       });
+
+      // Reserve stock after successful payment
+      await orderService.completePayment(orderId);
     }
 
     return {

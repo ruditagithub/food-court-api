@@ -46,6 +46,102 @@ export class OrderService {
     return id;
   }
 
+  async completePayment(orderId: string) {
+    await this.reserveStock(orderId);
+  }
+
+  private async reserveStock(orderId: string) {
+    const order = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      with: {
+        tenantOrders: {
+          with: {
+            items: true,
+          },
+        },
+      },
+    });
+
+    if (!order) return;
+
+    // Collect all menu items with quantities
+    const stockUpdates = new Map<string, number>();
+
+    for (const tenantOrder of order.tenantOrders) {
+      for (const item of tenantOrder.items) {
+        if (!item.menuId) continue;
+        const existing = stockUpdates.get(item.menuId) || 0;
+        stockUpdates.set(item.menuId, existing + item.quantity);
+      }
+    }
+
+    // Update stocks in transaction
+    for (const [menuId, qty] of stockUpdates.entries()) {
+      const menu = await db.query.menus.findFirst({
+        where: eq(menus.id, menuId),
+      });
+
+      if (!menu) continue;
+
+      const newStock = menu.stock - qty;
+
+      await db
+        .update(menus)
+        .set({
+          stock: newStock,
+          status: newStock <= 0 ? "OUT_OF_STOCK" : menu.status,
+          updatedAt: new Date(),
+        })
+        .where(eq(menus.id, menuId));
+    }
+  }
+
+  private async releaseStock(orderId: string) {
+    const order = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      with: {
+        tenantOrders: {
+          with: {
+            items: true,
+          },
+        },
+      },
+    });
+
+    if (!order || order.paymentStatus !== "PAID") return;
+
+    // Collect all menu items with quantities
+    const stockUpdates = new Map<string, number>();
+
+    for (const tenantOrder of order.tenantOrders) {
+      for (const item of tenantOrder.items) {
+        if (!item.menuId) continue;
+        const existing = stockUpdates.get(item.menuId) || 0;
+        stockUpdates.set(item.menuId, existing + item.quantity);
+      }
+    }
+
+    // Restore stocks
+    for (const [menuId, qty] of stockUpdates.entries()) {
+      const menu = await db.query.menus.findFirst({
+        where: eq(menus.id, menuId),
+      });
+
+      if (!menu) continue;
+
+      const newStock = menu.stock + qty;
+
+      await db
+        .update(menus)
+        .set({
+          stock: newStock,
+          status: menu.status === "OUT_OF_STOCK" ? "AVAILABLE" : menu.status,
+          updatedAt: new Date(),
+        })
+        .where(eq(menus.id, menuId));
+    }
+  }
+
   async create(data: CreateOrderDTOType, currentUser: AuthUser | null) {
     if (!data.items || data.items.length === 0) {
       throw new BadRequestError("Order must contain at least one item");
@@ -182,6 +278,11 @@ export class OrderService {
       if (!menuItem.tenant.isOpen) {
         throw new BadRequestError(
           `Tenant '${menuItem.tenant.name}' is currently closed`,
+        );
+      }
+      if (menuItem.stock < item.quantity) {
+        throw new BadRequestError(
+          `Insufficient stock for '${menuItem.name}'. Available: ${menuItem.stock}, Requested: ${item.quantity}`,
         );
       }
     }
@@ -612,6 +713,10 @@ export class OrderService {
 
     // If completed or cancelled: close dining session & release table
     if (targetStatus === "COMPLETED" || targetStatus === "CANCELLED") {
+      if (targetStatus === "CANCELLED") {
+        await this.releaseStock(id);
+      }
+
       if (existing.sessionId) {
         await db
           .update(diningSessions)

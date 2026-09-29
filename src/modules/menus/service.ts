@@ -184,6 +184,8 @@ export class MenuService {
       name: data.name,
       description: data.description?.trim() ? data.description.trim() : null,
       price: Number(data.price),
+      stock: data.stock !== undefined ? Number(data.stock) : 100,
+      status: (data.stock !== undefined && data.stock <= 0) ? "OUT_OF_STOCK" as const : "AVAILABLE" as const,
       imageUrl: data.imageUrl?.trim() ? data.imageUrl.trim() : null,
       isAvailable: data.isAvailable ?? true,
       createdAt: new Date(),
@@ -224,6 +226,12 @@ export class MenuService {
       ...data,
       ...(categoryId !== undefined ? { categoryId } : {}),
       ...(data.price !== undefined ? { price: Number(data.price) } : {}),
+      ...(data.stock !== undefined
+        ? {
+            stock: Number(data.stock),
+            status: Number(data.stock) <= 0 ? "OUT_OF_STOCK" : "AVAILABLE",
+          }
+        : {}),
       ...(data.description !== undefined
         ? {
             description: data.description?.trim()

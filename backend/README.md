@@ -164,6 +164,9 @@ Tabel berikut menyajikan seluruh 38 endpoint aktif hasil pemindaian spesifikasi 
 | No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Public | Keterangan & Perilaku |
 | :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | 39 | `POST` | `/api/payments/` | Diizinkan proses bayar | Diizinkan proses bayar | Diizinkan proses bayar | Diizinkan bayar pesanan (QRIS, CASH, TRANSFER) | Memproses pembayaran pesanan, mengubah status order jadi `PAID`, dan kirim antrean ke dapur. |
+| 39b | `POST` | `/api/payments/midtrans` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Public)** | Membuat transaksi Midtrans Snap, mengembalikan `snapToken` & `redirectUrl`. |
+| 39c | `POST` | `/api/payments/midtrans/notification` | - | - | - | **Dipanggil server Midtrans** | Webhook status pembayaran (diverifikasi via `signature_key`). |
+| 39d | `POST` | `/api/payments/midtrans/{reference}/sync` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Public)** | Cek ulang status transaksi ke Midtrans (berguna tanpa webhook publik). |
 | 40 | `GET` | `/api/payments/{orderId}` | Melihat bukti pembayaran | Melihat bukti jika terkait | Melihat bukti jika terkait | Melihat bukti pembayaran pesanannya *(Tamu: `401 Unauthorized`)* | Mengambil detail dan bukti transaksi pembayaran berdasarkan ID pesanan. |
 
 ---
@@ -863,6 +866,39 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
   }
 }
 ```
+
+#### `POST /api/payments/midtrans`
+- **Fungsi**: Membuat transaksi Midtrans Snap untuk tagihan (payment group) dan menyimpan record payment `PENDING` (kadaluarsa 30 menit).
+- **Akses**: Public / Customer
+- **Contoh Request Body** (isi salah satu):
+```json
+{ "orderId": "76e33f38-2785-455b-8669-ce561a0d319a" }
+```
+- **Contoh Response (201 Created)**:
+```json
+{
+  "message": "Midtrans transaction created",
+  "data": {
+    "id": "...",
+    "orderId": "76e33f38-...",
+    "paymentReference": "ORD-20260925-0001-1760406000000",
+    "amount": 64000,
+    "status": "PENDING",
+    "snapToken": "66e4fa55-...",
+    "redirectUrl": "https://app.sandbox.midtrans.com/snap/v4/redirection/...",
+    "clientKey": "SB-Mid-client-...",
+    "isProduction": false
+  }
+}
+```
+- **Frontend**: buka `redirectUrl`, atau pakai `window.snap.pay(snapToken)` dengan script `https://app.sandbox.midtrans.com/snap/snap.js` + atribut `data-client-key`.
+
+#### `POST /api/payments/midtrans/notification`
+- **Fungsi**: Webhook dari Midtrans. Signature diverifikasi, lalu status diambil ulang dari API Midtrans. Jika `settlement`/`capture(accept)` → payment `SUCCESS`, tagihan `PAID`, order `CONFIRMED`, antrean dapur `QUEUED`. Idempoten.
+- **Setup**: Midtrans Dashboard → Settings → Payment → *Notification URL* = `https://<domain-publik>/api/payments/midtrans/notification` (lokal: gunakan ngrok).
+
+#### `POST /api/payments/midtrans/:reference/sync`
+- **Fungsi**: Menarik status terbaru dari Midtrans untuk `paymentReference` tertentu dan menerapkannya (logika sama dengan webhook). Panggil dari frontend setelah callback Snap `onSuccess`/`onPending`.
 
 #### `GET /api/payments/:orderId`
 - **Fungsi**: Mengambil bukti/detail transaksi pembayaran berdasarkan ID order.

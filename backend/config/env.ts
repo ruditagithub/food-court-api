@@ -13,4 +13,9 @@ export const env = {
   JWT_SECRET:
     process.env.JWT_SECRET ||
     "super_secret_food_court_jwt_key_change_me_in_production",
+
+  // Midtrans Payment Gateway (sandbox unless MIDTRANS_IS_PRODUCTION=true)
+  MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY || "",
+  MIDTRANS_CLIENT_KEY: process.env.MIDTRANS_CLIENT_KEY || "",
+  MIDTRANS_IS_PRODUCTION: process.env.MIDTRANS_IS_PRODUCTION === "true",
 };

@@ -19,3 +19,24 @@ export const ProcessPaymentDTO = t.Object({
 });
 
 export type ProcessPaymentDTOType = typeof ProcessPaymentDTO.static;
+
+export const CreateSnapPaymentDTO = t.Object({
+  orderId: t.Optional(t.String()),
+  paymentGroupId: t.Optional(t.String()),
+});
+
+export type CreateSnapPaymentDTOType = typeof CreateSnapPaymentDTO.static;
+
+// Midtrans sends many more fields; we only validate the ones we rely on.
+export const MidtransNotificationDTO = t.Object(
+  {
+    order_id: t.String(),
+    status_code: t.String(),
+    gross_amount: t.String(),
+    signature_key: t.String(),
+    transaction_status: t.String(),
+    fraud_status: t.Optional(t.String()),
+    payment_type: t.Optional(t.String()),
+  },
+  { additionalProperties: true },
+);

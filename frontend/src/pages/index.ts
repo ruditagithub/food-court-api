@@ -1,2 +1,1 @@
-// Feature-based routing pages
-export {}
+export * from './LandingPage'

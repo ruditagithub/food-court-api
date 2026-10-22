@@ -1,5 +1,6 @@
 import { AuthProvider } from '../context/AuthContext'
 import { QueryProvider } from './QueryProvider'
+import { ToastProvider } from '../components/ui/Toast'
 import { type ReactNode } from 'react'
 
 /**
@@ -9,7 +10,9 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryProvider>
       <AuthProvider>
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </AuthProvider>
     </QueryProvider>
   )
@@ -17,3 +20,4 @@ export function Providers({ children }: { children: ReactNode }) {
 
 // Re-export for convenience
 export { useAuth } from '../context/AuthContext'
+export { useToast } from '../components/ui/Toast'

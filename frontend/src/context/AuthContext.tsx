@@ -19,20 +19,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setTokenState] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Initialize auth from localStorage on mount
+  // Initialize auth from localStorage and verify with /api/auth/me
   useEffect(() => {
-    const storedToken = getToken()
-    const storedUser = localStorage.getItem('user')
+    const initializeAuth = async () => {
+      const storedToken = getToken()
+      const storedUser = localStorage.getItem('user')
 
-    if (storedToken && storedUser) {
+      if (!storedToken) {
+        setIsLoading(false)
+        return
+      }
+
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser))
+          setTokenState(storedToken)
+        } catch {
+          clearToken()
+        }
+      }
+
+      // Verify token with backend
       try {
-        setTokenState(storedToken)
-        setUser(JSON.parse(storedUser))
-      } catch {
-        clearToken()
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/auth/me`, {
+          headers: {
+            Authorization: `Bearer ${storedToken}`,
+          },
+        })
+
+        if (response.ok) {
+          const resData = await response.json()
+          if (resData.data) {
+            setUser(resData.data)
+            setTokenState(storedToken)
+            localStorage.setItem('user', JSON.stringify(resData.data))
+          }
+        } else if (response.status === 401) {
+          // Token expired or invalid
+          clearToken()
+          setTokenState(null)
+          setUser(null)
+        }
+      } catch (e) {
+        // Network error - keep cached user for offline/resilience
+        console.warn('Could not verify auth session with backend:', e)
+      } finally {
+        setIsLoading(false)
       }
     }
-    setIsLoading(false)
+
+    initializeAuth()
   }, [])
 
   const login = (newToken: string, newUser: User) => {

@@ -13,6 +13,8 @@ import { PageTransition } from './components/animation/PageTransition'
 import { SuperAdminTenantsPage } from './pages/superadmin/SuperAdminTenantsPage'
 import { AdminTenantsPage } from './pages/admin/AdminTenantsPage'
 import { TenantProfilePage } from './pages/tenant/TenantProfilePage'
+import { TenantMenusPage } from './pages/tenant/TenantMenusPage'
+import { CustomerMenuPage } from './pages/customer/CustomerMenuPage'
 
 function App() {
   const [loadingComplete, setLoadingComplete] = useState(false)
@@ -77,6 +79,17 @@ function App() {
             </RoleGuard>
           }
         />
+
+        {/* Phase 4: Menus & Categories */}
+        <Route
+          path="/app/tenant/menus"
+          element={
+            <RoleGuard allowedRoles={['tenant']}>
+              <TenantMenusPage />
+            </RoleGuard>
+          }
+        />
+        <Route path="/s/:qrToken" element={<CustomerMenuPage />} />
 
         {/* Fallback route redirects to landing page */}
         <Route path="*" element={<LandingPage />} />

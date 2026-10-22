@@ -17,6 +17,10 @@ import { TenantMenusPage } from './pages/tenant/TenantMenusPage'
 import { CustomerMenuPage } from './pages/customer/CustomerMenuPage'
 import { AdminTablesPage } from './pages/admin/AdminTablesPage'
 import { TableScanResolverPage } from './pages/customer/TableScanResolverPage'
+import { CheckoutPage } from './pages/customer/CheckoutPage'
+import { OrderTrackingPage } from './pages/customer/OrderTrackingPage'
+import { KitchenDisplayPage } from './pages/tenant/KitchenDisplayPage'
+import { AdminOrdersPage } from './pages/admin/AdminOrdersPage'
 
 function App() {
   const [loadingComplete, setLoadingComplete] = useState(false)
@@ -92,6 +96,7 @@ function App() {
           }
         />
         <Route path="/s/:qrToken" element={<CustomerMenuPage />} />
+        <Route path="/scan/:qrToken" element={<TableScanResolverPage />} />
         {/* Phase 5: Tables */}
         <Route
           path="/app/admin/tables"
@@ -101,7 +106,25 @@ function App() {
             </RoleGuard>
           }
         />
-        <Route path="/scan/:qrToken" element={<TableScanResolverPage />} />
+        {/* Phase 6: Orders */}
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/track/:orderNumber" element={<OrderTrackingPage />} />
+        <Route
+          path="/app/tenant/kds"
+          element={
+            <RoleGuard allowedRoles={['tenant']}>
+              <KitchenDisplayPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/app/admin/orders"
+          element={
+            <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
+              <AdminOrdersPage />
+            </RoleGuard>
+          }
+        />
 
         {/* Fallback route redirects to landing page */}
         <Route path="*" element={<LandingPage />} />

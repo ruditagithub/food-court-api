@@ -10,6 +10,7 @@ import { Label } from '../../components/ui/Label'
 import { Badge } from '../../components/ui/Badge'
 import { Icons } from '../../components/ui/Icons'
 import { formatRupiah } from '../../lib/utils'
+import { PaymentModal } from '../../components/customer/PaymentModal'
 import type { CartItem } from './CustomerMenuPage'
 
 export function CheckoutPage() {
@@ -26,6 +27,8 @@ export function CheckoutPage() {
   const [notes, setNotes] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
+  const [createdOrder, setCreatedOrder] = useState<any>(null)
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
 
   // Load active table and cart
   useEffect(() => {
@@ -106,8 +109,8 @@ export function CheckoutPage() {
         localStorage.removeItem(`cart_${qrToken}`)
       }
 
-      // Navigate to live tracking page
-      navigate(`/track/${orderData.orderNumber}?fromCheckout=true`, { replace: true })
+      setCreatedOrder(orderData)
+      setIsPaymentModalOpen(true)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal mengirim pesanan'
       toastError('Gagal Checkout', msg)
@@ -308,7 +311,26 @@ export function CheckoutPage() {
             )}
           </Button>
         </form>
+
+        {createdOrder && (
+          <PaymentModal
+            isOpen={isPaymentModalOpen}
+            onClose={() => {
+              setIsPaymentModalOpen(false)
+              navigate(`/track/${createdOrder.orderNumber}?fromCheckout=true`, { replace: true })
+            }}
+            orderId={createdOrder.id}
+            orderNumber={createdOrder.orderNumber}
+            totalAmount={createdOrder.totalAmount || totalAmount}
+            tableNumber={activeTable?.tableNumber}
+            onPaymentSuccess={() => {
+              setIsPaymentModalOpen(false)
+              navigate(`/track/${createdOrder.orderNumber}?fromCheckout=true`, { replace: true })
+            }}
+          />
+        )}
       </div>
     </div>
   )
 }
+

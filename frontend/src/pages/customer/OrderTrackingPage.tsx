@@ -6,12 +6,16 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Icons } from '../../components/ui/Icons'
 import { formatRupiah, formatDate } from '../../lib/utils'
+import { PaymentModal } from '../../components/customer/PaymentModal'
+import { ReceiptModal } from '../../components/payment/ReceiptModal'
 
 export function OrderTrackingPage() {
   const { orderNumber } = useParams<{ orderNumber: string }>()
   const [order, setOrder] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false)
 
   const fetchTrack = useCallback(async () => {
     if (!orderNumber) return
@@ -136,9 +140,31 @@ export function OrderTrackingPage() {
 
           <div className="pt-2 border-t border-[#e5e5e5] flex items-center justify-between text-xs">
             <span className="text-[#737373]">Status Pembayaran:</span>
-            <Badge variant={order.paymentStatus === 'PAID' ? 'solid' : 'soft'}>
-              {order.paymentStatus || 'PENDING'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={order.paymentStatus === 'PAID' ? 'solid' : 'soft'}>
+                {order.paymentStatus || 'PENDING'}
+              </Badge>
+              {order.paymentStatus !== 'PAID' ? (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => setIsPaymentModalOpen(true)}
+                  className="h-7 text-xs px-2.5 rounded-[14px]"
+                >
+                  Bayar Sekarang
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsReceiptModalOpen(true)}
+                  className="h-7 text-xs px-2.5 rounded-[14px] flex items-center gap-1"
+                >
+                  <Icons.Printer className="w-3.5 h-3.5" />
+                  Struk
+                </Button>
+              )}
+            </div>
           </div>
         </Card>
 
@@ -246,7 +272,35 @@ export function OrderTrackingPage() {
             </Link>
           </div>
         </div>
+
+        {/* Payment Modal */}
+        {order && (
+          <PaymentModal
+            isOpen={isPaymentModalOpen}
+            onClose={() => {
+              setIsPaymentModalOpen(false)
+              fetchTrack()
+            }}
+            orderId={order.id || orderNumber || ''}
+            orderNumber={order.orderNumber || orderNumber || ''}
+            totalAmount={order.totalAmount || 0}
+            tableNumber={order.tableNumber}
+            onPaymentSuccess={() => {
+              setIsPaymentModalOpen(false)
+              fetchTrack()
+            }}
+          />
+        )}
+
+        {/* Receipt Modal */}
+        <ReceiptModal
+          isOpen={isReceiptModalOpen}
+          onClose={() => setIsReceiptModalOpen(false)}
+          orderNumber={order.orderNumber || orderNumber}
+          orderId={order.id}
+        />
       </div>
     </div>
   )
 }
+

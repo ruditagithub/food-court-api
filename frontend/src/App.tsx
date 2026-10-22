@@ -21,6 +21,7 @@ import { CheckoutPage } from './pages/customer/CheckoutPage'
 import { OrderTrackingPage } from './pages/customer/OrderTrackingPage'
 import { KitchenDisplayPage } from './pages/tenant/KitchenDisplayPage'
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage'
+import { AdminPaymentsPage } from './pages/admin/AdminPaymentsPage'
 
 function App() {
   const [loadingComplete, setLoadingComplete] = useState(false)
@@ -122,6 +123,15 @@ function App() {
           element={
             <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
               <AdminOrdersPage />
+            </RoleGuard>
+          }
+        />
+        {/* Phase 7: Payments */}
+        <Route
+          path="/app/admin/payments"
+          element={
+            <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
+              <AdminPaymentsPage />
             </RoleGuard>
           }
         />

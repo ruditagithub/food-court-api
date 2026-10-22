@@ -15,6 +15,8 @@ import { AdminTenantsPage } from './pages/admin/AdminTenantsPage'
 import { TenantProfilePage } from './pages/tenant/TenantProfilePage'
 import { TenantMenusPage } from './pages/tenant/TenantMenusPage'
 import { CustomerMenuPage } from './pages/customer/CustomerMenuPage'
+import { AdminTablesPage } from './pages/admin/AdminTablesPage'
+import { TableScanResolverPage } from './pages/customer/TableScanResolverPage'
 
 function App() {
   const [loadingComplete, setLoadingComplete] = useState(false)
@@ -90,6 +92,16 @@ function App() {
           }
         />
         <Route path="/s/:qrToken" element={<CustomerMenuPage />} />
+        {/* Phase 5: Tables */}
+        <Route
+          path="/app/admin/tables"
+          element={
+            <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
+              <AdminTablesPage />
+            </RoleGuard>
+          }
+        />
+        <Route path="/scan/:qrToken" element={<TableScanResolverPage />} />
 
         {/* Fallback route redirects to landing page */}
         <Route path="*" element={<LandingPage />} />

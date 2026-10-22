@@ -304,7 +304,7 @@ export const Icons = {
   Chart: IconChart,
   Shield: IconShield,
   Zap: IconZap,
-
+  Clock: IconClock,
   Layers: IconLayers,
   Search: IconSearch,
   Plus: IconPlus,

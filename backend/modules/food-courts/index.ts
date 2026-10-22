@@ -94,6 +94,36 @@ export const foodCourtsController = new Elysia({ prefix: "/api/food-courts" })
       },
     },
   )
+  .get(
+    "/:id/tenant/public",
+    async ({ params: { id }, query }) => {
+      const isOpen =
+        query.isOpen === "true"
+          ? true
+          : query.isOpen === "false"
+            ? false
+            : undefined;
+
+      const data = await foodCourtService.getTenantsByFoodCourt(
+        id,
+        { isOpen, search: query.search },
+        null,
+      );
+
+      return { data };
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      query: t.Object({
+        isOpen: t.Optional(t.String()),
+        search: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Food Courts"],
+        summary: "Public list of stalls/tenants in a food court",
+      },
+    },
+  )
 
   .put(
     "/:id",

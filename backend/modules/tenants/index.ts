@@ -36,6 +36,20 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
     },
   )
   .get(
+    "/mine",
+    async ({ user }) => {
+      requireRoles(user, ["tenant"]);
+      const data = await tenantService.getByOwnerId(user.id);
+      return { data };
+    },
+    {
+      detail: {
+        tags: ["Tenants"],
+        summary: "Get current tenant stall for logged in tenant user",
+      },
+    },
+  )
+  .get(
     "/:id",
     async ({ params: { id } }) => {
       const data = await tenantService.getById(id);

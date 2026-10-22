@@ -10,6 +10,10 @@ import { RoleGuard } from './components/auth/RoleGuard'
 import { Preloader } from './components/animation/Preloader'
 import { PageTransition } from './components/animation/PageTransition'
 
+import { SuperAdminTenantsPage } from './pages/superadmin/SuperAdminTenantsPage'
+import { AdminTenantsPage } from './pages/admin/AdminTenantsPage'
+import { TenantProfilePage } from './pages/tenant/TenantProfilePage'
+
 function App() {
   const [loadingComplete, setLoadingComplete] = useState(false)
 
@@ -44,6 +48,32 @@ function App() {
           element={
             <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
               <FoodCourtProfilePage />
+            </RoleGuard>
+          }
+        />
+
+        {/* Phase 3: Tenants */}
+        <Route
+          path="/app/admin/tenants"
+          element={
+            <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
+              <AdminTenantsPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/app/tenant/profile"
+          element={
+            <RoleGuard allowedRoles={['tenant']}>
+              <TenantProfilePage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/app/super-admin/tenants"
+          element={
+            <RoleGuard allowedRoles={['admin']}>
+              <SuperAdminTenantsPage />
             </RoleGuard>
           }
         />

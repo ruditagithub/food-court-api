@@ -76,6 +76,25 @@ export class TenantService {
     return tenant;
   }
 
+  async getByOwnerId(ownerId: string) {
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(tenants.ownerId, ownerId),
+    });
+
+    if (!tenant) {
+      throw new NotFoundError("No tenant stall found for your account");
+    }
+
+    const fc = await db.query.foodCourts.findFirst({
+      where: eq(foodCourts.id, tenant.foodCourtId),
+    });
+
+    return {
+      ...tenant,
+      foodCourt: fc,
+    };
+  }
+
   async create(data: CreateTenantDTOType, currentUser: AuthUser) {
     let foodCourtId = data.foodCourtId;
 

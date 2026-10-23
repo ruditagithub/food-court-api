@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiFetch, getToken } from '../../api/client'
+import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { InternalLayout } from '../../components/layout/InternalLayout'
 import { Card } from '../../components/ui/Card'
@@ -11,6 +12,8 @@ import { OrderDetailDialog } from '../../components/admin/OrderDetailDialog'
 import { formatRupiah, formatDate } from '../../lib/utils'
 
 export function AdminOrdersPage() {
+  const { user } = useAuth()
+  const isTenant = user?.role === 'tenant'
   const { error: toastError } = useToast()
 
   const [orders, setOrders] = useState<any[]>([])
@@ -43,20 +46,27 @@ export function AdminOrdersPage() {
   }, [fetchOrders])
 
   const filteredOrders = orders.filter((ord) => {
+    const orderNum = ord.orderNumber || ord.order?.orderNumber || ''
+    const custName = ord.customerName || ord.order?.customerName || ''
     const matchesSearch = search.trim()
-      ? ord.orderNumber?.toLowerCase().includes(search.toLowerCase()) ||
-        ord.customerName?.toLowerCase().includes(search.toLowerCase())
+      ? orderNum.toLowerCase().includes(search.toLowerCase()) ||
+        custName.toLowerCase().includes(search.toLowerCase())
       : true
+    const currentStatus = ord.orderStatus || ord.status || ''
     const matchesStatus = statusFilter
-      ? (ord.orderStatus || ord.status) === statusFilter
+      ? currentStatus === statusFilter
       : true
     return matchesSearch && matchesStatus
   })
 
   return (
     <InternalLayout
-      title="Monitoring Pesanan Food Court"
-      subtitle="Pantau alur transaksi seluruh stan, intervensi kendala dapur, dan status meja"
+      title={isTenant ? "Rekap Pesanan Gerai" : "Monitoring Pesanan Food Court"}
+      subtitle={
+        isTenant
+          ? "Daftar seluruh riwayat transaksi pesanan dan status sajian di gerai Anda"
+          : "Pantau alur transaksi seluruh stan, intervensi kendala dapur, dan status meja"
+      }
     >
       <div className="space-y-4">
         {/* Filters */}
@@ -78,11 +88,23 @@ export function AdminOrdersPage() {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="">Semua Status Pesanan</option>
-                <option value="DRAFT">DRAFT</option>
-                <option value="CONFIRMED">CONFIRMED</option>
-                <option value="SENT_TO_KITCHEN">SENT TO KITCHEN</option>
-                <option value="COMPLETED">COMPLETED</option>
-                <option value="CANCELLED">CANCELLED</option>
+                {isTenant ? (
+                  <>
+                    <option value="QUEUED">QUEUED (Antre Dapur)</option>
+                    <option value="PREPARING">PREPARING (Sedang Dimasak)</option>
+                    <option value="READY">READY (Siap Diambil)</option>
+                    <option value="COMPLETED">COMPLETED (Selesai)</option>
+                    <option value="CANCELLED">CANCELLED (Dibatalkan)</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="DRAFT">DRAFT</option>
+                    <option value="CONFIRMED">CONFIRMED</option>
+                    <option value="SENT_TO_KITCHEN">SENT TO KITCHEN</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </>
+                )}
               </Select>
             </div>
           </div>
@@ -119,62 +141,88 @@ export function AdminOrdersPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredOrders.map((ord) => (
-                    <tr
-                      key={ord.id}
-                      className="hover:bg-[#fafafa] transition-colors cursor-pointer"
-                      onClick={() => {
-                        setSelectedOrder(ord)
-                        setDetailOpen(true)
-                      }}
-                    >
-                      <td className="py-3.5 px-4 font-mono font-bold text-xs text-[#0a0a0a]">
-                        {ord.orderNumber}
-                      </td>
+                  filteredOrders.map((ord) => {
+                    const orderNum = ord.orderNumber || ord.order?.orderNumber || 'ORD-...'
+                    const custName = ord.customerName || ord.order?.customerName || 'Tamu'
+                    const tableNum = ord.table?.tableNumber || ord.order?.session?.table?.tableNumber
+                    const isTakeaway =
+                      ord.order?.session?.orderType === 'TAKEAWAY' ||
+                      ord.session?.orderType === 'TAKEAWAY' ||
+                      (!tableNum && !ord.table)
+                    const totalAmt = ord.totalAmount ?? ord.subtotal ?? 0
+                    const orderSt = ord.orderStatus || ord.status || 'CONFIRMED'
 
-                      <td className="py-3.5 px-4 text-xs">
-                        <p className="font-semibold text-[#0a0a0a]">
-                          {ord.customerName || 'Tamu'}
-                        </p>
-                        <p className="text-[11px] font-mono text-[#737373]">
-                          {ord.table?.tableNumber ? `Meja ${ord.table.tableNumber}` : 'Bawa Pulang'}
-                        </p>
-                      </td>
+                    return (
+                      <tr
+                        key={ord.id}
+                        className="hover:bg-[#fafafa] transition-colors cursor-pointer"
+                        onClick={() => {
+                          setSelectedOrder(ord)
+                          setDetailOpen(true)
+                        }}
+                      >
+                        <td className="py-3.5 px-4 font-mono font-bold text-xs text-[#0a0a0a]">
+                          {orderNum}
+                        </td>
 
-                      <td className="py-3.5 px-4 font-mono font-bold text-xs text-[#0a0a0a]">
-                        {formatRupiah(ord.totalAmount || 0)}
-                      </td>
+                        <td className="py-3.5 px-4 text-xs">
+                          <p className="font-semibold text-[#0a0a0a]">
+                            {custName}
+                          </p>
+                          <div className="mt-0.5">
+                            {tableNum ? (
+                              <span className="inline-block text-[11px] font-mono font-medium text-[#0a0a0a] bg-[#f5f5f5] px-1.5 py-0.5 rounded-[6px]">
+                                Meja {tableNum}
+                              </span>
+                            ) : (
+                              <span className="inline-block text-[10px] font-mono text-[#737373] bg-[#f0f0f0] px-1.5 py-0.5 rounded-[6px]">
+                                {isTakeaway ? 'Bawa Pulang (Takeaway)' : 'Tanpa Meja'}
+                              </span>
+                            )}
+                          </div>
+                        </td>
 
-                      <td className="py-3.5 px-4">
-                        <Badge
-                          variant={ord.orderStatus === 'COMPLETED' ? 'solid' : 'soft'}
-                          className="text-[10px]"
-                        >
-                          {ord.orderStatus || ord.status || 'CONFIRMED'}
-                        </Badge>
-                      </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-xs text-[#0a0a0a]">
+                          {formatRupiah(totalAmt)}
+                        </td>
 
-                      <td className="py-3.5 px-4 text-xs text-[#737373] hidden sm:table-cell">
-                        {ord.createdAt ? formatDate(ord.createdAt) : '-'}
-                      </td>
+                        <td className="py-3.5 px-4">
+                          <Badge
+                            variant={
+                              orderSt === 'COMPLETED'
+                                ? 'solid'
+                                : orderSt === 'CANCELLED'
+                                ? 'outline'
+                                : 'soft'
+                            }
+                            className="text-[10px]"
+                          >
+                            {orderSt}
+                          </Badge>
+                        </td>
 
-                      <td className="py-3.5 px-4 text-right">
-                        <button
-                          type="button"
-                          title="Rincian"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedOrder(ord)
-                            setDetailOpen(true)
-                          }}
-                          className="p-1.5 rounded-[12px] bg-[#f5f5f5] hover:bg-[#e5e5e5] text-[#0a0a0a] transition-colors inline-flex items-center gap-1 text-xs px-2 cursor-pointer"
-                        >
-                          <Icons.Eye className="w-3.5 h-3.5" />
-                          <span>Rincian</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                        <td className="py-3.5 px-4 text-xs text-[#737373] hidden sm:table-cell">
+                          {ord.createdAt ? formatDate(ord.createdAt) : '-'}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            type="button"
+                            title="Rincian"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedOrder(ord)
+                              setDetailOpen(true)
+                            }}
+                            className="p-1.5 rounded-[12px] bg-[#f5f5f5] hover:bg-[#e5e5e5] text-[#0a0a0a] transition-colors inline-flex items-center gap-1 text-xs px-2 cursor-pointer"
+                          >
+                            <Icons.Eye className="w-3.5 h-3.5" />
+                            <span>Rincian</span>
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>

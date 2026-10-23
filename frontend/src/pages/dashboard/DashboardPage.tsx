@@ -22,6 +22,8 @@ import {
   Store,
   QrCode,
   UtensilsCrossed,
+  ChefHat,
+  CheckCircle2,
   Building,
   Banknote,
   ArrowUpRight,
@@ -36,6 +38,7 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const isFoodCourtManager = user?.role === 'admin-food-court'
+  const isTenant = user?.role === 'tenant'
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all')
@@ -43,6 +46,8 @@ export function DashboardPage() {
   const [tenants, setTenants] = useState<any[]>([])
   const [tables, setTables] = useState<any[]>([])
   const [foodCourts, setFoodCourts] = useState<any[]>([])
+  const [tenantStall, setTenantStall] = useState<any>(null)
+  const [tenantMenus, setTenantMenus] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   // Fetch real data from backend
@@ -52,46 +57,94 @@ export function DashboardPage() {
       const token = getToken()
       const headers = { token: token || undefined }
 
-      try {
-        const [ordersRes, tenantsRes, tablesRes, fcRes] = await Promise.allSettled([
-          apiFetch<{ data: any[] }>('/api/orders', headers),
-          apiFetch<{ data: any[] }>('/api/tenants', headers),
-          apiFetch<{ data: any[] }>('/api/tables', headers),
-          apiFetch<{ data: any[] }>('/api/food-courts', headers),
-        ])
+      if (isTenant) {
+        try {
+          const [mineRes, ordersRes, menusRes, tablesRes] = await Promise.allSettled([
+            apiFetch<{ data: any }>('/api/tenants/mine', headers),
+            apiFetch<{ data: any[] }>('/api/orders', headers),
+            apiFetch<{ data: any[] }>('/api/menus', headers),
+            apiFetch<{ data: any[] }>('/api/tables', headers),
+          ])
 
-        if (ordersRes.status === 'fulfilled' && ordersRes.value?.data) {
-          setOrders(ordersRes.value.data)
-        }
-        if (tenantsRes.status === 'fulfilled' && tenantsRes.value?.data) {
-          setTenants(tenantsRes.value.data)
-        }
-        if (tablesRes.status === 'fulfilled' && tablesRes.value?.data) {
-          setTables(tablesRes.value.data)
-        }
-        if (fcRes.status === 'fulfilled' && fcRes.value?.data) {
-          setFoodCourts(fcRes.value.data)
-          if (isFoodCourtManager && fcRes.value.data.length > 0) {
-            setSelectedBranchId(fcRes.value.data[0].id)
+          if (mineRes.status === 'fulfilled' && mineRes.value?.data) {
+            setTenantStall(mineRes.value.data)
           }
+          if (ordersRes.status === 'fulfilled' && ordersRes.value?.data) {
+            setOrders(ordersRes.value.data)
+          }
+          if (menusRes.status === 'fulfilled' && menusRes.value?.data) {
+            setTenantMenus(menusRes.value.data)
+          }
+          if (tablesRes.status === 'fulfilled' && tablesRes.value?.data) {
+            setTables(tablesRes.value.data)
+          }
+        } catch (err) {
+          console.warn('Tenant dashboard data fetch fallback active:', err)
+        } finally {
+          setIsLoading(false)
         }
-      } catch (err) {
-        console.warn('Dashboard data fetch fallback active:', err)
-      } finally {
-        setIsLoading(false)
+      } else {
+        try {
+          const [ordersRes, tenantsRes, tablesRes, fcRes] = await Promise.allSettled([
+            apiFetch<{ data: any[] }>('/api/orders', headers),
+            apiFetch<{ data: any[] }>('/api/tenants', headers),
+            apiFetch<{ data: any[] }>('/api/tables', headers),
+            apiFetch<{ data: any[] }>('/api/food-courts', headers),
+          ])
+
+          if (ordersRes.status === 'fulfilled' && ordersRes.value?.data) {
+            setOrders(ordersRes.value.data)
+          }
+          if (tenantsRes.status === 'fulfilled' && tenantsRes.value?.data) {
+            setTenants(tenantsRes.value.data)
+          }
+          if (tablesRes.status === 'fulfilled' && tablesRes.value?.data) {
+            setTables(tablesRes.value.data)
+          }
+          if (fcRes.status === 'fulfilled' && fcRes.value?.data) {
+            setFoodCourts(fcRes.value.data)
+            if (isFoodCourtManager && fcRes.value.data.length > 0) {
+              setSelectedBranchId(fcRes.value.data[0].id)
+            }
+          }
+        } catch (err) {
+          console.warn('Dashboard data fetch fallback active:', err)
+        } finally {
+          setIsLoading(false)
+        }
       }
     }
 
     loadDashboardData()
-  }, [isFoodCourtManager])
+  }, [isFoodCourtManager, isTenant])
 
   // Calculate stats from real orders
-  const totalRevenue = orders.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0)
-  const displayRevenue = totalRevenue > 0 ? totalRevenue : 4850000
+  const totalRevenue = isTenant
+    ? orders.reduce((acc, curr) => acc + (curr.subtotal || 0), 0)
+    : orders.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0)
+  const displayRevenue = totalRevenue > 0 ? totalRevenue : isTenant ? 0 : 4850000
 
   const completedOrdersCount = orders.filter(
     (o) => o.orderStatus === 'COMPLETED' || o.status === 'COMPLETED'
-  ).length || 18
+  ).length
+
+  // Tenant-specific metrics
+  const tenantCompletedCount = completedOrdersCount
+  const tenantActiveOrders = isTenant
+    ? orders.filter((o) => o.status === 'QUEUED' || o.status === 'PREPARING')
+    : []
+  const tenantQueuedCount = isTenant
+    ? orders.filter((o) => o.status === 'QUEUED').length
+    : 0
+  const tenantPreparingCount = isTenant
+    ? orders.filter((o) => o.status === 'PREPARING').length
+    : 0
+  const tenantReadyCount = isTenant
+    ? orders.filter((o) => o.status === 'READY').length
+    : 0
+  const tenantAvailableMenusCount = tenantMenus.filter(
+    (m) => m.isAvailable && m.status !== 'OUT_OF_STOCK'
+  ).length
 
   // Food Court Monthly Sales Chart Data (in Million IDR)
   const chartData = [
@@ -286,19 +339,27 @@ export function DashboardPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-[#0a0a0a]">
-                {isFoodCourtManager
-                  ? `Selamat Datang, ${user?.name || 'Manajer Food Court'}`
-                  : `Selamat Pagi, ${user?.name || 'Administrator Food Court'}`}
+                {isTenant
+                  ? `Halo, ${tenantStall?.name || user?.name || 'Mitra Gerai'}`
+                  : isFoodCourtManager
+                    ? `Selamat Datang, ${user?.name || 'Manajer Food Court'}`
+                    : `Selamat Pagi, ${user?.name || 'Administrator Food Court'}`}
               </h1>
               <p className="text-xs sm:text-sm text-[#737373] mt-1">
-                {isFoodCourtManager
-                  ? `Pantau arus transaksi, performa stan kios, dan okupansi meja di ${activeFoodCourtName}.`
-                  : `Pantau arus kas masuk, performa kios mitra, dan kontrol sentral ${selectedBranchId === 'all' ? 'seluruh cabang food court' : activeFoodCourtName}.`}
+                {isTenant
+                  ? `Kelola operasional gerai ${tenantStall?.stallNumber ? `[${tenantStall.stallNumber}]` : ''}, pantau antrean pesanan dapur langsung, dan rekap omzet harian Anda.`
+                  : isFoodCourtManager
+                    ? `Pantau arus transaksi, performa stan kios, dan okupansi meja di ${activeFoodCourtName}.`
+                    : `Pantau arus kas masuk, performa kios mitra, dan kontrol sentral ${selectedBranchId === 'all' ? 'seluruh cabang food court' : activeFoodCourtName}.`}
               </p>
             </div>
             <div className="flex items-center gap-2 self-start sm:self-auto">
               <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-[#0a0a0a] text-[#ffffff] font-semibold">
-                {isFoodCourtManager ? 'FOOD COURT MANAGER' : 'SUPER ADMIN'}
+                {isTenant
+                  ? 'TENANT PARTNER'
+                  : isFoodCourtManager
+                    ? 'FOOD COURT MANAGER'
+                    : 'SUPER ADMIN'}
               </span>
             </div>
           </div>
@@ -312,11 +373,15 @@ export function DashboardPage() {
             <div className="bg-[#ffffff] rounded-[32px] border border-[#e5e5e5] p-6 sm:p-7 shadow-xs">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-[#737373]">
-                  {selectedBranchId === 'all' ? 'Total Omzet Penjualan Global' : `Total Omzet ${activeFoodCourtName}`}
+                  {isTenant
+                    ? 'Total Omzet Stan Saya'
+                    : selectedBranchId === 'all'
+                      ? 'Total Omzet Penjualan Global'
+                      : `Total Omzet ${activeFoodCourtName}`}
                 </span>
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f5f5f5] border border-[#e5e5e5] text-xs font-semibold text-[#0a0a0a]">
                   <Banknote className="w-3.5 h-3.5 text-[#10b981]" />
-                  <span>IDR (Rupiah)</span>
+                  <span>{isTenant && tenantStall?.stallNumber ? tenantStall.stallNumber : 'IDR (Rupiah)'}</span>
                 </div>
               </div>
 
@@ -326,7 +391,11 @@ export function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-1.5 text-xs font-medium text-[#10b981] mt-2">
                   <TrendingUp className="w-3.5 h-3.5" />
-                  <span>14.5% lebih tinggi dibanding bulan lalu</span>
+                  <span>
+                    {isTenant
+                      ? `${orders.length} pesanan masuk ke kios ini`
+                      : '14.5% lebih tinggi dibanding bulan lalu'}
+                  </span>
                 </div>
               </div>
 
@@ -334,297 +403,523 @@ export function DashboardPage() {
               <div className="grid grid-cols-2 gap-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => navigate('/app/admin/payments')}
+                  onClick={() => navigate(isTenant ? '/app/tenant/kds' : '/app/admin/payments')}
                   className="h-11 rounded-[18px] bg-[#9ef01a] hover:bg-[#8ee015] active:scale-[0.99] text-[#0a0a0a] font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
                 >
-                  <ArrowRightLeft className="w-4 h-4" />
-                  <span>Rekap Pembayaran</span>
+                  {isTenant ? (
+                    <>
+                      <ChefHat className="w-4 h-4" />
+                      <span>Layar Dapur KDS</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRightLeft className="w-4 h-4" />
+                      <span>Rekap Pembayaran</span>
+                    </>
+                  )}
                 </button>
 
                 <button
                   type="button"
                   onClick={() =>
                     navigate(
-                      isFoodCourtManager
-                        ? '/app/admin/food-court'
-                        : '/app/super-admin/food-courts'
+                      isTenant
+                        ? '/app/tenant/menus'
+                        : isFoodCourtManager
+                          ? '/app/admin/food-court'
+                          : '/app/super-admin/food-courts'
                     )
                   }
                   className="h-11 rounded-[18px] bg-[#ffffff] hover:bg-[#f5f5f5] active:scale-[0.99] border border-[#e5e5e5] hover:border-[#0a0a0a] text-[#0a0a0a] font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
                 >
-                  <Building className="w-4 h-4 text-[#737373]" />
-                  <span>{isFoodCourtManager ? 'Kelola Cabang' : 'Master Cabang'}</span>
+                  {isTenant ? (
+                    <>
+                      <UtensilsCrossed className="w-4 h-4 text-[#737373]" />
+                      <span>Katalog Menu</span>
+                    </>
+                  ) : (
+                    <>
+                      <Building className="w-4 h-4 text-[#737373]" />
+                      <span>{isFoodCourtManager ? 'Kelola Cabang' : 'Master Cabang'}</span>
+                    </>
+                  )}
                 </button>
               </div>
 
-              {/* Tenant Kios Mitra Terlaris Sub-strip */}
+              {/* Tenant Kios Mitra Terlaris Sub-strip / Tenant Gerai Status */}
               <div className="mt-7 pt-6 border-t border-[#f0f0f0]">
-                <div className="flex items-center justify-between text-xs mb-3.5">
-                  <span className="font-semibold text-[#0a0a0a]">
-                    Stan Tenant Mitra {selectedBranchId !== 'all' ? `(${activeFoodCourtName})` : 'Lintas Cabang'}
-                  </span>
+                {isTenant ? (
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-[14px] bg-[#0a0a0a] text-white flex items-center justify-center shadow-xs">
+                        <Store className="w-5 h-5 text-[#a3e635]" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-[#0a0a0a] text-sm">
+                          {tenantStall?.name || 'Gerai Kuliner Anda'}
+                        </div>
+                        <div className="text-[11px] font-mono text-[#737373]">
+                          Jam Operasional: {tenantStall?.openingTime?.slice(0, 5) || '09:00'} - {tenantStall?.closingTime?.slice(0, 5) || '21:00'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                          tenantStall?.isOpen !== false
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-neutral-100 text-neutral-600 border border-neutral-300'
+                        }`}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            tenantStall?.isOpen !== false ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'
+                          }`}
+                        />
+                        {tenantStall?.isOpen !== false ? 'Gerai Sedang Buka' : 'Gerai Sedang Tutup'}
+                      </span>
+                      <Link
+                        to="/app/tenant/profile"
+                        className="px-3 py-1 rounded-full bg-[#f5f5f5] hover:bg-[#e5e5e5] text-xs font-medium text-[#0a0a0a] transition-colors"
+                      >
+                        Atur Kios
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between text-xs mb-3.5">
+                      <span className="font-semibold text-[#0a0a0a]">
+                        Stan Tenant Mitra {selectedBranchId !== 'all' ? `(${activeFoodCourtName})` : 'Lintas Cabang'}
+                      </span>
+                      <Link
+                        to={isFoodCourtManager ? '/app/admin/tenants' : '/app/super-admin/tenants'}
+                        className="text-[#737373] hover:text-[#0a0a0a] font-medium transition-colors inline-flex items-center gap-1"
+                      >
+                        <span>Total {branchFilteredTenants.length} Tenant</span>
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {branchFilteredTenants.slice(0, 3).map((tenant) => (
+                        <div
+                          key={tenant.id}
+                          className="p-3.5 rounded-[20px] bg-[#fafafa] border border-[#e5e5e5] shadow-2xs hover:border-[#0a0a0a] transition-all"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Store className="w-3.5 h-3.5 text-[#0a0a0a] shrink-0" />
+                              <span className="text-xs font-bold text-[#0a0a0a] truncate">
+                                {tenant.stallNumber}
+                              </span>
+                            </div>
+                            <span
+                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                                tenant.isOpen
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {tenant.isOpen ? 'Buka' : 'Tutup'}
+                            </span>
+                          </div>
+                          <div className="mt-2 font-bold text-xs text-[#0a0a0a] truncate">
+                            {tenant.name}
+                          </div>
+                          <div className="text-[10px] font-mono text-[#737373] truncate">
+                            {tenant.foodCourtName}
+                          </div>
+                          <div className="font-mono text-xs font-semibold text-[#10b981] mt-1.5">
+                            {formatRupiah(tenant.revenue)}
+                          </div>
+                          <div className="text-[10px] text-[#737373] mt-0.5">
+                            {tenant.ordersCount} pesanan selesai
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {isTenant ? (
+              <div className="bg-[#ffffff] rounded-[32px] border border-[#e5e5e5] p-6 sm:p-7 shadow-xs">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <ChefHat className="w-4 h-4 text-[#0a0a0a]" />
+                    <span className="text-xs font-bold text-[#0a0a0a]">
+                      Antrean Pesanan Dapur Masuk Terkini
+                    </span>
+                  </div>
                   <Link
-                    to={isFoodCourtManager ? '/app/admin/tenants' : '/app/super-admin/tenants'}
-                    className="text-[#737373] hover:text-[#0a0a0a] font-medium transition-colors inline-flex items-center gap-1"
+                    to="/app/admin/orders"
+                    className="text-xs font-semibold text-[#737373] hover:text-[#0a0a0a] transition-colors inline-flex items-center gap-1"
                   >
-                    <span>Total {branchFilteredTenants.length} Tenant</span>
+                    <span>Rekap Semua Pesanan</span>
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {branchFilteredTenants.slice(0, 3).map((tenant) => (
-                    <div
-                      key={tenant.id}
-                      className="p-3.5 rounded-[20px] bg-[#fafafa] border border-[#e5e5e5] shadow-2xs hover:border-[#0a0a0a] transition-all"
+                {orders.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-[#737373]">
+                    Belum ada pesanan aktif yang masuk ke stan Anda.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-[#f0f0f0] text-[#737373] font-mono text-[10px] uppercase">
+                          <th className="pb-2.5 font-medium">Nomor Order</th>
+                          <th className="pb-2.5 font-medium">Tujuan</th>
+                          <th className="pb-2.5 font-medium">Menu</th>
+                          <th className="pb-2.5 font-medium text-right">Subtotal</th>
+                          <th className="pb-2.5 font-medium text-right">Status Dapur</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#f5f5f5]">
+                        {orders.slice(0, 5).map((to: any) => (
+                          <tr key={to.id} className="hover:bg-[#fafafa] transition-colors">
+                            <td className="py-3 font-mono font-bold text-[#0a0a0a]">
+                              {to.order?.orderNumber || to.id.slice(0, 8)}
+                            </td>
+                            <td className="py-3 font-medium text-[#737373]">
+                              {to.order?.session?.table?.tableNumber
+                                ? `Meja ${to.order.session.table.tableNumber}`
+                                : 'Bawa Pulang'}
+                            </td>
+                            <td className="py-3 text-[#0a0a0a]">
+                              {to.items && to.items.length > 0 ? (
+                                <span className="truncate max-w-[140px] inline-block">
+                                  {to.items[0].menuNameSnapshot || to.items[0].name || 'Menu'}
+                                  {to.items.length > 1 ? ` +${to.items.length - 1}` : ''}
+                                </span>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+                            <td className="py-3 font-mono font-bold text-right text-[#0a0a0a]">
+                              {formatRupiah(to.subtotal || 0)}
+                            </td>
+                            <td className="py-3 text-right">
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  to.status === 'READY'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : to.status === 'PREPARING'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : to.status === 'COMPLETED'
+                                        ? 'bg-neutral-100 text-neutral-700'
+                                        : 'bg-blue-100 text-blue-800'
+                                }`}
+                              >
+                                {to.status || 'QUEUED'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Kapasitas Keterisian Meja Food Court */}
+                <div className="bg-[#ffffff] rounded-[32px] border border-[#e5e5e5] p-6 shadow-xs">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <QrCode className="w-4 h-4 text-[#0a0a0a]" />
+                      <span className="text-xs font-bold text-[#0a0a0a]">
+                        Kapasitas Keterisian Meja Makan
+                      </span>
+                    </div>
+                    <Link
+                      to="/app/admin/tables"
+                      className="text-xs font-semibold text-[#737373] hover:text-[#0a0a0a] transition-colors inline-flex items-center gap-1"
                     >
+                      <span>Kelola Meja</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+
+                  <div className="w-full h-3 rounded-full bg-[#f0f0f0] overflow-hidden flex">
+                    <div
+                      className="h-full bg-[#047857] transition-all duration-500"
+                      style={{ width: `${occupancyPercentage}%` }}
+                    />
+                    <div
+                      className="h-full flex-1 opacity-25"
+                      style={{
+                        backgroundImage:
+                          'repeating-linear-gradient(45deg, #047857, #047857 6px, transparent 6px, transparent 12px)',
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-[#737373] mt-3 font-mono">
+                    <span className="text-[#0a0a0a] font-bold">
+                      {occupiedTablesCount} Meja Terisi dari {totalTablesCount} Total Meja ({occupancyPercentage}%)
+                    </span>
+                    <span>{totalTablesCount - occupiedTablesCount} Meja Siap Pakai</span>
+                  </div>
+                </div>
+
+                {/* Metode Settlement & Penerimaan Kasir */}
+                <div className="bg-[#ffffff] rounded-[32px] border border-[#e5e5e5] p-6 shadow-xs">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-[#0a0a0a]" />
+                      <span className="text-xs font-bold text-[#0a0a0a]">
+                        Kanal Pembayaran & Settlement Sentra
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => alert('Rekening terhubung secara otomatis ke Midtrans Snap gateway.')}
+                      className="text-xs font-semibold text-[#0a0a0a] hover:text-[#737373] transition-colors"
+                    >
+                      Detail Saldo
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Black BCA Escrow Card */}
+                    <div className="h-44 rounded-[24px] bg-gradient-to-br from-[#1c1c1c] to-[#0a0a0a] text-white p-5 flex flex-col justify-between shadow-md relative overflow-hidden select-none">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <Store className="w-3.5 h-3.5 text-[#0a0a0a] shrink-0" />
-                          <span className="text-xs font-bold text-[#0a0a0a] truncate">
-                            {tenant.stallNumber}
+                        <div className="flex items-center gap-2">
+                          <Wifi className="w-4 h-4 rotate-90 opacity-80" />
+                          <span className="text-[10px] font-semibold bg-white/10 px-2 py-0.5 rounded-full backdrop-blur-xs">
+                            BCA Escrow
                           </span>
                         </div>
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                            tenant.isOpen
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {tenant.isOpen ? 'Buka' : 'Tutup'}
+                        {/* Dual circles badge */}
+                        <div className="flex items-center -space-x-2">
+                          <div className="w-5 h-5 rounded-full bg-[#ea4335] opacity-90" />
+                          <div className="w-5 h-5 rounded-full bg-[#fbbc05] opacity-90" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-[10px] text-white/60 mb-0.5 font-mono uppercase">
+                          Rekening Penampung Food Court
+                        </div>
+                        <div className="text-xs font-mono font-bold tracking-wider">
+                          8830 •••• 6782
+                        </div>
+                        <div className="text-[10px] text-white/50 mt-1">
+                          PT Sentra Kuliner Amici
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Deep Green QRIS Card */}
+                    <div className="h-44 rounded-[24px] bg-gradient-to-br from-[#064e3b] via-[#022c22] to-[#011c16] text-white p-5 flex flex-col justify-between shadow-md relative overflow-hidden select-none">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Wifi className="w-4 h-4 rotate-90 opacity-80" />
+                          <span className="text-[10px] font-semibold bg-white/10 px-2 py-0.5 rounded-full backdrop-blur-xs">
+                            QRIS Dinamis
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono font-bold text-emerald-400">
+                          Midtrans
                         </span>
                       </div>
-                      <div className="mt-2 font-bold text-xs text-[#0a0a0a] truncate">
-                        {tenant.name}
+
+                      <div>
+                        <div className="text-[10px] text-white/60 mb-0.5 font-mono uppercase">
+                          ID Merchant Sentral
+                        </div>
+                        <div className="text-xs font-mono font-bold tracking-wider">
+                          MID-AMICI-SBY-001
+                        </div>
+                        <div className="text-[10px] text-emerald-300/70 mt-1">
+                          Multi-Cart 1x Bayar Seluruh Kios
+                        </div>
                       </div>
-                      <div className="text-[10px] font-mono text-[#737373] truncate">
-                        {tenant.foodCourtName}
-                      </div>
-                      <div className="font-mono text-xs font-semibold text-[#10b981] mt-1.5">
-                        {formatRupiah(tenant.revenue)}
-                      </div>
-                      <div className="text-[10px] text-[#737373] mt-0.5">
-                        {tenant.ordersCount} pesanan selesai
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Kapasitas Keterisian Meja Food Court */}
-            <div className="bg-[#ffffff] rounded-[32px] border border-[#e5e5e5] p-6 shadow-xs">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <QrCode className="w-4 h-4 text-[#0a0a0a]" />
-                  <span className="text-xs font-bold text-[#0a0a0a]">
-                    Kapasitas Keterisian Meja Makan
-                  </span>
-                </div>
-                <Link
-                  to="/app/admin/tables"
-                  className="text-xs font-semibold text-[#737373] hover:text-[#0a0a0a] transition-colors inline-flex items-center gap-1"
-                >
-                  <span>Kelola Meja</span>
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-
-              <div className="w-full h-3 rounded-full bg-[#f0f0f0] overflow-hidden flex">
-                <div
-                  className="h-full bg-[#047857] transition-all duration-500"
-                  style={{ width: `${occupancyPercentage}%` }}
-                />
-                <div
-                  className="h-full flex-1 opacity-25"
-                  style={{
-                    backgroundImage:
-                      'repeating-linear-gradient(45deg, #047857, #047857 6px, transparent 6px, transparent 12px)',
-                  }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-[#737373] mt-3 font-mono">
-                <span className="text-[#0a0a0a] font-bold">
-                  {occupiedTablesCount} Meja Terisi dari {totalTablesCount} Total Meja ({occupancyPercentage}%)
-                </span>
-                <span>{totalTablesCount - occupiedTablesCount} Meja Siap Pakai</span>
-              </div>
-            </div>
-
-            {/* Metode Settlement & Penerimaan Kasir */}
-            <div className="bg-[#ffffff] rounded-[32px] border border-[#e5e5e5] p-6 shadow-xs">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-[#0a0a0a]" />
-                  <span className="text-xs font-bold text-[#0a0a0a]">
-                    Kanal Pembayaran & Settlement Sentra
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => alert('Rekening terhubung secara otomatis ke Midtrans Snap gateway.')}
-                  className="text-xs font-semibold text-[#0a0a0a] hover:text-[#737373] transition-colors"
-                >
-                  Detail Saldo
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Black BCA Escrow Card */}
-                <div className="h-44 rounded-[24px] bg-gradient-to-br from-[#1c1c1c] to-[#0a0a0a] text-white p-5 flex flex-col justify-between shadow-md relative overflow-hidden select-none">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Wifi className="w-4 h-4 rotate-90 opacity-80" />
-                      <span className="text-[10px] font-semibold bg-white/10 px-2 py-0.5 rounded-full backdrop-blur-xs">
-                        BCA Escrow
-                      </span>
-                    </div>
-                    {/* Dual circles badge */}
-                    <div className="flex items-center -space-x-2">
-                      <div className="w-5 h-5 rounded-full bg-[#ea4335] opacity-90" />
-                      <div className="w-5 h-5 rounded-full bg-[#fbbc05] opacity-90" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-[10px] text-white/60 mb-0.5 font-mono uppercase">
-                      Rekening Penampung Food Court
-                    </div>
-                    <div className="text-xs font-mono font-bold tracking-wider">
-                      8830 •••• 6782
-                    </div>
-                    <div className="text-[10px] text-white/50 mt-1">
-                      PT Sentra Kuliner Amici
                     </div>
                   </div>
                 </div>
-
-                {/* Deep Green QRIS Card */}
-                <div className="h-44 rounded-[24px] bg-gradient-to-br from-[#064e3b] via-[#022c22] to-[#011c16] text-white p-5 flex flex-col justify-between shadow-md relative overflow-hidden select-none">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Wifi className="w-4 h-4 rotate-90 opacity-80" />
-                      <span className="text-[10px] font-semibold bg-white/10 px-2 py-0.5 rounded-full backdrop-blur-xs">
-                        QRIS Dinamis
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono font-bold text-emerald-400">
-                      Midtrans
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="text-[10px] text-white/60 mb-0.5 font-mono uppercase">
-                      ID Merchant Sentral
-                    </div>
-                    <div className="text-xs font-mono font-bold tracking-wider">
-                      MID-AMICI-SBY-001
-                    </div>
-                    <div className="text-[10px] text-emerald-300/70 mt-1">
-                      Multi-Cart 1x Bayar Seluruh Kios
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
 
           {/* RIGHT COLUMN: 4 Metric Cards + Stacked Bar Chart + Activities (5 cols) */}
           <div className="lg:col-span-5 space-y-5">
-            {/* 2x2 Metric Cards Grid (Super Admin Macro Metrics) */}
+            {/* 2x2 Metric Cards Grid */}
             <div className="grid grid-cols-2 gap-3.5">
-              {/* Card 1: Total Omzet Global Sistem (Green Highlighted Card) */}
-              <div className="p-5 rounded-[26px] bg-gradient-to-br from-[#22c55e] via-[#16a34a] to-[#15803d] text-white shadow-xs flex flex-col justify-between h-36">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white/90">
-                    {isFoodCourtManager ? 'Total Omzet Cabang' : 'Total Omzet Sistem'}
-                  </span>
-                  <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
-                    <Wallet className="w-3.5 h-3.5 text-white" />
+              {isTenant ? (
+                <>
+                  {/* Card 1: Antrean Dapur Aktif */}
+                  <div className="p-5 rounded-[26px] bg-gradient-to-br from-[#22c55e] via-[#16a34a] to-[#15803d] text-white shadow-xs flex flex-col justify-between h-36">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-white/90">
+                        Antrean Dapur Aktif
+                      </span>
+                      <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
+                        <ChefHat className="w-3.5 h-3.5 text-white" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-heading text-xl sm:text-2xl font-black tracking-tight text-white">
+                        {tenantActiveOrders.length} Antrean
+                      </div>
+                      <div className="text-[11px] text-white/90 mt-1 font-medium">
+                        {tenantQueuedCount} Menunggu • {tenantPreparingCount} Dimasak • {tenantReadyCount} Siap
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="font-heading text-xl sm:text-2xl font-black tracking-tight text-white">
-                    {formatRupiah(displayRevenue)}
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] text-white/90 mt-1 font-medium">
-                    <TrendingUp className="w-3 h-3" />
-                    <span>+14.5% dari bulan lalu</span>
-                  </div>
-                </div>
-              </div>
 
-              {/* Card 2: Cabang Food Court Aktif / Okupansi Meja */}
-              <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[#737373]">
-                    {isFoodCourtManager ? 'Okupansi Meja' : 'Cabang Food Court'}
-                  </span>
-                  <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
-                    {isFoodCourtManager ? (
-                      <QrCode className="w-3.5 h-3.5" />
-                    ) : (
-                      <Building className="w-3.5 h-3.5" />
-                    )}
+                  {/* Card 2: Pesanan Selesai */}
+                  <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[#737373]">Pesanan Selesai</span>
+                      <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#10b981]" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-heading text-lg sm:text-xl font-bold tracking-tight text-[#0a0a0a]">
+                        {tenantCompletedCount} Pesanan
+                      </div>
+                      <div className="text-[11px] text-[#737373] mt-1 font-medium">
+                        Pesanan sukses disajikan
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="font-heading text-lg sm:text-xl font-bold tracking-tight text-[#0a0a0a]">
-                    {isFoodCourtManager
-                      ? `${occupancyPercentage}% Terisi`
-                      : `${foodCourts.length || 1} Cabang Aktif`}
-                  </div>
-                  <div className="text-[11px] text-[#737373] mt-1 font-medium">
-                    {isFoodCourtManager
-                      ? `${occupiedTablesCount} dari ${totalTablesCount} meja makan`
-                      : 'Sentra kuliner terdaftar'}
-                  </div>
-                </div>
-              </div>
 
-              {/* Card 3: Total Tenant Mitra Terdaftar */}
-              <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[#737373]">
-                    {isFoodCourtManager ? 'Stan Kios Cabang' : 'Tenant Mitra Global'}
-                  </span>
-                  <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
-                    <Store className="w-3.5 h-3.5" />
+                  {/* Card 3: Menu Siap Jual */}
+                  <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[#737373]">Menu Siap Jual</span>
+                      <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
+                        <UtensilsCrossed className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-heading text-lg sm:text-xl font-bold tracking-tight text-[#0a0a0a]">
+                        {tenantAvailableMenusCount} / {tenantMenus.length || 0} Menu
+                      </div>
+                      <div className="text-[11px] text-[#10b981] mt-1 font-medium">
+                        Aktif di katalog pembeli
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="font-heading text-lg sm:text-xl font-bold tracking-tight text-[#0a0a0a]">
-                    {isFoodCourtManager
-                      ? `${branchFilteredTenants.length} Stan Kios`
-                      : `${displayTenants.length} Stan Kios`}
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] text-[#10b981] mt-1 font-medium">
-                    <TrendingUp className="w-3 h-3" />
-                    <span>Terverifikasi aktif berjualan</span>
-                  </div>
-                </div>
-              </div>
 
-              {/* Card 4: Total Pesanan Selesai */}
-              <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[#737373]">Pesanan Selesai</span>
-                  <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
-                    <ShoppingBag className="w-3.5 h-3.5" />
+                  {/* Card 4: Meja Food Court */}
+                  <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[#737373]">Meja Food Court</span>
+                      <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
+                        <QrCode className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-heading text-lg sm:text-xl font-bold tracking-tight text-[#0a0a0a]">
+                        {occupiedTablesCount} / {totalTablesCount} Meja
+                      </div>
+                      <div className="text-[11px] text-[#737373] mt-1 font-medium">
+                        {occupancyPercentage}% Meja Terisi
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="font-heading text-2xl font-bold tracking-tight text-[#0a0a0a]">
-                    {completedOrdersCount} Pesanan
+                </>
+              ) : (
+                <>
+                  {/* Card 1: Total Omzet Global Sistem (Green Highlighted Card) */}
+                  <div className="p-5 rounded-[26px] bg-gradient-to-br from-[#22c55e] via-[#16a34a] to-[#15803d] text-white shadow-xs flex flex-col justify-between h-36">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-white/90">
+                        {isFoodCourtManager ? 'Total Omzet Cabang' : 'Total Omzet Sistem'}
+                      </span>
+                      <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
+                        <Wallet className="w-3.5 h-3.5 text-white" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-heading text-xl sm:text-2xl font-black tracking-tight text-white">
+                        {formatRupiah(displayRevenue)}
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-white/90 mt-1 font-medium">
+                        <TrendingUp className="w-3 h-3" />
+                        <span>+14.5% dari bulan lalu</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 text-[11px] text-[#10b981] mt-1 font-medium">
-                    <UtensilsCrossed className="w-3 h-3" />
-                    <span>Rata-rata 14 menit masak</span>
+
+                  {/* Card 2: Cabang Food Court Aktif / Okupansi Meja */}
+                  <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[#737373]">
+                        {isFoodCourtManager ? 'Okupansi Meja' : 'Cabang Food Court'}
+                      </span>
+                      <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
+                        {isFoodCourtManager ? (
+                          <QrCode className="w-3.5 h-3.5" />
+                        ) : (
+                          <Building className="w-3.5 h-3.5" />
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-heading text-lg sm:text-xl font-bold tracking-tight text-[#0a0a0a]">
+                        {isFoodCourtManager
+                          ? `${occupancyPercentage}% Terisi`
+                          : `${foodCourts.length || 1} Cabang Aktif`}
+                      </div>
+                      <div className="text-[11px] text-[#737373] mt-1 font-medium">
+                        {isFoodCourtManager
+                          ? `${occupiedTablesCount} dari ${totalTablesCount} meja makan`
+                          : 'Sentra kuliner terdaftar'}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+
+                  {/* Card 3: Total Tenant Mitra Terdaftar */}
+                  <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[#737373]">
+                        {isFoodCourtManager ? 'Stan Kios Cabang' : 'Tenant Mitra Global'}
+                      </span>
+                      <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
+                        <Store className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-heading text-lg sm:text-xl font-bold tracking-tight text-[#0a0a0a]">
+                        {isFoodCourtManager
+                          ? `${branchFilteredTenants.length} Stan Kios`
+                          : `${displayTenants.length} Stan Kios`}
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-[#10b981] mt-1 font-medium">
+                        <TrendingUp className="w-3 h-3" />
+                        <span>Terverifikasi aktif berjualan</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Total Pesanan Selesai */}
+                  <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[#737373]">Pesanan Selesai</span>
+                      <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-heading text-2xl font-bold tracking-tight text-[#0a0a0a]">
+                        {completedOrdersCount} Pesanan
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-[#10b981] mt-1 font-medium">
+                        <UtensilsCrossed className="w-3 h-3" />
+                        <span>Rata-rata 14 menit masak</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Total Income Chart (Recharts Stacked Bar Chart) */}

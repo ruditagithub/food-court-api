@@ -72,6 +72,22 @@ export function KitchenDisplayPage() {
 
   // Extract tenant orders belonging to current stall
   const allTenantTickets = orders.flatMap((ord) => {
+    // If ord is already a tenantOrder (from tenant GET /api/orders)
+    if (ord.tenantId || ord.order) {
+      if (tenant?.id && ord.tenantId && ord.tenantId !== tenant.id) return []
+      return [
+        {
+          tenantOrder: ord,
+          orderNumber: ord.order?.orderNumber || ord.orderNumber || 'ORD-...',
+          tableNumber:
+            ord.order?.session?.table?.tableNumber || ord.table?.tableNumber || ord.tableNumber,
+          customerName: ord.order?.customerName || ord.customerName,
+          createdAt: ord.createdAt,
+        },
+      ]
+    }
+
+    // If ord is a master order with tenantOrders array
     const matchingTenantOrders = (ord.tenantOrders || []).filter(
       (to: any) => !tenant?.id || to.tenantId === tenant.id
     )
@@ -103,7 +119,7 @@ export function KitchenDisplayPage() {
       foodCourtName={tenant?.foodCourt?.name}
       stallNumber={tenant?.stallNumber}
       actions={
-        <div className="flex items-center gap-2 text-xs font-mono text-[#737373]">
+        <div className="flex items-center gap-2 text-xs font-mono text-[#737373] bg-white px-3 py-1.5 rounded-full border border-[#e5e5e5] shadow-xs">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span>Live Polling Aktif</span>
         </div>
@@ -117,18 +133,18 @@ export function KitchenDisplayPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
           {/* Column 1: Antre Masak (QUEUED) */}
-          <div className="rounded-[24px] bg-[#f0f0f0] p-4 border border-[#e5e5e5] space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-[#e5e5e5]">
+          <div className="rounded-[28px] bg-[#f9fafb] p-5 border border-[#e5e7eb] shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#e5e7eb]">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                 <h3 className="font-bold text-sm text-[#0a0a0a]">Antre Masak</h3>
               </div>
-              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-[10px] bg-white text-[#0a0a0a]">
+              <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-[12px] bg-white border border-[#e5e7eb] text-[#0a0a0a]">
                 {queuedTickets.length}
               </span>
             </div>
 
-            <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto">
+            <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5">
               {queuedTickets.length === 0 ? (
                 <p className="py-12 text-center text-xs text-[#737373]">
                   Tidak ada antrean pesanan baru.
@@ -151,18 +167,18 @@ export function KitchenDisplayPage() {
           </div>
 
           {/* Column 2: Sedang Dimasak (PREPARING) */}
-          <div className="rounded-[24px] bg-[#f0f0f0] p-4 border border-[#e5e5e5] space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-[#e5e5e5]">
+          <div className="rounded-[28px] bg-[#f9fafb] p-5 border border-[#e5e7eb] shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#e5e7eb]">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
                 <h3 className="font-bold text-sm text-[#0a0a0a]">Sedang Dimasak</h3>
               </div>
-              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-[10px] bg-white text-[#0a0a0a]">
+              <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-[12px] bg-white border border-[#e5e7eb] text-[#0a0a0a]">
                 {preparingTickets.length}
               </span>
             </div>
 
-            <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto">
+            <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5">
               {preparingTickets.length === 0 ? (
                 <p className="py-12 text-center text-xs text-[#737373]">
                   Tidak ada masakan yang sedang diproses.
@@ -185,18 +201,18 @@ export function KitchenDisplayPage() {
           </div>
 
           {/* Column 3: Siap Diambil (READY) */}
-          <div className="rounded-[24px] bg-[#f0f0f0] p-4 border border-[#e5e5e5] space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-[#e5e5e5]">
+          <div className="rounded-[28px] bg-[#f9fafb] p-5 border border-[#e5e7eb] shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#e5e7eb]">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <h3 className="font-bold text-sm text-[#0a0a0a]">Siap Diambil</h3>
               </div>
-              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-[10px] bg-white text-[#0a0a0a]">
+              <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-[12px] bg-white border border-[#e5e7eb] text-[#0a0a0a]">
                 {readyTickets.length}
               </span>
             </div>
 
-            <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto">
+            <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5">
               {readyTickets.length === 0 ? (
                 <p className="py-12 text-center text-xs text-[#737373]">
                   Tidak ada hidangan yang menunggu diambil.

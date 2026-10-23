@@ -4,6 +4,7 @@ import {
   Building,
   Store,
   UtensilsCrossed,
+  ChefHat,
   Calendar,
   FileText,
   Layers,
@@ -20,8 +21,63 @@ export function SuperAdminRailAside() {
   const { logout, user } = useAuth()
 
   const isFoodCourtManager = user?.role === 'admin-food-court'
+  const isTenant = user?.role === 'tenant'
 
-  const navItems = isFoodCourtManager
+  const navItems = isTenant
+    ? [
+        {
+          to: '/app/dashboard',
+          label: 'Ringkasan Omzet Gerai',
+          icon: LayoutDashboard,
+          isActive:
+            location.pathname === '/app/dashboard' || location.pathname === '/dashboard',
+        },
+        {
+          to: '/app/tenant/kds',
+          label: 'Layar Dapur (KDS)',
+          icon: ChefHat,
+          isActive: location.pathname.startsWith('/app/tenant/kds'),
+        },
+        {
+          to: '/app/tenant/menus',
+          label: 'Katalog Menu & Stok',
+          icon: UtensilsCrossed,
+          isActive: location.pathname.startsWith('/app/tenant/menus'),
+        },
+        {
+          to: '/app/categories',
+          label: 'Kategori Menu Gerai',
+          icon: FolderKanban,
+          isActive: location.pathname.startsWith('/app/categories'),
+        },
+        {
+          to: '/app/admin/orders',
+          label: 'Rekap Pesanan Masuk',
+          icon: Calendar,
+          isActive:
+            location.pathname.startsWith('/app/admin/orders') ||
+            location.pathname.startsWith('/app/tenant/orders'),
+        },
+        {
+          to: '/app/admin/tables',
+          label: 'Status Meja Cabang',
+          icon: Layers,
+          isActive: location.pathname.startsWith('/app/admin/tables'),
+        },
+        {
+          to: '/app/tenant/profile',
+          label: 'Profil & Operasional Kios',
+          icon: Store,
+          isActive: location.pathname.startsWith('/app/tenant/profile'),
+        },
+        {
+          to: '/app/profile',
+          label: 'Pengaturan Akun Pengguna',
+          icon: Settings,
+          isActive: location.pathname.startsWith('/app/profile'),
+        },
+      ]
+    : isFoodCourtManager
     ? [
         {
           to: '/app/dashboard',

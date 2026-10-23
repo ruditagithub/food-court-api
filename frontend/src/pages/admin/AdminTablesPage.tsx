@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react'
 import { apiFetch, getToken } from '../../api/client'
+import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { InternalLayout } from '../../components/layout/InternalLayout'
 import { Card } from '../../components/ui/Card'
@@ -22,6 +23,8 @@ import {
 import type { Table, TableStatus } from '../../types'
 
 export function AdminTablesPage() {
+  const { user } = useAuth()
+  const isTenant = user?.role === 'tenant'
   const { error: toastError, success: toastSuccess } = useToast()
 
   const [foodCourt, setFoodCourt] = useState<any>(null)
@@ -182,18 +185,24 @@ export function AdminTablesPage() {
   return (
     <InternalLayout
       title="Manajemen Meja & QR Dinamis"
-      subtitle="Pantau okupansi meja makan, cetak kartu QR fisik, dan kelola sesi pelanggan"
+      subtitle={
+        isTenant
+          ? "Pantau okupansi dan ketersediaan meja makan pelanggan di area food court"
+          : "Pantau okupansi meja makan, cetak kartu QR fisik, dan kelola sesi pelanggan"
+      }
       foodCourtName={foodCourt?.name}
       actions={
-        <Button
-          variant="primary"
-          onClick={() => setCreateDialogOpen(true)}
-          className="gap-2"
-        >
-          <Icons.Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Tambah Meja Makan</span>
-          <span className="sm:hidden">Tambah</span>
-        </Button>
+        isTenant ? null : (
+          <Button
+            variant="primary"
+            onClick={() => setCreateDialogOpen(true)}
+            className="gap-2"
+          >
+            <Icons.Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Tambah Meja Makan</span>
+            <span className="sm:hidden">Tambah</span>
+          </Button>
+        )
       }
     >
       <div className="space-y-4">
@@ -256,62 +265,68 @@ export function AdminTablesPage() {
                   </Badge>
                 </div>
 
-                {/* Status Switcher Dropdown */}
-                <div className="pt-2 border-t border-[#e5e5e5]">
-                  <Label htmlFor={`status-${table.id}`} className="!text-[10px] !mb-1">
-                    Ubah Status:
-                  </Label>
-                  <Select
-                    id={`status-${table.id}`}
-                    value={table.status}
-                    onChange={(e) => handleStatusChange(table.id, e.target.value as TableStatus)}
-                    className="!h-8 !text-xs !py-1"
-                  >
-                    <option value="available">Tersedia (Ready)</option>
-                    <option value="occupied">Terisi Tamu (In Use)</option>
-                    <option value="disabled">Nonaktif (Disabled)</option>
-                  </Select>
-                </div>
+                {/* Status Switcher Dropdown (Admin only) */}
+                {!isTenant && (
+                  <div className="pt-2 border-t border-[#e5e5e5]">
+                    <Label htmlFor={`status-${table.id}`} className="!text-[10px] !mb-1">
+                      Ubah Status:
+                    </Label>
+                    <Select
+                      id={`status-${table.id}`}
+                      value={table.status}
+                      onChange={(e) => handleStatusChange(table.id, e.target.value as TableStatus)}
+                      className="!h-8 !text-xs !py-1"
+                    >
+                      <option value="available">Tersedia (Ready)</option>
+                      <option value="occupied">Terisi Tamu (In Use)</option>
+                      <option value="disabled">Nonaktif (Disabled)</option>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Quick actions buttons */}
                 <div className="flex items-center justify-between gap-1 pt-1">
-                  <button
-                    type="button"
-                    title="Cetak Stiker QR"
-                    onClick={() => {
-                      setSelectedForPrint(table)
-                      setPrintModalOpen(true)
-                    }}
-                    className="p-1.5 rounded-[12px] bg-[#f5f5f5] hover:bg-[#e5e5e5] text-[#0a0a0a] text-xs flex items-center gap-1 font-medium px-2 transition-colors cursor-pointer"
-                  >
-                    <Icons.QrCode className="w-3.5 h-3.5" />
-                    <span>QR</span>
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      title="Cetak Stiker QR"
+                      onClick={() => {
+                        setSelectedForPrint(table)
+                        setPrintModalOpen(true)
+                      }}
+                      className="p-1.5 rounded-[12px] bg-[#f5f5f5] hover:bg-[#e5e5e5] text-[#0a0a0a] text-xs flex items-center gap-1 font-medium px-2 transition-colors cursor-pointer"
+                    >
+                      <Icons.QrCode className="w-3.5 h-3.5" />
+                      <span>QR</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    title="Riwayat Sesi Makan"
-                    onClick={() => {
-                      setSelectedForSession(table)
-                      setSessionDrawerOpen(true)
-                    }}
-                    className="p-1.5 rounded-[12px] bg-[#f5f5f5] hover:bg-[#e5e5e5] text-[#0a0a0a] text-xs flex items-center gap-1 font-medium px-2 transition-colors cursor-pointer"
-                  >
-                    <Icons.Clock className="w-3.5 h-3.5" />
-                    <span>Sesi</span>
-                  </button>
+                    <button
+                      type="button"
+                      title="Riwayat Sesi Makan"
+                      onClick={() => {
+                        setSelectedForSession(table)
+                        setSessionDrawerOpen(true)
+                      }}
+                      className="p-1.5 rounded-[12px] bg-[#f5f5f5] hover:bg-[#e5e5e5] text-[#0a0a0a] text-xs flex items-center gap-1 font-medium px-2 transition-colors cursor-pointer"
+                    >
+                      <Icons.Clock className="w-3.5 h-3.5" />
+                      <span>Sesi</span>
+                    </button>
+                  </div>
 
-                  <button
-                    type="button"
-                    title="Hapus Meja"
-                    onClick={() => {
-                      setItemToDelete(table)
-                      setDeleteConfirmOpen(true)
-                    }}
-                    className="p-1.5 rounded-[12px] text-[#737373] hover:text-[#e7000b] hover:bg-[#fff0f0] transition-colors cursor-pointer"
-                  >
-                    <Icons.Trash className="w-3.5 h-3.5" />
-                  </button>
+                  {!isTenant && (
+                    <button
+                      type="button"
+                      title="Hapus Meja"
+                      onClick={() => {
+                        setItemToDelete(table)
+                        setDeleteConfirmOpen(true)
+                      }}
+                      className="p-1.5 rounded-[12px] text-[#737373] hover:text-[#e7000b] hover:bg-[#fff0f0] transition-colors cursor-pointer"
+                    >
+                      <Icons.Trash className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </Card>
             ))

@@ -125,7 +125,7 @@ function App() {
         <Route
           path="/app/admin/tables"
           element={
-            <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
+            <RoleGuard allowedRoles={['admin-food-court', 'admin', 'tenant']}>
               <AdminTablesPage />
             </RoleGuard>
           }
@@ -144,7 +144,15 @@ function App() {
         <Route
           path="/app/admin/orders"
           element={
-            <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
+            <RoleGuard allowedRoles={['admin-food-court', 'admin', 'tenant']}>
+              <AdminOrdersPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/app/tenant/orders"
+          element={
+            <RoleGuard allowedRoles={['tenant']}>
               <AdminOrdersPage />
             </RoleGuard>
           }

@@ -26,8 +26,8 @@ export function InternalLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { user } = useAuth()
 
-  // Unified Admin Shell (Sticky Aside Rail + Top Header + Bento Canvas)
-  if (user?.role === 'admin' || user?.role === 'admin-food-court') {
+  // Unified Shell (Sticky Aside Rail + Top Header + Bento Canvas)
+  if (user?.role === 'admin' || user?.role === 'admin-food-court' || user?.role === 'tenant') {
     return (
       <div className="min-h-screen bg-[#f3f4f6] text-[#0a0a0a] flex flex-col lg:flex-row p-3 sm:p-5 lg:p-6 gap-5">
         {/* Sticky Aside Rail Dock */}
@@ -69,7 +69,11 @@ export function InternalLayout({
                 </div>
                 <div className="flex items-center gap-2 self-start sm:self-auto">
                   <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-[#0a0a0a] text-[#ffffff] font-semibold">
-                    {user?.role === 'admin-food-court' ? 'FOOD COURT MANAGER' : 'SUPER ADMIN'}
+                    {user?.role === 'admin-food-court'
+                      ? 'FOOD COURT MANAGER'
+                      : user?.role === 'tenant'
+                        ? 'TENANT PARTNER'
+                        : 'SUPER ADMIN'}
                   </span>
                 </div>
               </div>

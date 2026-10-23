@@ -8,6 +8,7 @@ import {
   Bell,
   Info,
   Menu,
+  Store,
 } from 'lucide-react'
 import { HeaderProfilePill } from './HeaderProfilePill'
 import { apiFetch, getToken } from '../../api/client'
@@ -30,8 +31,10 @@ export function SuperAdminHeader({
 }: SuperAdminHeaderProps) {
   const { user } = useAuth()
   const isFoodCourtManager = user?.role === 'admin-food-court'
+  const isTenant = user?.role === 'tenant'
 
   const [foodCourts, setFoodCourts] = useState<any[]>([])
+  const [tenantInfo, setTenantInfo] = useState<any>(null)
   const [internalBranchId, setInternalBranchId] = useState<string>('all')
   const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false)
 
@@ -47,21 +50,32 @@ export function SuperAdminHeader({
   }
 
   useEffect(() => {
-    async function loadFoodCourts() {
-      try {
-        const token = getToken()
-        const res = await apiFetch<{ data: any[] }>('/api/food-courts', {
-          token: token || undefined,
-        })
-        if (res?.data) {
-          setFoodCourts(res.data)
+    async function loadHeaderContext() {
+      const token = getToken()
+      const headers = { token: token || undefined }
+
+      if (isTenant) {
+        try {
+          const res = await apiFetch<{ data: any }>('/api/tenants/mine', headers)
+          if (res?.data) {
+            setTenantInfo(res.data)
+          }
+        } catch (err) {
+          console.warn('Failed to fetch tenant info for header:', err)
         }
-      } catch (err) {
-        console.warn('Failed to fetch food courts for header dropdown:', err)
+      } else {
+        try {
+          const res = await apiFetch<{ data: any[] }>('/api/food-courts', headers)
+          if (res?.data) {
+            setFoodCourts(res.data)
+          }
+        } catch (err) {
+          console.warn('Failed to fetch food courts for header dropdown:', err)
+        }
       }
     }
-    loadFoodCourts()
-  }, [])
+    loadHeaderContext()
+  }, [isTenant])
 
   const activeFoodCourt =
     selectedBranchId === 'all'
@@ -100,13 +114,39 @@ export function SuperAdminHeader({
               Amici Food Court
             </span>
             <span className="text-[10px] font-mono text-[#737373] leading-none">
-              {isFoodCourtManager ? 'Food Court Manager' : 'Super Admin Management'}
+              {isTenant
+                ? 'Tenant Partner'
+                : isFoodCourtManager
+                  ? 'Food Court Manager'
+                  : 'Super Admin Management'}
             </span>
           </div>
         </Link>
 
-        {/* Branch Context Indicator / Filter Dropdown */}
-        {isFoodCourtManager ? (
+        {/* Branch / Stall Context Indicator / Filter Dropdown */}
+        {isTenant ? (
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#ffffff] border border-[#e5e5e5] text-xs font-semibold text-[#0a0a0a] shadow-xs ml-1 sm:ml-2">
+            <Store className="w-3.5 h-3.5 text-[#10b981]" />
+            <span className="truncate max-w-[160px] sm:max-w-[240px]">
+              {tenantInfo?.stallNumber ? `${tenantInfo.stallNumber} - ` : ''}
+              {tenantInfo?.name || 'Kios Mitra'}
+            </span>
+            <span
+              className={`hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${
+                tenantInfo?.isOpen !== false
+                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                  : 'text-neutral-600 bg-neutral-100 border-neutral-300'
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  tenantInfo?.isOpen !== false ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'
+                }`}
+              />
+              {tenantInfo?.isOpen !== false ? 'Buka' : 'Tutup'}
+            </span>
+          </div>
+        ) : isFoodCourtManager ? (
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#ffffff] border border-[#e5e5e5] text-xs font-semibold text-[#0a0a0a] shadow-xs ml-1 sm:ml-2">
             <Building className="w-3.5 h-3.5 text-[#10b981]" />
             <span className="truncate max-w-[160px] sm:max-w-[240px]">

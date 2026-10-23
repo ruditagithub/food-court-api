@@ -23,6 +23,8 @@ import {
   QrCode,
   UtensilsCrossed,
   Building,
+  Banknote,
+  ArrowUpRight,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { apiFetch, getToken } from '../../api/client'
@@ -33,6 +35,7 @@ import { SuperAdminHeader } from '../../components/layout/SuperAdminHeader'
 export function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const isFoodCourtManager = user?.role === 'admin-food-court'
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all')
@@ -68,6 +71,9 @@ export function DashboardPage() {
         }
         if (fcRes.status === 'fulfilled' && fcRes.value?.data) {
           setFoodCourts(fcRes.value.data)
+          if (isFoodCourtManager && fcRes.value.data.length > 0) {
+            setSelectedBranchId(fcRes.value.data[0].id)
+          }
         }
       } catch (err) {
         console.warn('Dashboard data fetch fallback active:', err)
@@ -77,7 +83,7 @@ export function DashboardPage() {
     }
 
     loadDashboardData()
-  }, [])
+  }, [isFoodCourtManager])
 
   // Calculate stats from real orders
   const totalRevenue = orders.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0)
@@ -272,6 +278,7 @@ export function DashboardPage() {
         <SuperAdminHeader
           selectedBranchId={selectedBranchId}
           onBranchChange={setSelectedBranchId}
+          foodCourtName={isFoodCourtManager ? activeFoodCourtName : undefined}
         />
 
         {/* Greeting Section */}
@@ -279,15 +286,19 @@ export function DashboardPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-[#0a0a0a]">
-                Selamat Pagi, {user?.name || 'Administrator Food Court'}
+                {isFoodCourtManager
+                  ? `Selamat Datang, ${user?.name || 'Manajer Food Court'}`
+                  : `Selamat Pagi, ${user?.name || 'Administrator Food Court'}`}
               </h1>
               <p className="text-xs sm:text-sm text-[#737373] mt-1">
-                Pantau arus kas masuk, performa kios mitra, dan kontrol sentral {selectedBranchId === 'all' ? 'seluruh cabang food court' : activeFoodCourtName}.
+                {isFoodCourtManager
+                  ? `Pantau arus transaksi, performa stan kios, dan okupansi meja di ${activeFoodCourtName}.`
+                  : `Pantau arus kas masuk, performa kios mitra, dan kontrol sentral ${selectedBranchId === 'all' ? 'seluruh cabang food court' : activeFoodCourtName}.`}
               </p>
             </div>
             <div className="flex items-center gap-2 self-start sm:self-auto">
               <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-[#0a0a0a] text-[#ffffff] font-semibold">
-                ROLE: {user?.role || 'admin'}
+                {isFoodCourtManager ? 'FOOD COURT MANAGER' : 'SUPER ADMIN'}
               </span>
             </div>
           </div>
@@ -304,7 +315,7 @@ export function DashboardPage() {
                   {selectedBranchId === 'all' ? 'Total Omzet Penjualan Global' : `Total Omzet ${activeFoodCourtName}`}
                 </span>
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f5f5f5] border border-[#e5e5e5] text-xs font-semibold text-[#0a0a0a]">
-                  <span>🇮🇩</span>
+                  <Banknote className="w-3.5 h-3.5 text-[#10b981]" />
                   <span>IDR (Rupiah)</span>
                 </div>
               </div>
@@ -332,11 +343,17 @@ export function DashboardPage() {
 
                 <button
                   type="button"
-                  onClick={() => navigate('/app/super-admin/food-courts')}
+                  onClick={() =>
+                    navigate(
+                      isFoodCourtManager
+                        ? '/app/admin/food-court'
+                        : '/app/super-admin/food-courts'
+                    )
+                  }
                   className="h-11 rounded-[18px] bg-[#ffffff] hover:bg-[#f5f5f5] active:scale-[0.99] border border-[#e5e5e5] hover:border-[#0a0a0a] text-[#0a0a0a] font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
                 >
                   <Building className="w-4 h-4 text-[#737373]" />
-                  <span>Master Cabang</span>
+                  <span>{isFoodCourtManager ? 'Kelola Cabang' : 'Master Cabang'}</span>
                 </button>
               </div>
 
@@ -347,10 +364,11 @@ export function DashboardPage() {
                     Stan Tenant Mitra {selectedBranchId !== 'all' ? `(${activeFoodCourtName})` : 'Lintas Cabang'}
                   </span>
                   <Link
-                    to="/app/super-admin/tenants"
-                    className="text-[#737373] hover:text-[#0a0a0a] font-medium transition-colors"
+                    to={isFoodCourtManager ? '/app/admin/tenants' : '/app/super-admin/tenants'}
+                    className="text-[#737373] hover:text-[#0a0a0a] font-medium transition-colors inline-flex items-center gap-1"
                   >
-                    Total {branchFilteredTenants.length} Tenant →
+                    <span>Total {branchFilteredTenants.length} Tenant</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
 
@@ -406,9 +424,10 @@ export function DashboardPage() {
                 </div>
                 <Link
                   to="/app/admin/tables"
-                  className="text-xs font-semibold text-[#737373] hover:text-[#0a0a0a] transition-colors"
+                  className="text-xs font-semibold text-[#737373] hover:text-[#0a0a0a] transition-colors inline-flex items-center gap-1"
                 >
-                  Kelola Meja →
+                  <span>Kelola Meja</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
 
@@ -519,7 +538,9 @@ export function DashboardPage() {
               {/* Card 1: Total Omzet Global Sistem (Green Highlighted Card) */}
               <div className="p-5 rounded-[26px] bg-gradient-to-br from-[#22c55e] via-[#16a34a] to-[#15803d] text-white shadow-xs flex flex-col justify-between h-36">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white/90">Total Omzet Sistem</span>
+                  <span className="text-xs font-semibold text-white/90">
+                    {isFoodCourtManager ? 'Total Omzet Cabang' : 'Total Omzet Sistem'}
+                  </span>
                   <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
                     <Wallet className="w-3.5 h-3.5 text-white" />
                   </div>
@@ -535,20 +556,30 @@ export function DashboardPage() {
                 </div>
               </div>
 
-              {/* Card 2: Cabang Food Court Aktif */}
+              {/* Card 2: Cabang Food Court Aktif / Okupansi Meja */}
               <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[#737373]">Cabang Food Court</span>
+                  <span className="text-xs font-semibold text-[#737373]">
+                    {isFoodCourtManager ? 'Okupansi Meja' : 'Cabang Food Court'}
+                  </span>
                   <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
-                    <Building className="w-3.5 h-3.5" />
+                    {isFoodCourtManager ? (
+                      <QrCode className="w-3.5 h-3.5" />
+                    ) : (
+                      <Building className="w-3.5 h-3.5" />
+                    )}
                   </div>
                 </div>
                 <div>
                   <div className="font-heading text-lg sm:text-xl font-bold tracking-tight text-[#0a0a0a]">
-                    {foodCourts.length || 1} Cabang Aktif
+                    {isFoodCourtManager
+                      ? `${occupancyPercentage}% Terisi`
+                      : `${foodCourts.length || 1} Cabang Aktif`}
                   </div>
                   <div className="text-[11px] text-[#737373] mt-1 font-medium">
-                    Sentra kuliner terdaftar
+                    {isFoodCourtManager
+                      ? `${occupiedTablesCount} dari ${totalTablesCount} meja makan`
+                      : 'Sentra kuliner terdaftar'}
                   </div>
                 </div>
               </div>
@@ -556,14 +587,18 @@ export function DashboardPage() {
               {/* Card 3: Total Tenant Mitra Terdaftar */}
               <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[#737373]">Tenant Mitra Global</span>
+                  <span className="text-xs font-semibold text-[#737373]">
+                    {isFoodCourtManager ? 'Stan Kios Cabang' : 'Tenant Mitra Global'}
+                  </span>
                   <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
                     <Store className="w-3.5 h-3.5" />
                   </div>
                 </div>
                 <div>
                   <div className="font-heading text-lg sm:text-xl font-bold tracking-tight text-[#0a0a0a]">
-                    {displayTenants.length} Stan Kios
+                    {isFoodCourtManager
+                      ? `${branchFilteredTenants.length} Stan Kios`
+                      : `${displayTenants.length} Stan Kios`}
                   </div>
                   <div className="flex items-center gap-1 text-[11px] text-[#10b981] mt-1 font-medium">
                     <TrendingUp className="w-3 h-3" />

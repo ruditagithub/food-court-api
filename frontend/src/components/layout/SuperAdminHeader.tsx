@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { HeaderProfilePill } from './HeaderProfilePill'
 import { apiFetch, getToken } from '../../api/client'
+import { useAuth } from '../../context/AuthContext'
 
 interface SuperAdminHeaderProps {
   actions?: ReactNode
@@ -27,6 +28,9 @@ export function SuperAdminHeader({
   selectedBranchId: externalSelectedBranchId,
   onBranchChange,
 }: SuperAdminHeaderProps) {
+  const { user } = useAuth()
+  const isFoodCourtManager = user?.role === 'admin-food-court'
+
   const [foodCourts, setFoodCourts] = useState<any[]>([])
   const [internalBranchId, setInternalBranchId] = useState<string>('all')
   const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false)
@@ -96,65 +100,78 @@ export function SuperAdminHeader({
               Amici Food Court
             </span>
             <span className="text-[10px] font-mono text-[#737373] leading-none">
-              Super Admin Management
+              {isFoodCourtManager ? 'Food Court Manager' : 'Super Admin Management'}
             </span>
           </div>
         </Link>
 
-        {/* Interactive Branch Filter Dropdown */}
-        <div className="relative ml-1 sm:ml-2">
-          <button
-            type="button"
-            onClick={() => setIsBranchDropdownOpen(!isBranchDropdownOpen)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#ffffff] border border-[#e5e5e5] hover:border-[#0a0a0a] text-xs font-semibold text-[#0a0a0a] transition-all shadow-xs cursor-pointer"
-          >
+        {/* Branch Context Indicator / Filter Dropdown */}
+        {isFoodCourtManager ? (
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#ffffff] border border-[#e5e5e5] text-xs font-semibold text-[#0a0a0a] shadow-xs ml-1 sm:ml-2">
             <Building className="w-3.5 h-3.5 text-[#10b981]" />
-            <span className="truncate max-w-[150px] sm:max-w-[200px]">
-              {selectedBranchId === 'all' ? 'Semua Cabang (Global)' : activeDisplayName}
+            <span className="truncate max-w-[160px] sm:max-w-[240px]">
+              {foodCourtName || (activeDisplayName !== 'Semua Cabang (Global)' ? activeDisplayName : (foodCourts?.[0]?.name ?? 'Amici Food Court Grand City'))}
             </span>
-            <ChevronDown className="w-3.5 h-3.5 text-[#737373]" />
-          </button>
+            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Cabang Aktif
+            </span>
+          </div>
+        ) : (
+          <div className="relative ml-1 sm:ml-2">
+            <button
+              type="button"
+              onClick={() => setIsBranchDropdownOpen(!isBranchDropdownOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#ffffff] border border-[#e5e5e5] hover:border-[#0a0a0a] text-xs font-semibold text-[#0a0a0a] transition-all shadow-xs cursor-pointer"
+            >
+              <Building className="w-3.5 h-3.5 text-[#10b981]" />
+              <span className="truncate max-w-[150px] sm:max-w-[200px]">
+                {selectedBranchId === 'all' ? 'Semua Cabang (Global)' : activeDisplayName}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-[#737373]" />
+            </button>
 
-          {isBranchDropdownOpen && (
-            <div className="absolute left-0 mt-2 w-64 rounded-[20px] bg-[#ffffff] border border-[#e5e5e5] shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-              <div className="px-3 py-2 text-[10px] font-mono uppercase text-[#737373] tracking-wider border-b border-[#f0f0f0] flex items-center justify-between">
-                <span>Filter Cabang</span>
-                <span className="text-[9px] bg-[#f5f5f5] px-1.5 py-0.5 rounded-md text-[#0a0a0a] font-bold">
-                  {foodCourts.length || 1} Cabang
-                </span>
-              </div>
-              <div className="py-1 space-y-0.5">
-                <button
-                  type="button"
-                  onClick={() => handleSelectBranch('all')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-[14px] text-xs font-medium text-left transition-colors cursor-pointer ${
-                    selectedBranchId === 'all'
-                      ? 'bg-[#0a0a0a] text-white font-semibold'
-                      : 'text-[#0a0a0a] hover:bg-[#f5f5f5]'
-                  }`}
-                >
-                  <span className="truncate">Semua Cabang (Global)</span>
-                  {selectedBranchId === 'all' && <Check className="w-3.5 h-3.5 text-[#a3e635]" />}
-                </button>
-                {foodCourts.map((fc) => (
+            {isBranchDropdownOpen && (
+              <div className="absolute left-0 mt-2 w-64 rounded-[20px] bg-[#ffffff] border border-[#e5e5e5] shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-3 py-2 text-[10px] font-mono uppercase text-[#737373] tracking-wider border-b border-[#f0f0f0] flex items-center justify-between">
+                  <span>Filter Cabang</span>
+                  <span className="text-[9px] bg-[#f5f5f5] px-1.5 py-0.5 rounded-md text-[#0a0a0a] font-bold">
+                    {foodCourts.length || 1} Cabang
+                  </span>
+                </div>
+                <div className="py-1 space-y-0.5">
                   <button
-                    key={fc.id}
                     type="button"
-                    onClick={() => handleSelectBranch(fc.id)}
+                    onClick={() => handleSelectBranch('all')}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-[14px] text-xs font-medium text-left transition-colors cursor-pointer ${
-                      selectedBranchId === fc.id
+                      selectedBranchId === 'all'
                         ? 'bg-[#0a0a0a] text-white font-semibold'
                         : 'text-[#0a0a0a] hover:bg-[#f5f5f5]'
                     }`}
                   >
-                    <span className="truncate">{fc.name}</span>
-                    {selectedBranchId === fc.id && <Check className="w-3.5 h-3.5 text-[#a3e635]" />}
+                    <span className="truncate">Semua Cabang (Global)</span>
+                    {selectedBranchId === 'all' && <Check className="w-3.5 h-3.5 text-[#a3e635]" />}
                   </button>
-                ))}
+                  {foodCourts.map((fc) => (
+                    <button
+                      key={fc.id}
+                      type="button"
+                      onClick={() => handleSelectBranch(fc.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-[14px] text-xs font-medium text-left transition-colors cursor-pointer ${
+                        selectedBranchId === fc.id
+                          ? 'bg-[#0a0a0a] text-white font-semibold'
+                          : 'text-[#0a0a0a] hover:bg-[#f5f5f5]'
+                      }`}
+                    >
+                      <span className="truncate">{fc.name}</span>
+                      {selectedBranchId === fc.id && <Check className="w-3.5 h-3.5 text-[#a3e635]" />}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Right Action Cluster & Page Custom Actions */}

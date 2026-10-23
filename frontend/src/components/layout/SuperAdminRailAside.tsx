@@ -16,61 +16,117 @@ import { useAuth } from '../../context/AuthContext'
 export function SuperAdminRailAside() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
 
-  const navItems = [
-    {
-      to: '/app/dashboard',
-      label: 'Ringkasan Dashboard',
-      icon: LayoutDashboard,
-      isActive:
-        location.pathname === '/app/dashboard' || location.pathname === '/dashboard',
-    },
-    {
-      to: '/app/super-admin/food-courts',
-      label: 'Master Cabang Food Court',
-      icon: Building,
-      isActive: location.pathname.startsWith('/app/super-admin/food-courts'),
-    },
-    {
-      to: '/app/super-admin/tenants',
-      label: 'Master Stan Tenant Kios',
-      icon: Store,
-      isActive: location.pathname.startsWith('/app/super-admin/tenants'),
-    },
-    {
-      to: '/app/super-admin/menus',
-      label: 'Katalog Menu Global',
-      icon: UtensilsCrossed,
-      isActive:
-        location.pathname.startsWith('/app/super-admin/menus') ||
-        location.pathname.startsWith('/app/tenant/menus'),
-    },
-    {
-      to: '/app/admin/orders',
-      label: 'Monitoring Seluruh Pesanan',
-      icon: Calendar,
-      isActive: location.pathname.startsWith('/app/admin/orders'),
-    },
-    {
-      to: '/app/admin/payments',
-      label: 'Rekap Pembayaran & Gateway',
-      icon: FileText,
-      isActive: location.pathname.startsWith('/app/admin/payments'),
-    },
-    {
-      to: '/app/admin/tables',
-      label: 'Manajemen Meja QR Global',
-      icon: Layers,
-      isActive: location.pathname.startsWith('/app/admin/tables'),
-    },
-    {
-      to: '/app/profile',
-      label: 'Pengaturan Akun Super Admin',
-      icon: Settings,
-      isActive: location.pathname.startsWith('/app/profile'),
-    },
-  ]
+  const isFoodCourtManager = user?.role === 'admin-food-court'
+
+  const navItems = isFoodCourtManager
+    ? [
+        {
+          to: '/app/dashboard',
+          label: 'Ringkasan Dashboard Cabang',
+          icon: LayoutDashboard,
+          isActive:
+            location.pathname === '/app/dashboard' || location.pathname === '/dashboard',
+        },
+        {
+          to: '/app/admin/food-court',
+          label: 'Kelola Profil Cabang Saya',
+          icon: Building,
+          isActive: location.pathname.startsWith('/app/admin/food-court'),
+        },
+        {
+          to: '/app/admin/tenants',
+          label: 'Stan Tenant Cabang',
+          icon: Store,
+          isActive: location.pathname.startsWith('/app/admin/tenants'),
+        },
+        {
+          to: '/app/super-admin/menus',
+          label: 'Katalog Menu Cabang',
+          icon: UtensilsCrossed,
+          isActive:
+            location.pathname.startsWith('/app/super-admin/menus') ||
+            location.pathname.startsWith('/app/tenant/menus'),
+        },
+        {
+          to: '/app/admin/orders',
+          label: 'Monitoring Seluruh Pesanan',
+          icon: Calendar,
+          isActive: location.pathname.startsWith('/app/admin/orders'),
+        },
+        {
+          to: '/app/admin/payments',
+          label: 'Rekap Pembayaran & Gateway',
+          icon: FileText,
+          isActive: location.pathname.startsWith('/app/admin/payments'),
+        },
+        {
+          to: '/app/admin/tables',
+          label: 'Manajemen Meja QR Cabang',
+          icon: Layers,
+          isActive: location.pathname.startsWith('/app/admin/tables'),
+        },
+        {
+          to: '/app/profile',
+          label: 'Pengaturan Akun Manajer',
+          icon: Settings,
+          isActive: location.pathname.startsWith('/app/profile'),
+        },
+      ]
+    : [
+        {
+          to: '/app/dashboard',
+          label: 'Ringkasan Dashboard',
+          icon: LayoutDashboard,
+          isActive:
+            location.pathname === '/app/dashboard' || location.pathname === '/dashboard',
+        },
+        {
+          to: '/app/super-admin/food-courts',
+          label: 'Master Cabang Food Court',
+          icon: Building,
+          isActive: location.pathname.startsWith('/app/super-admin/food-courts'),
+        },
+        {
+          to: '/app/super-admin/tenants',
+          label: 'Master Stan Tenant Kios',
+          icon: Store,
+          isActive: location.pathname.startsWith('/app/super-admin/tenants'),
+        },
+        {
+          to: '/app/super-admin/menus',
+          label: 'Katalog Menu Global',
+          icon: UtensilsCrossed,
+          isActive:
+            location.pathname.startsWith('/app/super-admin/menus') ||
+            location.pathname.startsWith('/app/tenant/menus'),
+        },
+        {
+          to: '/app/admin/orders',
+          label: 'Monitoring Seluruh Pesanan',
+          icon: Calendar,
+          isActive: location.pathname.startsWith('/app/admin/orders'),
+        },
+        {
+          to: '/app/admin/payments',
+          label: 'Rekap Pembayaran & Gateway',
+          icon: FileText,
+          isActive: location.pathname.startsWith('/app/admin/payments'),
+        },
+        {
+          to: '/app/admin/tables',
+          label: 'Manajemen Meja QR Global',
+          icon: Layers,
+          isActive: location.pathname.startsWith('/app/admin/tables'),
+        },
+        {
+          to: '/app/profile',
+          label: 'Pengaturan Akun Super Admin',
+          icon: Settings,
+          isActive: location.pathname.startsWith('/app/profile'),
+        },
+      ]
 
   const handleLogout = () => {
     logout()

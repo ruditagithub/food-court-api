@@ -95,7 +95,7 @@ function App() {
         <Route
           path="/app/super-admin/menus"
           element={
-            <RoleGuard allowedRoles={['admin']}>
+            <RoleGuard allowedRoles={['admin', 'admin-food-court']}>
               <SuperAdminMenusPage />
             </RoleGuard>
           }

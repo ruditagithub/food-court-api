@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Badge } from '../ui/Badge'
-import { Icons } from '../ui/Icons'
+import { User, Store, LogOut } from 'lucide-react'
 
 export function HeaderProfilePill() {
   const { user, logout } = useAuth()
@@ -103,7 +103,7 @@ export function HeaderProfilePill() {
               onClick={() => setDropdownOpen(false)}
               className="flex items-center gap-2.5 px-4 py-2 text-sm text-[#0a0a0a] hover:bg-[#f5f5f5] transition-colors"
             >
-              <Icons.User className="w-4 h-4 text-[#737373]" />
+              <User className="w-4 h-4 text-[#737373]" />
               Profil Akun
             </Link>
 
@@ -112,7 +112,7 @@ export function HeaderProfilePill() {
               onClick={() => setDropdownOpen(false)}
               className="flex items-center gap-2.5 px-4 py-2 text-sm text-[#0a0a0a] hover:bg-[#f5f5f5] transition-colors"
             >
-              <Icons.Store className="w-4 h-4 text-[#737373]" />
+              <Store className="w-4 h-4 text-[#737373]" />
               Halaman Depan
             </Link>
           </div>
@@ -122,7 +122,7 @@ export function HeaderProfilePill() {
               onClick={handleLogout}
               className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-sm text-[#e7000b] hover:bg-[#fff0f0] transition-colors cursor-pointer"
             >
-              <Icons.Logout className="w-4 h-4 text-[#e7000b]" />
+              <LogOut className="w-4 h-4 text-[#e7000b]" />
               Keluar
             </button>
           </div>

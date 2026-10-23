@@ -1,35 +1,67 @@
-import type { SVGProps } from 'react'
+import {
+  QrCode,
+  ChefHat,
+  Store,
+  ArrowRight,
+  Check,
+  BarChart3,
+  Smartphone,
+  Shield,
+  Clock,
+  Sparkles,
+  Layers,
+  ChevronDown,
+  Search,
+  Plus,
+  Minus,
+  Pencil,
+  Trash2,
+  Eye,
+  EyeOff,
+  User,
+  LogOut,
+  Building2,
+  Utensils,
+  Printer,
+  RefreshCw,
+  X,
+  ShoppingBag,
+  CreditCard,
+  AlertCircle,
+  Zap,
+} from 'lucide-react'
 
-export function IconQrCode(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconKitchen(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconStore(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconArrowRight(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconCheck(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconChart(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconMobile(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconShield(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconClock(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconSparkles(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconLayers(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconChevronDown(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconSearch(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconPlus(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconMinus(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconEdit(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconTrash(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconEye(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconEyeOff(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconUser(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconLogout(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconBuilding(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconUtensils(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconPrinter(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconRefresh(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconClose(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconShoppingBag(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconCreditCard(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconAlertCircle(_props?: SVGProps<SVGSVGElement>) { return null }
-export function IconZap(_props?: SVGProps<SVGSVGElement>) { return null }
+// Standalone icon exports for backwards compatibility
+export const IconQrCode = QrCode
+export const IconKitchen = ChefHat
+export const IconStore = Store
+export const IconArrowRight = ArrowRight
+export const IconCheck = Check
+export const IconChart = BarChart3
+export const IconMobile = Smartphone
+export const IconShield = Shield
+export const IconClock = Clock
+export const IconSparkles = Sparkles
+export const IconLayers = Layers
+export const IconChevronDown = ChevronDown
+export const IconSearch = Search
+export const IconPlus = Plus
+export const IconMinus = Minus
+export const IconEdit = Pencil
+export const IconTrash = Trash2
+export const IconEye = Eye
+export const IconEyeOff = EyeOff
+export const IconUser = User
+export const IconLogout = LogOut
+export const IconBuilding = Building2
+export const IconUtensils = Utensils
+export const IconPrinter = Printer
+export const IconRefresh = RefreshCw
+export const IconClose = X
+export const IconShoppingBag = ShoppingBag
+export const IconCreditCard = CreditCard
+export const IconAlertCircle = AlertCircle
+export const IconZap = Zap
 
 export const Icons = {
   QrCode: IconQrCode,
@@ -38,10 +70,13 @@ export const Icons = {
   ArrowRight: IconArrowRight,
   Check: IconCheck,
   Chart: IconChart,
+  Mobile: IconMobile,
   Shield: IconShield,
   Zap: IconZap,
   Clock: IconClock,
+  Sparkles: IconSparkles,
   Layers: IconLayers,
+  ChevronDown: IconChevronDown,
   Search: IconSearch,
   Plus: IconPlus,
   Minus: IconMinus,

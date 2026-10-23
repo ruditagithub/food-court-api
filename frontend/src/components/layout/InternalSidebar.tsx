@@ -30,6 +30,7 @@ export function InternalSidebar({ onClose }: InternalSidebarProps) {
         { to: '/app/dashboard', label: 'Dashboard Utama', icon: Icons.Building },
         { to: '/app/admin/food-court', label: 'Profil Cabang', icon: Icons.Building },
         { to: '/app/admin/tenants', label: 'Stan Tenant', icon: Icons.Store },
+        { to: '/app/super-admin/menus', label: 'Katalog Menu Cabang', icon: Icons.Utensils },
         { to: '/app/admin/tables', label: 'Manajemen Meja', icon: Icons.QrCode },
         { to: '/app/admin/orders', label: 'Monitoring Pesanan', icon: Icons.ShoppingBag },
         { to: '/app/admin/payments', label: 'Log Transaksi', icon: Icons.CreditCard },

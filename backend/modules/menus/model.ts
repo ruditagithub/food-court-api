@@ -2,7 +2,11 @@ import { t } from "elysia";
 
 export const CreateCategoryDTO = t.Object({
   tenantId: t.String(),
-  name: t.String({ minLength: 2, maxLength: 50 }),
+  name: t.String({ minLength: 2, maxLength: 80 }),
+});
+
+export const UpdateCategoryDTO = t.Object({
+  name: t.String({ minLength: 2, maxLength: 80 }),
 });
 
 export const CreateMenuDTO = t.Object({
@@ -34,5 +38,6 @@ export const MenuQueryDTO = t.Object({
 });
 
 export type CreateCategoryDTOType = typeof CreateCategoryDTO.static;
+export type UpdateCategoryDTOType = typeof UpdateCategoryDTO.static;
 export type CreateMenuDTOType = typeof CreateMenuDTO.static;
 export type UpdateMenuDTOType = typeof UpdateMenuDTO.static;

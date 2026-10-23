@@ -162,8 +162,11 @@ Tabel berikut menyajikan seluruh 38 endpoint aktif hasil pemindaian spesifikasi 
 | 18 | `GET` | `/api/menus/` | Mengembalikan **seluruh menu** dari semua food court | **Hanya menu dari tenant di food court kelolaannya** | **Hanya menu dari kios miliknya sendiri** | `403 Forbidden` *(Gunakan menu per tenant)* | Daftar menu internal manajemen dengan filter kategori, ketersediaan, dan nama. |
 | 19 | `POST` | `/api/menus/` | Diizinkan buat menu | Diizinkan jika untuk tenant di food court miliknya | Diizinkan jika untuk gerai miliknya sendiri | `403 Forbidden` | Membuat menu baru (memvalidasi relasi kategori milik tenant terkait). |
 | 20 | `GET` | `/api/menus/categories/{tenantId}` | Mengembalikan kategori & menu tenant | Diizinkan **jika tenant di food court miliknya**; ditolak `403` jika di luar | Diizinkan **jika tenant miliknya sendiri**; ditolak `403` jika milik orang lain | Mengembalikan kategori & menu tenant (katalog belanja pembeli) | Mengambil kategori dan daftar menu di dalamnya untuk tenant tertentu. |
+| 20A | `GET` | `/api/menus/categories` | Mengembalikan **seluruh kategori** semua cabang/tenant | Hanya kategori tenant di food court kelolaannya | Hanya kategori gerai miliknya sendiri | `403 Forbidden` | Mengambil daftar kategori menu terisolasi per role, menerima query `?tenantId=...`. |
 | 21 | `GET` | `/api/menus/tenant/{tenantId}` | Mengembalikan seluruh menu tenant | Diizinkan **jika tenant di food court miliknya**; ditolak `403` jika di luar | Diizinkan **jika tenant miliknya sendiri**; ditolak `403` jika milik orang lain | Mengembalikan seluruh menu tenant (katalog belanja pembeli) | Mengambil seluruh menu milik satu tenant (menerima ID UUID atau slug). |
-| 22 | `POST` | `/api/menus/categories` | Diizinkan buat kategori | Diizinkan untuk tenant di food court miliknya | Diizinkan untuk tenant miliknya sendiri | `403 Forbidden` | Membuat kategori menu baru untuk gerai tenant tertentu. |
+| 22 | `POST` | `/api/menus/categories` | Diizinkan buat kategori | Diizinkan untuk tenant di food court miliknya | Diizinkan untuk tenant miliknya sendiri | `403 Forbidden` | Membuat kategori menu baru untuk gerai tenant tertentu (`tenantId`, `name`). |
+| 22A | `PUT` | `/api/menus/categories/{id}` | Diizinkan update kategori | Diizinkan untuk tenant di food court miliknya | Diizinkan untuk tenant miliknya sendiri | `403 Forbidden` | Memperbarui nama kategori menu (`name`). |
+| 22B | `DELETE` | `/api/menus/categories/{id}` | Diizinkan hapus kategori | Diizinkan untuk tenant di food court miliknya | Diizinkan untuk tenant miliknya sendiri | `403 Forbidden` | Menghapus kategori menu (menu di dalamnya dialihkan menjadi tanpa kategori/`null`). |
 | 23 | `GET` | `/api/menus/{id}` | Mengembalikan detail item menu | Mengembalikan detail item menu | Mengembalikan detail item menu | Mengembalikan detail item menu | Mengambil data detail satu item menu makanan/minuman berdasarkan ID. |
 | 24 | `PUT` | `/api/menus/{id}` | Diizinkan update menu | Diizinkan jika menu milik tenant di food court kelolaannya | Diizinkan jika menu milik kiosnya sendiri | `403 Forbidden` | Update data menu (nama, harga, stok, ketersediaan, gambar). |
 | 25 | `DELETE` | `/api/menus/{id}` | Diizinkan hapus menu | Diizinkan jika menu milik tenant di food court kelolaannya | Diizinkan jika menu milik kiosnya sendiri | `403 Forbidden` | Menghapus item menu makanan/minuman. |
@@ -539,6 +542,50 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
       ]
     }
   ]
+}
+```
+
+#### `GET /api/menus/categories`
+- **Fungsi**: Mengambil seluruh kategori menu sesuai lingkup otorisasi (RBAC) akun yang sedang login.
+- **Akses**: `admin`, `admin-food-court`, `tenant`.
+- **Query Parameters**:
+  - `tenantId` (opsional): Menyaring kategori hanya untuk tenant spesifik.
+- **Dinamika Perilaku & Proteksi**:
+  - `admin`: Mengembalikan kategori seluruh tenant lintas food court.
+  - `admin-food-court`: Mengembalikan kategori tenant yang berada di food court kelolaannya.
+  - `tenant`: Mengembalikan kategori tenant miliknya sendiri.
+
+#### `PUT /api/menus/categories/:id`
+- **Fungsi**: Memperbarui nama kategori menu.
+- **Akses**: `admin`, `tenant` pemilik kios, `admin-food-court` pengelola food court terkait.
+- **Contoh Request Body**:
+```json
+{
+  "name": "Makanan Utama & Paket Hemat"
+}
+```
+- **Contoh Response (200 OK)**:
+```json
+{
+  "message": "Category updated successfully",
+  "data": {
+    "id": "7a35368a-6b80-45c1-9018-b80c3547b7c5",
+    "tenantId": "59b40097-4007-42f0-94cb-fa225916ca11",
+    "name": "Makanan Utama & Paket Hemat",
+    "updatedAt": "2026-10-23T15:20:00.000Z"
+  }
+}
+```
+
+#### `DELETE /api/menus/categories/:id`
+- **Fungsi**: Menghapus kategori menu.
+  - Seluruh menu yang sebelumnya terhubung dengan kategori ini **tidak akan terhapus**, melainkan nilai `categoryId`-nya otomatis diubah menjadi `null` (*Tanpa Kategori*).
+- **Akses**: `admin`, `tenant` pemilik kios, `admin-food-court` pengelola food court terkait.
+- **Contoh Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "Category 'Makanan Utama' deleted successfully"
 }
 ```
 

@@ -24,6 +24,7 @@ import { OrderTrackingPage } from './pages/customer/OrderTrackingPage'
 import { KitchenDisplayPage } from './pages/tenant/KitchenDisplayPage'
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage'
 import { AdminPaymentsPage } from './pages/admin/AdminPaymentsPage'
+import { CategoriesPage } from './pages/categories/CategoriesPage'
 
 function App() {
   const [loadingComplete, setLoadingComplete] = useState(false)
@@ -102,6 +103,14 @@ function App() {
         />
 
         {/* Phase 4: Menus & Categories */}
+        <Route
+          path="/app/categories"
+          element={
+            <RoleGuard allowedRoles={['admin', 'admin-food-court', 'tenant']}>
+              <CategoriesPage />
+            </RoleGuard>
+          }
+        />
         <Route
           path="/app/tenant/menus"
           element={

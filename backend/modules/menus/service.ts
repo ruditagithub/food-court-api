@@ -6,6 +6,7 @@ import { categories, foodCourts, menus, tenants } from "../../db/schema";
 import type {
   CreateCategoryDTOType,
   CreateMenuDTOType,
+  UpdateCategoryDTOType,
   UpdateMenuDTOType,
 } from "./model";
 
@@ -265,12 +266,134 @@ export class MenuService {
     const newCategory = {
       id,
       tenantId: data.tenantId,
-      name: data.name,
+      name: data.name.trim(),
       createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     await db.insert(categories).values(newCategory);
     return newCategory;
+  }
+
+  async updateCategory(id: string, data: UpdateCategoryDTOType, user: AuthUser) {
+    const existing = await db.query.categories.findFirst({
+      where: eq(categories.id, id),
+    });
+
+    if (!existing) {
+      throw new NotFoundError(`Category with id '${id}' not found`);
+    }
+
+    await this.checkTenantOwnership(existing.tenantId, user);
+
+    const updateData: Partial<typeof categories.$inferInsert> = {
+      name: data.name.trim(),
+      updatedAt: new Date(),
+    };
+
+    await db.update(categories).set(updateData).where(eq(categories.id, id));
+
+    return db.query.categories.findFirst({
+      where: eq(categories.id, id),
+      with: {
+        menus: true,
+        tenant: true,
+      },
+    });
+  }
+
+  async deleteCategory(id: string, user: AuthUser) {
+    const existing = await db.query.categories.findFirst({
+      where: eq(categories.id, id),
+    });
+
+    if (!existing) {
+      throw new NotFoundError(`Category with id '${id}' not found`);
+    }
+
+    await this.checkTenantOwnership(existing.tenantId, user);
+
+    // Set categoryId to null for all menus in this category
+    await db.update(menus).set({ categoryId: null }).where(eq(menus.categoryId, id));
+
+    await db.delete(categories).where(eq(categories.id, id));
+    return { success: true, message: `Category '${existing.name}' deleted successfully` };
+  }
+
+  async getAllCategories(
+    tenantId?: string,
+    currentUser?: AuthUser | null,
+  ) {
+    const conditions = [];
+
+    let targetTenantId = tenantId;
+    if (targetTenantId) {
+      const foundTenant = await db.query.tenants.findFirst({
+        where: or(
+          eq(tenants.id, targetTenantId),
+          eq(tenants.slug, targetTenantId),
+        ),
+      });
+      if (foundTenant) {
+        targetTenantId = foundTenant.id;
+      }
+    }
+
+    if (currentUser?.role === "tenant") {
+      const ownedTenants = await db
+        .select({ id: tenants.id })
+        .from(tenants)
+        .where(eq(tenants.ownerId, currentUser.id));
+
+      const ownedIds = ownedTenants.map((t) => t.id);
+      if (ownedIds.length === 0) return [];
+
+      if (targetTenantId) {
+        if (!ownedIds.includes(targetTenantId)) return [];
+        conditions.push(eq(categories.tenantId, targetTenantId));
+      } else {
+        conditions.push(inArray(categories.tenantId, ownedIds));
+      }
+    } else if (currentUser?.role === "admin-food-court") {
+      const managedCourts = await db
+        .select({ id: foodCourts.id })
+        .from(foodCourts)
+        .where(eq(foodCourts.managerId, currentUser.id));
+
+      const courtIds = managedCourts.map((c) => c.id);
+      if (courtIds.length === 0) return [];
+
+      const courtTenants = await db
+        .select({ id: tenants.id })
+        .from(tenants)
+        .where(inArray(tenants.foodCourtId, courtIds));
+
+      const allowedTenantIds = courtTenants.map((t) => t.id);
+      if (allowedTenantIds.length === 0) return [];
+
+      if (targetTenantId) {
+        if (!allowedTenantIds.includes(targetTenantId)) return [];
+        conditions.push(eq(categories.tenantId, targetTenantId));
+      } else {
+        conditions.push(inArray(categories.tenantId, allowedTenantIds));
+      }
+    } else if (targetTenantId) {
+      conditions.push(eq(categories.tenantId, targetTenantId));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    return db.query.categories.findMany({
+      where: whereClause,
+      with: {
+        menus: true,
+        tenant: {
+          with: {
+            foodCourt: true,
+          },
+        },
+      },
+    });
   }
 
   async getCategoriesByTenant(

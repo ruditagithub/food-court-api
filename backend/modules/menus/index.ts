@@ -6,6 +6,7 @@ import {
 } from "../../common/middlewares/auth";
 import {
   CreateCategoryDTO,
+  UpdateCategoryDTO,
   CreateMenuDTO,
   MenuQueryDTO,
   UpdateMenuDTO,
@@ -43,6 +44,23 @@ export const menusController = new Elysia({ prefix: "/api/menus" })
         tags: ["Menus"],
         summary:
           "Get list of menu items with optional filters (Admin, Admin Food Court, and Tenant only)",
+      },
+    },
+  )
+  .get(
+    "/categories",
+    async ({ query, user }) => {
+      requireRoles(user, ["admin", "admin-food-court", "tenant"]);
+      const data = await menuService.getAllCategories(query.tenantId, user);
+      return { data };
+    },
+    {
+      query: t.Object({
+        tenantId: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Menus"],
+        summary: "Get list of menu categories (Admin, Admin Food Court, and Tenant)",
       },
     },
   )
@@ -115,6 +133,44 @@ export const menusController = new Elysia({ prefix: "/api/menus" })
       detail: {
         tags: ["Menus"],
         summary: "Create a new category for a tenant's menu",
+      },
+    },
+  )
+  .put(
+    "/categories/:id",
+    async ({ params: { id }, body, user }) => {
+      requireRoles(user, ["admin", "tenant", "admin-food-court"]);
+      const updated = await menuService.updateCategory(id, body, user);
+      return {
+        message: "Category updated successfully",
+        data: updated,
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: UpdateCategoryDTO,
+      detail: {
+        tags: ["Menus"],
+        summary: "Update a menu category by id (Tenant owner or Admin)",
+      },
+    },
+  )
+  .delete(
+    "/categories/:id",
+    async ({ params: { id }, user }) => {
+      requireRoles(user, ["admin", "tenant", "admin-food-court"]);
+      const result = await menuService.deleteCategory(id, user);
+      return result;
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      detail: {
+        tags: ["Menus"],
+        summary: "Delete a menu category by id (Tenant owner or Admin)",
       },
     },
   )

@@ -7,6 +7,7 @@ import {
   Calendar,
   FileText,
   Layers,
+  FolderKanban,
   Settings,
   HelpCircle,
   LogOut,
@@ -48,6 +49,12 @@ export function SuperAdminRailAside() {
           isActive:
             location.pathname.startsWith('/app/super-admin/menus') ||
             location.pathname.startsWith('/app/tenant/menus'),
+        },
+        {
+          to: '/app/categories',
+          label: 'Kategori Menu Cabang',
+          icon: FolderKanban,
+          isActive: location.pathname.startsWith('/app/categories'),
         },
         {
           to: '/app/admin/orders',
@@ -101,6 +108,12 @@ export function SuperAdminRailAside() {
           isActive:
             location.pathname.startsWith('/app/super-admin/menus') ||
             location.pathname.startsWith('/app/tenant/menus'),
+        },
+        {
+          to: '/app/categories',
+          label: 'Kategori Menu Global',
+          icon: FolderKanban,
+          isActive: location.pathname.startsWith('/app/categories'),
         },
         {
           to: '/app/admin/orders',

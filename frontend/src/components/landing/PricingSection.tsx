@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
-import { IconCheck } from '../ui/Icons'
 
 export function PricingSection() {
   const sectionRef = useScrollReveal<HTMLElement>({ y: 30, stagger: 0.12 })
@@ -139,8 +138,7 @@ export function PricingSection() {
 
                   <div className="space-y-2.5 mb-6">
                     {plan.features.map((feature, fIdx) => (
-                      <div key={fIdx} className="flex items-start gap-2 text-xs text-[#0a0a0a]">
-                        <IconCheck className="w-3.5 h-3.5 text-[#0a0a0a] shrink-0 mt-0.5" />
+                      <div key={fIdx} className="text-xs text-[#0a0a0a]">
                         <span>{feature}</span>
                       </div>
                     ))}

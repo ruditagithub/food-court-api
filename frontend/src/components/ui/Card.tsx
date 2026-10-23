@@ -20,7 +20,7 @@ export function Card({
 
   return (
     <div
-      className={`rounded-[24px] p-5 sm:p-6 ${surfaceStyles[surface]} ${className}`}
+      className={`rounded-[28px] p-5 sm:p-6 ${surfaceStyles[surface]} ${className}`}
       {...props}
     >
       {children}

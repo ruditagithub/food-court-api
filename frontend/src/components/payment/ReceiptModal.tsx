@@ -150,7 +150,7 @@ export function ReceiptModal({ isOpen, onClose, orderId, orderNumber }: ReceiptM
                 orderData.stalls.map((stall: any, sIdx: number) => (
                   <div key={sIdx} className="space-y-1">
                     <div className="font-bold text-[#0a0a0a] flex justify-between text-[11px]">
-                      <span>🏢 {stall.tenantName}</span>
+                      <span>{stall.tenantName}</span>
                       <span className="text-[10px] text-[#737373]">
                         {stall.stallNumber || ''}
                       </span>
@@ -168,7 +168,7 @@ export function ReceiptModal({ isOpen, onClose, orderId, orderNumber }: ReceiptM
                 orderData.tenantOrders.map((to: any, sIdx: number) => (
                   <div key={sIdx} className="space-y-1">
                     <div className="font-bold text-[#0a0a0a] flex justify-between text-[11px]">
-                      <span>🏢 {to.tenant?.name || 'Tenant Gerai'}</span>
+                      <span>{to.tenant?.name || 'Tenant Gerai'}</span>
                       <span className="text-[10px] text-[#737373]">
                         {to.tenant?.stallNumber || ''}
                       </span>

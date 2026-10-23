@@ -155,7 +155,7 @@ export function CheckoutPage() {
             onClick={() => navigate(-1)}
             className="text-xs text-[#737373] hover:text-[#0a0a0a] flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            ← Kembali ke Menu
+            Kembali ke Menu
           </button>
           <div className="flex items-center gap-2">
             <span className="text-xs text-[#737373]">Meja Anda:</span>

@@ -1,6 +1,5 @@
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import { Button } from '../ui/Button'
-import { IconArrowRight } from '../ui/Icons'
 
 export function CtaBanner() {
   const bannerRef = useScrollReveal<HTMLElement>({ y: 30 })
@@ -22,7 +21,6 @@ export function CtaBanner() {
             <a href="#simulator">
               <Button variant="primary" size="lg">
                 Uji Coba Demo
-                <IconArrowRight className="w-4 h-4" />
               </Button>
             </a>
             <a href="/login">

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Button } from '../ui/Button'
-import { IconArrowRight } from '../ui/Icons'
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -40,7 +39,6 @@ export function Navbar() {
           <a href="#simulator">
             <Button variant="primary" size="sm">
               Coba Demo
-              <IconArrowRight className="w-3.5 h-3.5" />
             </Button>
           </a>
         </div>
@@ -52,15 +50,7 @@ export function Navbar() {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-1.5 text-[#737373] hover:text-[#0a0a0a] rounded-[6px]"
             aria-label="Toggle menu"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {mobileMenuOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
-          </button>
+          />
         </div>
       </div>
 

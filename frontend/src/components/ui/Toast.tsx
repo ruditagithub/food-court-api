@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import { Icons } from './Icons'
 
 export interface ToastMessage {
   id: string
@@ -66,17 +65,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 : 'bg-[#ffffff] border-[#e5e5e5] text-[#0a0a0a]'
             }`}
           >
-            <div className="shrink-0 mt-0.5">
-              {t.variant === 'destructive' ? (
-                <Icons.AlertCircle className="w-5 h-5 text-[#e7000b]" />
-              ) : t.variant === 'success' ? (
-                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold text-white">
-                  ✓
-                </div>
-              ) : (
-                <div className="w-2 h-2 rounded-full bg-[#0a0a0a] mt-1.5" />
-              )}
-            </div>
             <div className="flex-1">
               <p className="text-sm font-medium leading-none">{t.title}</p>
               {t.description && (
@@ -89,12 +77,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 </p>
               )}
             </div>
-            <button
-              onClick={() => removeToast(t.id)}
-              className="shrink-0 text-xs opacity-60 hover:opacity-100 p-1"
-            >
-              ✕
-            </button>
           </div>
         ))}
       </div>

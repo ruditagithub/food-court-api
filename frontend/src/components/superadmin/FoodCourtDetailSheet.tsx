@@ -102,12 +102,12 @@ export function FoodCourtDetailSheet({
                 <p className="text-xs font-mono text-[#737373] mt-1">/{data.slug}</p>
                 {data.address && (
                   <p className="text-xs text-[#737373] mt-1.5 line-clamp-2">
-                    📍 {data.address}
+                    {data.address}
                   </p>
                 )}
                 {data.phone && (
                   <p className="text-xs text-[#737373] mt-0.5">
-                    📞 {data.phone}
+                    {data.phone}
                   </p>
                 )}
               </div>

@@ -4,6 +4,7 @@ import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { ProfilePage } from './pages/auth/ProfilePage'
+import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { SuperAdminFoodCourtsPage } from './pages/superadmin/SuperAdminFoodCourtsPage'
 import { FoodCourtProfilePage } from './pages/admin/FoodCourtProfilePage'
 import { RoleGuard } from './components/auth/RoleGuard'
@@ -11,6 +12,7 @@ import { Preloader } from './components/animation/Preloader'
 import { PageTransition } from './components/animation/PageTransition'
 
 import { SuperAdminTenantsPage } from './pages/superadmin/SuperAdminTenantsPage'
+import { SuperAdminMenusPage } from './pages/superadmin/SuperAdminMenusPage'
 import { AdminTenantsPage } from './pages/admin/AdminTenantsPage'
 import { TenantProfilePage } from './pages/tenant/TenantProfilePage'
 import { TenantMenusPage } from './pages/tenant/TenantMenusPage'
@@ -42,6 +44,10 @@ function App() {
         <Route path="/app/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/app/profile" element={<ProfilePage />} />
+
+        {/* Unified Food Court Dashboard */}
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/app/dashboard" element={<DashboardPage />} />
 
         {/* Phase 2: Food Courts */}
         <Route
@@ -86,12 +92,20 @@ function App() {
             </RoleGuard>
           }
         />
+        <Route
+          path="/app/super-admin/menus"
+          element={
+            <RoleGuard allowedRoles={['admin']}>
+              <SuperAdminMenusPage />
+            </RoleGuard>
+          }
+        />
 
         {/* Phase 4: Menus & Categories */}
         <Route
           path="/app/tenant/menus"
           element={
-            <RoleGuard allowedRoles={['tenant']}>
+            <RoleGuard allowedRoles={['tenant', 'admin']}>
               <TenantMenusPage />
             </RoleGuard>
           }

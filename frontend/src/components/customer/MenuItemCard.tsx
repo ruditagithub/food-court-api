@@ -95,7 +95,7 @@ export function MenuItemCard({
             }}
             className="h-8 px-3 text-xs"
           >
-            {isAvailable ? '+ Tambah' : 'Habis'}
+            {isAvailable ? 'Tambah' : 'Habis'}
           </Button>
         </div>
       </div>

@@ -3,11 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { apiFetch } from '../../api/client'
-import { Button } from '../../components/ui/Button'
-import { Input } from '../../components/ui/Input'
-import { Label } from '../../components/ui/Label'
-import { Card } from '../../components/ui/Card'
-import { Icons } from '../../components/ui/Icons'
+import { AuthVisualShowcase } from '../../components/auth/AuthVisualShowcase'
 import type { LoginResponse } from '../../types'
 
 export function RegisterPage() {
@@ -20,7 +16,10 @@ export function RegisterPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [agreeTerms, setAgreeTerms] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const validate = () => {
@@ -47,17 +46,21 @@ export function RegisterPage() {
       errors.confirmPassword = 'Konfirmasi kata sandi tidak cocok'
     }
 
+    if (!agreeTerms) {
+      errors.terms = 'Anda harus menyetujui ketentuan layanan'
+    }
+
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
   }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    setErrorMessage(null)
     if (!validate()) return
 
     setIsLoading(true)
     try {
-      // Register with fixed customer role
       await apiFetch('/api/auth/register', {
         method: 'POST',
         body: {
@@ -68,9 +71,8 @@ export function RegisterPage() {
         },
       })
 
-      toastSuccess('Pendaftaran Berhasil', 'Akun Anda berhasil dibuat. Sedang masuk otomatis...')
+      toastSuccess('Pendaftaran Berhasil', 'Akun berhasil dibuat. Sedang masuk otomatis...')
 
-      // Auto-login
       try {
         const loginRes = await apiFetch<LoginResponse>('/api/auth/login', {
           method: 'POST',
@@ -82,83 +84,135 @@ export function RegisterPage() {
         navigate('/login', { replace: true })
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Pendaftaran gagal'
+      const msg = err instanceof Error ? err.message : 'Pendaftaran akun gagal'
+      setErrorMessage(msg)
       toastError('Gagal Mendaftar', msg)
     } finally {
       setIsLoading(false)
     }
   }
 
+  const fillQuickCustomer = () => {
+    const randomId = Math.floor(Math.random() * 1000)
+    setName(`Pelanggan ${randomId}`)
+    setEmail(`pelanggan${randomId}@example.com`)
+    setPassword('password123')
+    setConfirmPassword('password123')
+    setErrorMessage(null)
+    setFieldErrors({})
+  }
+
   return (
-    <div className="min-h-screen bg-[#f5f5f5] flex flex-col justify-center items-center p-4 sm:p-6">
-      <div className="w-full max-w-md">
-        {/* Branding header */}
-        <div className="text-center mb-6">
-          <Link to="/" className="inline-flex items-center gap-2 mb-2 group">
-            <span className="w-9 h-9 rounded-[18px] bg-[#0a0a0a] text-white flex items-center justify-center font-bold text-base shadow-sm group-hover:scale-105 transition-transform">
-              FC
-            </span>
-            <span className="font-semibold text-lg tracking-tight text-[#0a0a0a]">
-              FoodCourt OS
-            </span>
-          </Link>
-          <h1 className="text-2xl font-bold tracking-tight text-[#0a0a0a]">
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#ffffff]">
+      {/* Left Column: Form */}
+      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-10 lg:p-14 xl:p-16">
+        <div className="w-full max-w-[380px] flex flex-col items-center">
+          {/* Brand Mark: Food Court Minimal Squircle */}
+          <div className="w-12 h-12 rounded-[16px] bg-[#0a0a0a] text-white flex items-center justify-center font-bold text-lg font-mono tracking-tight shadow-md mb-6">
+            FC
+          </div>
+
+          {/* Headings */}
+          <h1 className="font-heading text-2xl sm:text-[26px] font-bold tracking-[-0.03em] text-[#0a0a0a] text-center">
             Daftar Akun Pelanggan
           </h1>
-          <p className="text-sm text-[#737373] mt-1">
-            Pesan makanan lebih cepat, simpan pesanan dan riwayat makan
+          <p className="text-xs sm:text-sm text-[#737373] mt-2 mb-7 text-center">
+            Pesan menu favorit dari meja Anda tanpa antre di Amici Food Court.
           </p>
-        </div>
 
-        {/* Register Card */}
-        <Card surface="paper" className="w-full">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Google Register Button */}
+          <div className="w-full">
+            <button
+              type="button"
+              onClick={fillQuickCustomer}
+              className="w-full h-11 px-4 rounded-[14px] border border-[#e5e5e5] bg-[#ffffff] hover:border-[#0a0a0a] hover:bg-[#fafafa] transition-all flex items-center justify-center gap-3 text-sm font-medium text-[#0a0a0a] cursor-pointer shadow-2xs group"
+            >
+              <svg viewBox="0 0 24 24" className="w-4 h-4 flex-shrink-0" fill="none">
+                <path
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  fill="#4285F4"
+                />
+                <path
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  fill="#34A853"
+                />
+                <path
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                  fill="#FBBC05"
+                />
+                <path
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                  fill="#EA4335"
+                />
+              </svg>
+              <span>Daftar dengan Google</span>
+            </button>
+          </div>
+
+          {/* Divider: OR */}
+          <div className="relative w-full my-6 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[#e5e5e5]" />
+            </div>
+            <span className="relative bg-[#ffffff] px-3 font-mono text-[11px] text-[#737373] uppercase tracking-wider">
+              ATAU DAFTAR MANUAL
+            </span>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="w-full space-y-3.5 text-left">
             <div>
-              <Label htmlFor="name" required>
+              <label htmlFor="name" className="block text-xs font-semibold text-[#0a0a0a] mb-1">
                 Nama Lengkap
-              </Label>
-              <Input
+              </label>
+              <input
                 id="name"
                 type="text"
                 autoComplete="name"
-                placeholder="Contoh: Rizky Ramadhan"
+                placeholder="Budi Santoso"
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value)
                   if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: '' }))
+                  setErrorMessage(null)
                 }}
-                error={!!fieldErrors.name}
-                helperText={fieldErrors.name}
                 disabled={isLoading}
+                className="w-full h-10 px-3.5 rounded-[14px] bg-[#ffffff] border border-[#e5e5e5] focus:outline-none focus:border-[#0a0a0a] text-sm text-[#0a0a0a] placeholder:text-[#a3a3a3] transition-colors"
               />
+              {fieldErrors.name && (
+                <p className="text-[11px] text-[#e7000b] mt-1 font-medium">{fieldErrors.name}</p>
+              )}
             </div>
 
             <div>
-              <Label htmlFor="email" required>
-                Alamat Email
-              </Label>
-              <Input
+              <label htmlFor="email" className="block text-xs font-semibold text-[#0a0a0a] mb-1">
+                Email
+              </label>
+              <input
                 id="email"
                 type="email"
                 autoComplete="email"
-                placeholder="rizky@gmail.com"
+                placeholder="budi@example.com"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value)
                   if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: '' }))
+                  setErrorMessage(null)
                 }}
-                error={!!fieldErrors.email}
-                helperText={fieldErrors.email}
                 disabled={isLoading}
+                className="w-full h-10 px-3.5 rounded-[14px] bg-[#ffffff] border border-[#e5e5e5] focus:outline-none focus:border-[#0a0a0a] text-sm text-[#0a0a0a] placeholder:text-[#a3a3a3] transition-colors"
               />
+              {fieldErrors.email && (
+                <p className="text-[11px] text-[#e7000b] mt-1 font-medium">{fieldErrors.email}</p>
+              )}
             </div>
 
             <div>
-              <Label htmlFor="password" required>
+              <label htmlFor="password" className="block text-xs font-semibold text-[#0a0a0a] mb-1">
                 Kata Sandi
-              </Label>
+              </label>
               <div className="relative">
-                <Input
+                <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
@@ -166,70 +220,129 @@ export function RegisterPage() {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value)
-                    if (fieldErrors.password)
-                      setFieldErrors((prev) => ({ ...prev, password: '' }))
+                    if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }))
+                    setErrorMessage(null)
                   }}
-                  error={!!fieldErrors.password}
-                  helperText={fieldErrors.password}
                   disabled={isLoading}
-                  className="pr-10"
+                  className="w-full h-10 pl-3.5 pr-10 rounded-[14px] bg-[#ffffff] border border-[#e5e5e5] focus:outline-none focus:border-[#0a0a0a] text-sm text-[#0a0a0a] placeholder:text-[#a3a3a3] transition-colors"
                 />
                 <button
                   type="button"
-                  tabIndex={-1}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-[#737373] hover:text-[#0a0a0a] transition-colors p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#737373] hover:text-[#0a0a0a] p-1 cursor-pointer transition-colors"
+                  aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
                 >
                   {showPassword ? (
-                    <Icons.EyeOff className="w-4 h-4" />
+                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
                   ) : (
-                    <Icons.Eye className="w-4 h-4" />
+                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
                   )}
                 </button>
               </div>
+              {fieldErrors.password && (
+                <p className="text-[11px] text-[#e7000b] mt-1 font-medium">{fieldErrors.password}</p>
+              )}
             </div>
 
             <div>
-              <Label htmlFor="confirmPassword" required>
-                Ulangi Kata Sandi
-              </Label>
-              <Input
-                id="confirmPassword"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                placeholder="Masukkan kembali kata sandi"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value)
-                  if (fieldErrors.confirmPassword)
-                    setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }))
-                }}
-                error={!!fieldErrors.confirmPassword}
-                helperText={fieldErrors.confirmPassword}
-                disabled={isLoading}
-              />
+              <label htmlFor="confirmPassword" className="block text-xs font-semibold text-[#0a0a0a] mb-1">
+                Konfirmasi Kata Sandi
+              </label>
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  placeholder="••••••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value)
+                    if (fieldErrors.confirmPassword)
+                      setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }))
+                    setErrorMessage(null)
+                  }}
+                  disabled={isLoading}
+                  className="w-full h-10 pl-3.5 pr-10 rounded-[14px] bg-[#ffffff] border border-[#e5e5e5] focus:outline-none focus:border-[#0a0a0a] text-sm text-[#0a0a0a] placeholder:text-[#a3a3a3] transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#737373] hover:text-[#0a0a0a] p-1 cursor-pointer transition-colors"
+                  aria-label={showConfirmPassword ? 'Sembunyikan konfirmasi kata sandi' : 'Lihat konfirmasi kata sandi'}
+                >
+                  {showConfirmPassword ? (
+                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              {fieldErrors.confirmPassword && (
+                <p className="text-[11px] text-[#e7000b] mt-1 font-medium">{fieldErrors.confirmPassword}</p>
+              )}
             </div>
 
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              className="w-full mt-2"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <Icons.Refresh className="w-4 h-4 animate-spin" />
-                  Membuat Akun...
-                </span>
-              ) : (
-                'Daftar Sekarang'
+            {/* Error Message */}
+            {errorMessage && (
+              <div className="flex items-center gap-1.5 text-xs font-medium text-[#e7000b] mt-1.5">
+                <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 flex-shrink-0 fill-[#e7000b]">
+                  <path d="M8 0a8 8 0 1 0 8 8A8 8 0 0 0 8 0zm0 12a1 1 0 1 1 1-1 1 1 0 0 1-1 1zm1-4.5a1 1 0 0 1-2 0v-4a1 1 0 0 1 2 0z" />
+                </svg>
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            {/* Terms Checkbox */}
+            <div className="pt-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-[#0a0a0a] font-medium">
+                <input
+                  type="checkbox"
+                  checked={agreeTerms}
+                  onChange={(e) => setAgreeTerms(e.target.checked)}
+                  className="w-4 h-4 rounded-[4px] accent-[#0a0a0a] cursor-pointer"
+                />
+                <span>Saya menyetujui syarat &amp; ketentuan Amici Food Court</span>
+              </label>
+              {fieldErrors.terms && (
+                <p className="text-[11px] text-[#e7000b] mt-1 font-medium">{fieldErrors.terms}</p>
               )}
-            </Button>
+            </div>
+
+            {/* Continue CTA */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full h-11 mt-2 rounded-[14px] bg-[#0a0a0a] hover:bg-[#171717] active:scale-[0.99] text-white font-medium text-sm transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isLoading ? 'Membuat akun...' : 'Buat Akun Pelanggan'}
+            </button>
           </form>
 
-          <div className="mt-6 pt-5 border-t border-[#e5e5e5] text-center space-y-2">
-            <p className="text-xs text-[#737373]">
+          {/* Bottom Footers */}
+          <div className="mt-8 text-center text-xs space-y-2">
+            <a
+              href="#trouble"
+              onClick={(e) => {
+                e.preventDefault()
+                fillQuickCustomer()
+              }}
+              className="text-[#737373] hover:text-[#0a0a0a] transition-colors block font-medium"
+            >
+              Kendala pendaftaran? Hubungi Admin
+            </a>
+            <div className="text-[#737373]">
               Sudah punya akun?{' '}
               <Link
                 to="/login"
@@ -237,17 +350,14 @@ export function RegisterPage() {
               >
                 Masuk di sini
               </Link>
-            </p>
-            <p className="text-xs">
-              <Link
-                to="/"
-                className="text-[#737373] hover:text-[#0a0a0a] transition-colors"
-              >
-                ← Kembali ke Beranda
-              </Link>
-            </p>
+            </div>
           </div>
-        </Card>
+        </div>
+      </div>
+
+      {/* Right Column: Visual Diagram Showcase */}
+      <div className="hidden lg:flex lg:w-1/2 p-6 lg:p-8 xl:p-12 items-center justify-center bg-[#ffffff]">
+        <AuthVisualShowcase />
       </div>
     </div>
   )

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import { Badge } from '../ui/Badge'
-import { IconChevronDown } from '../ui/Icons'
 
 export function FaqSection() {
   const sectionRef = useScrollReveal<HTMLElement>({ y: 30, stagger: 0.1 })
@@ -60,11 +59,6 @@ export function FaqSection() {
                   className="w-full px-5 py-4 flex items-center justify-between text-left gap-4"
                 >
                   <span className="font-heading text-sm sm:text-base text-[#0a0a0a] font-medium">{faq.q}</span>
-                  <span className={`p-1 rounded-[6px] bg-[#f5f5f5] text-[#0a0a0a] transition-transform duration-200 ${
-                    isOpen ? 'rotate-180' : ''
-                  }`}>
-                    <IconChevronDown className="w-3.5 h-3.5" />
-                  </span>
                 </button>
 
                 {isOpen && (

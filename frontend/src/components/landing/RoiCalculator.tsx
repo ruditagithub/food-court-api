@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
-import { IconArrowRight } from '../ui/Icons'
 
 export function RoiCalculator() {
   const sectionRef = useScrollReveal<HTMLElement>({ y: 30, stagger: 0.12 })
@@ -128,7 +127,6 @@ export function RoiCalculator() {
               <a href="#harga" className="w-full">
                 <Button variant="primary" size="lg" className="w-full">
                   Mulai Digitalisasi Sekarang
-                  <IconArrowRight className="w-4 h-4" />
                 </Button>
               </a>
             </div>

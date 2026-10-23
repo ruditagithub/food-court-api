@@ -1,5 +1,4 @@
 import { useScrollReveal } from '../../hooks/useScrollReveal'
-import { IconShield, IconClock, IconLayers, IconSparkles } from '../ui/Icons'
 
 export function ArchitectureSection() {
   const sectionRef = useScrollReveal<HTMLElement>({ y: 30, stagger: 0.1 })
@@ -8,26 +7,22 @@ export function ArchitectureSection() {
     {
       title: 'ElysiaJS + Bun High-Throughput Core',
       desc: 'Pemrosesan pesanan dalam sub-milidetik, siap menangani lonjakan pesanan jam makan siang tanpa lag.',
-      tag: 'Backend Core',
-      icon: IconLayers
+      tag: 'Backend Core'
     },
     {
       title: 'Midtrans Self-Checkout Integration',
       desc: 'Mendukung QRIS, GoPay, OVO, ShopeePay, dan transfer bank otomatis dengan verifikasi instan tanpa kasir fisik.',
-      tag: 'Payments',
-      icon: IconShield
+      tag: 'Payments'
     },
     {
       title: 'Sub-Order Distribution Engine',
       desc: 'Otomatisasi pemecahan keranjang belanja multi-tenant menjadi sub-order mandiri yang langsung sinkron ke KDS kios.',
-      tag: 'Multi-Tenant',
-      icon: IconSparkles
+      tag: 'Multi-Tenant'
     },
     {
       title: 'Real-Time KDS Kitchen Polling',
       desc: 'Sistem polling efisien dan ringan yang menjaga layar dapur selalu terhubung tanpa membebani browser di tablet.',
-      tag: 'Real-Time Sync',
-      icon: IconClock
+      tag: 'Real-Time Sync'
     }
   ]
 
@@ -51,7 +46,6 @@ export function ArchitectureSection() {
         {/* 4 Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {specs.map((spec, idx) => {
-            const Icon = spec.icon
             return (
               <div
                 key={idx}
@@ -63,7 +57,6 @@ export function ArchitectureSection() {
                     <span className="text-[11px] font-mono px-2 py-0.5 rounded-[18px] bg-[#f5f5f5] text-[#737373] border border-[#e5e5e5]">
                       {spec.tag}
                     </span>
-                    <Icon className="w-4 h-4 text-[#0a0a0a]" />
                   </div>
                   <h3 className="font-heading text-base text-[#0a0a0a] mb-1.5 font-semibold">
                     {spec.title}

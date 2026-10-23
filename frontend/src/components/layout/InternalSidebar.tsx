@@ -14,15 +14,20 @@ export function InternalSidebar({ onClose }: InternalSidebarProps) {
   const getNavLinks = () => {
     if (user.role === 'admin') {
       return [
-        { to: '/app/super-admin/food-courts', label: 'Master Food Court', icon: Icons.Building },
-        { to: '/app/super-admin/tenants', label: 'Master Tenant Kios', icon: Icons.Store },
-        { to: '/app/admin/payments', label: 'Rekap Pembayaran', icon: Icons.CreditCard },
-        { to: '/app/profile', label: 'Profil Akun', icon: Icons.User },
+        { to: '/app/dashboard', label: 'Ringkasan Dashboard', icon: Icons.Building },
+        { to: '/app/super-admin/food-courts', label: 'Master Cabang Food Court', icon: Icons.Building },
+        { to: '/app/super-admin/tenants', label: 'Master Stan Tenant', icon: Icons.Store },
+        { to: '/app/super-admin/menus', label: 'Katalog Menu Global', icon: Icons.Utensils },
+        { to: '/app/admin/orders', label: 'Monitoring Seluruh Pesanan', icon: Icons.ShoppingBag },
+        { to: '/app/admin/payments', label: 'Rekap Pembayaran QRIS', icon: Icons.CreditCard },
+        { to: '/app/admin/tables', label: 'Manajemen Meja QR Global', icon: Icons.QrCode },
+        { to: '/app/profile', label: 'Pengaturan Akun Super Admin', icon: Icons.User },
       ]
     }
 
     if (user.role === 'admin-food-court') {
       return [
+        { to: '/app/dashboard', label: 'Dashboard Utama', icon: Icons.Building },
         { to: '/app/admin/food-court', label: 'Profil Cabang', icon: Icons.Building },
         { to: '/app/admin/tenants', label: 'Stan Tenant', icon: Icons.Store },
         { to: '/app/admin/tables', label: 'Manajemen Meja', icon: Icons.QrCode },
@@ -34,6 +39,7 @@ export function InternalSidebar({ onClose }: InternalSidebarProps) {
 
     if (user.role === 'tenant') {
       return [
+        { to: '/app/dashboard', label: 'Ringkasan Omzet', icon: Icons.Building },
         { to: '/app/tenant/kds', label: 'Layar Dapur (KDS)', icon: Icons.Kitchen },
         { to: '/app/tenant/menus', label: 'Katalog Menu & Stok', icon: Icons.Utensils },
         { to: '/app/tenant/profile', label: 'Profil Kios', icon: Icons.Store },
@@ -111,7 +117,6 @@ export function InternalSidebar({ onClose }: InternalSidebarProps) {
           className="text-xs hover:text-[#0a0a0a] transition-colors inline-flex items-center gap-1"
         >
           <span>Landing Page</span>
-          <span>↗</span>
         </NavLink>
       </div>
     </aside>

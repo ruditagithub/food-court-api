@@ -145,7 +145,7 @@ export function ItemDetailModal({
           disabled={!isAvailable}
           onClick={handleAdd}
         >
-          <span>+ Tambah ke Pesanan</span>
+          <span>Tambah ke Pesanan</span>
           <span className="font-mono">{formatRupiah(totalPrice)}</span>
         </Button>
       </DialogFooter>

@@ -3,7 +3,6 @@ import gsap from 'gsap'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { Card } from '../ui/Card'
-import { IconArrowRight, IconCheck } from '../ui/Icons'
 
 export function HeroSection() {
   const [activeTab, setActiveTab] = useState<'customer' | 'kds' | 'admin'>('customer')
@@ -80,7 +79,6 @@ export function HeroSection() {
               <a href="#simulator">
                 <Button variant="primary" size="lg">
                   Uji Coba Simulasi
-                  <IconArrowRight className="w-4 h-4" />
                 </Button>
               </a>
               <a href="#kalkulator">
@@ -92,15 +90,9 @@ export function HeroSection() {
 
             {/* Micro Specs */}
             <div data-hero-cta className="mt-6 flex flex-wrap items-center gap-5 text-xs text-[#737373] font-mono">
-              <span className="flex items-center gap-1.5">
-                <IconCheck className="w-3.5 h-3.5 text-[#0a0a0a]" /> Zero install app
-              </span>
-              <span className="flex items-center gap-1.5">
-                <IconCheck className="w-3.5 h-3.5 text-[#0a0a0a]" /> Midtrans QRIS
-              </span>
-              <span className="flex items-center gap-1.5">
-                <IconCheck className="w-3.5 h-3.5 text-[#0a0a0a]" /> Real-time KDS
-              </span>
+              <span>Zero install app</span>
+              <span>Midtrans QRIS</span>
+              <span>Real-time KDS</span>
             </div>
           </div>
 
@@ -216,9 +208,8 @@ export function HeroSection() {
                       <div className="text-[#737373]">Total (1x Checkout)</div>
                       <div className="font-mono text-sm font-semibold text-[#0a0a0a]">Rp 73.000</div>
                     </div>
-                    <span className="px-3 py-1.5 rounded-[18px] bg-[#0a0a0a] text-[#fafafa] text-xs font-medium flex items-center gap-1.5">
+                    <span className="px-3 py-1.5 rounded-[18px] bg-[#0a0a0a] text-[#fafafa] text-xs font-medium">
                       Bayar QRIS
-                      <IconArrowRight className="w-3 h-3" />
                     </span>
                   </div>
                 </div>
@@ -236,13 +227,13 @@ export function HeroSection() {
                   </p>
                   <div className="flex flex-wrap gap-2 pt-2">
                     <span className="text-xs px-2.5 py-1 rounded-[18px] bg-[#f5f5f5] border border-[#e5e5e5] font-mono text-[#0a0a0a]">
-                      ✓ Scan Meja QR
+                      Scan Meja QR
                     </span>
                     <span className="text-xs px-2.5 py-1 rounded-[18px] bg-[#f5f5f5] border border-[#e5e5e5] font-mono text-[#0a0a0a]">
-                      ✓ Multi-Tenant Cart
+                      Multi-Tenant Cart
                     </span>
                     <span className="text-xs px-2.5 py-1 rounded-[18px] bg-[#f5f5f5] border border-[#e5e5e5] font-mono text-[#0a0a0a]">
-                      ✓ Self-Checkout Midtrans
+                      Self-Checkout Midtrans
                     </span>
                   </div>
                 </div>
@@ -275,7 +266,7 @@ export function HeroSection() {
                     <div className="flex items-center justify-between pt-2 border-t border-[#e5e5e5] text-xs">
                       <span className="font-mono text-[#737373]">Tujuan: Meja 04</span>
                       <button type="button" className="px-3 py-1 rounded-[18px] bg-[#0a0a0a] text-[#fafafa] text-xs font-medium">
-                        Tandai Siap Saji →
+                        Tandai Siap Saji
                       </button>
                     </div>
                   </div>
@@ -294,13 +285,13 @@ export function HeroSection() {
                   </p>
                   <div className="flex flex-wrap gap-2 pt-2">
                     <span className="text-xs px-2.5 py-1 rounded-[18px] bg-[#f5f5f5] border border-[#e5e5e5] font-mono text-[#0a0a0a]">
-                      ✓ Tiket Real-Time
+                      Tiket Real-Time
                     </span>
                     <span className="text-xs px-2.5 py-1 rounded-[18px] bg-[#f5f5f5] border border-[#e5e5e5] font-mono text-[#0a0a0a]">
-                      ✓ Kontrol Stok Habis
+                      Kontrol Stok Habis
                     </span>
                     <span className="text-xs px-2.5 py-1 rounded-[18px] bg-[#f5f5f5] border border-[#e5e5e5] font-mono text-[#0a0a0a]">
-                      ✓ Audio Alert Koki
+                      Audio Alert Koki
                     </span>
                   </div>
                 </div>
@@ -349,13 +340,13 @@ export function HeroSection() {
                   </p>
                   <div className="flex flex-wrap gap-2 pt-2">
                     <span className="text-xs px-2.5 py-1 rounded-[18px] bg-[#f5f5f5] border border-[#e5e5e5] font-mono text-[#0a0a0a]">
-                      ✓ Split Payout Tenant
+                      Split Payout Tenant
                     </span>
                     <span className="text-xs px-2.5 py-1 rounded-[18px] bg-[#f5f5f5] border border-[#e5e5e5] font-mono text-[#0a0a0a]">
-                      ✓ QR Code Generator
+                      QR Code Generator
                     </span>
                     <span className="text-xs px-2.5 py-1 rounded-[18px] bg-[#f5f5f5] border border-[#e5e5e5] font-mono text-[#0a0a0a]">
-                      ✓ Multi-Role RBAC
+                      Multi-Role RBAC
                     </span>
                   </div>
                 </div>

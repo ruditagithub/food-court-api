@@ -7,9 +7,10 @@ RESTful API berperforma tinggi untuk manajemen operasional Food Court modern. Di
 ## Daftar Isi
 1. [Tech Stack & Arsitektur](#tech-stack--arsitektur)
 2. [Instalasi & Menjalankan Proyek](#instalasi--menjalankan-proyek)
-3. [Konsep Hak Akses (Role-Based Access Control / RBAC)](#konsep-hak-akses-role-based-access-control--rbac)
-4. [Matriks Hak Akses & Response Antar Role Seluruh Endpoint](#matriks-hak-akses--response-antar-role-seluruh-endpoint)
-5. [Dokumentasi Lengkap Seluruh Endpoint](#dokumentasi-lengkap-seluruh-endpoint)
+3. [Akun Pengujian Seeder (Demo Accounts)](#akun-pengujian-seeder-demo-accounts)
+4. [Konsep Hak Akses (Role-Based Access Control / RBAC)](#konsep-hak-akses-role-based-access-control--rbac)
+5. [Matriks Hak Akses & Response Antar Role Seluruh Endpoint](#matriks-hak-akses--response-antar-role-seluruh-endpoint)
+6. [Dokumentasi Lengkap Seluruh Endpoint](#dokumentasi-lengkap-seluruh-endpoint)
    - [1. General & Health](#1-general--health)
    - [2. Autentikasi (`/api/auth`)](#2-autentikasi-apiauth)
    - [3. Food Courts (`/api/food-courts`)](#3-food-courts-apifood-courts)
@@ -18,7 +19,7 @@ RESTful API berperforma tinggi untuk manajemen operasional Food Court modern. Di
    - [6. Meja Food Court (`/api/tables`)](#6-meja-food-court-apitables)
    - [7. Pemesanan / Orders (`/api/orders`)](#7-pemesanan--orders-apiorders)
    - [8. Pembayaran / Payments (`/api/payments`)](#8-pembayaran--payments-apipayments)
-6. [Struktur Error Response](#struktur-error-response)
+7. [Struktur Error Response](#struktur-error-response)
 
 ---
 
@@ -56,6 +57,9 @@ bun install
 # Jalankan migrasi / sinkronisasi skema database
 bun run db:push
 
+# Jalankan seeder akun & data pengujian awal
+bun run seed
+
 # Jalankan server mode development
 bun run dev
 ```
@@ -64,6 +68,37 @@ Server akan aktif di:
 - **API URL**: `http://localhost:3000`
 - **Swagger Documentation**: `http://localhost:3000/swagger`
 - **Swagger JSON Specification**: `http://localhost:3000/swagger/json`
+
+---
+
+## Akun Pengujian Seeder (Demo Accounts)
+
+Setelah menjalankan `bun run seed` (atau `bun run db/seed.ts`), sistem secara otomatis membuat akun-akun pengujian untuk seluruh role yang tersedia. Seluruh akun menggunakan kata sandi bawaan: **`password123`**.
+
+| Role | Nama Pengguna | Email Login | Kata Sandi | ID Pengguna | Scope / Hak Akses Sampel |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Super Admin** (`admin`) | Super Admin Amici | `admin@foodcourt.com` | `password123` | `usr-super-admin-001` | Akses global seluruh cabang food court, stan tenant, katalog menu global, meja QR, dan rekap transaksi |
+| **Admin Food Court** (`admin-food-court`) | Manajer Grand City | `manager@foodcourt.com` | `password123` | `usr-manager-fc-002` | Manajer cabang *Amici Food Court Grand City* (`fc-grand-city-001`). Mengelola stan, meja, dan operasional cabang |
+| **Tenant / Stan** (`tenant`) | Ibu Siti (Warung Rawon) | `tenant@foodcourt.com` | `password123` | `usr-tenant-owner-003` | Pemilik stan *Warung Rawon Bu Siti* (`STAN-A01`, `tnt-rawon-siti-001`). Mengelola menu dan antrean dapur stan |
+| **Customer** (`customer`) | Rizky Ramadhan | `customer@foodcourt.com` | `password123` | `usr-customer-004` | Pembeli/pengunjung. Scan meja, pesan menu multi-tenant, join sesi meja, dan checkout pembayaran |
+
+### Data Sampel Tambahan Hasil Seeder
+
+Selain akun pengguna, perintah seeder juga menyertakan data operasional sampel siap uji:
+
+- **Cabang Food Court**:
+  - Nama: `Amici Food Court Grand City`
+  - ID: `fc-grand-city-001`
+  - Slug: `amici-food-court-grand-city`
+  - Alamat: `Jl. Pemuda No. 10 Lantai 2, Surabaya`
+- **Meja QR Tersedia**:
+  - Meja `T-01` (`id: tbl-01-gc`, Kapasitas: 4 orang, Token QR: `QR-MEJA-T01-SURABAYA`)
+  - Meja `T-02` (`id: tbl-02-gc`, Kapasitas: 6 orang, Token QR: `QR-MEJA-T02-SURABAYA`)
+- **Stan Tenant**:
+  - Nama: `Warung Rawon Bu Siti` (Nomor Stan: `STAN-A01`, `id: tnt-rawon-siti-001`)
+- **Menu Sampel**:
+  - `Rawon Daging Spesial` (Rp 32.000, Kategori: *Makanan Utama*, Stok: 40)
+  - `Es Teh Manis Segar` (Rp 5.000, Kategori: *Makanan Utama*, Stok: 100)
 
 ---
 

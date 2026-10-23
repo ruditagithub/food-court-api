@@ -97,9 +97,6 @@ export function OrderTrackingPage() {
         {/* Ready Notification Banner if ready */}
         {readyStalls.length > 0 && (
           <div className="p-4 rounded-[24px] bg-[#0a0a0a] text-white shadow-xl flex items-start gap-3.5 border-2 border-white animate-bounce">
-            <div className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 font-bold">
-              ✓
-            </div>
             <div className="flex-1">
               <h3 className="text-sm font-bold text-white leading-tight">
                 Makanan Anda Siap Diambil!

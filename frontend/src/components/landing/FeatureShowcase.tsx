@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import { Badge } from '../ui/Badge'
-import { IconCheck } from '../ui/Icons'
 
 export function FeatureShowcase() {
   const sectionRef = useScrollReveal<HTMLElement>({ y: 30, stagger: 0.12 })
@@ -127,10 +126,7 @@ export function FeatureShowcase() {
 
             <div className="space-y-2 pt-1">
               {current.bullets.map((bullet, idx) => (
-                <div key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm text-[#0a0a0a]">
-                  <span className="mt-0.5 p-0.5 rounded-[6px] bg-[#0a0a0a] text-white shrink-0">
-                    <IconCheck className="w-3 h-3" />
-                  </span>
+                <div key={idx} className="text-xs sm:text-sm text-[#0a0a0a]">
                   <span>{bullet}</span>
                 </div>
               ))}

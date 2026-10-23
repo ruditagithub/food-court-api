@@ -1,5 +1,4 @@
 import { useScrollReveal } from '../../hooks/useScrollReveal'
-import { IconQrCode, IconMobile, IconKitchen, IconArrowRight } from '../ui/Icons'
 
 export function WorkflowSection() {
   const sectionRef = useScrollReveal<HTMLElement>({ y: 30, stagger: 0.15 })
@@ -9,21 +8,18 @@ export function WorkflowSection() {
       number: '01',
       title: 'Scan QR di Meja',
       description: 'Pengunjung duduk di meja mana pun dan memindai QR code dengan kamera ponsel. Menu seluruh tenant langsung terbuka di browser tanpa download aplikasi.',
-      icon: IconQrCode,
       tag: 'Customer Flow'
     },
     {
       number: '02',
       title: 'Pesan Multi-Kios & 1x Bayar',
       description: 'Pilih kopi dari Tenant A dan makanan dari Tenant B dalam 1 keranjang bersama. Bayar sekali lewat QRIS atau e-wallet via Midtrans.',
-      icon: IconMobile,
       tag: 'Unified Checkout'
     },
     {
       number: '03',
       title: 'Routing Otomatis ke KDS',
       description: 'Pesanan dipecah otomatis ke layar dapur (KDS) masing-masing kios. Koki memasak, menekan selesai, dan pembeli menerima notifikasi siap ambil.',
-      icon: IconKitchen,
       tag: 'Kitchen Sync'
     }
   ]
@@ -48,7 +44,6 @@ export function WorkflowSection() {
         {/* 3 Columns Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {steps.map((step, idx) => {
-            const Icon = step.icon
             return (
               <div
                 key={idx}
@@ -58,9 +53,6 @@ export function WorkflowSection() {
                 <div>
                   <div className="flex items-center justify-between mb-6">
                     <span className="font-heading text-3xl text-[#737373] font-semibold">{step.number}</span>
-                    <span className="p-2.5 rounded-[18px] bg-[#f5f5f5] text-[#0a0a0a]">
-                      <Icon className="w-4 h-4" />
-                    </span>
                   </div>
 
                   <span className="inline-block text-[11px] font-mono px-2 py-0.5 rounded-[18px] bg-[#f5f5f5] text-[#737373] border border-[#e5e5e5] mb-2.5">
@@ -76,8 +68,8 @@ export function WorkflowSection() {
                   </p>
                 </div>
 
-                <div className="mt-6 pt-3 border-t border-[#e5e5e5] flex items-center text-xs font-medium text-[#0a0a0a] gap-1">
-                  Selengkapnya <IconArrowRight className="w-3.5 h-3.5" />
+                <div className="mt-6 pt-3 border-t border-[#e5e5e5] flex items-center text-xs font-medium text-[#0a0a0a]">
+                  Selengkapnya
                 </div>
               </div>
             )

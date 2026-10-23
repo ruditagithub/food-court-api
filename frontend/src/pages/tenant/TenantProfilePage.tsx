@@ -9,6 +9,7 @@ import { Label } from '../../components/ui/Label'
 import { Switch } from '../../components/ui/Switch'
 import { Badge } from '../../components/ui/Badge'
 import { Icons } from '../../components/ui/Icons'
+import { ImageUploadInput } from '../../components/ui/ImageUploadInput'
 
 export function TenantProfilePage() {
   const { error: toastError, success: toastSuccess } = useToast()
@@ -255,14 +256,14 @@ export function TenantProfilePage() {
             </div>
 
             <div>
-              <Label htmlFor="tenant-self-logo">URL Foto / Logo Gerai</Label>
-              <Input
-                id="tenant-self-logo"
-                type="url"
-                placeholder="https://example.com/logo-stan.jpg"
+              <ImageUploadInput
+                label="Foto / Logo Gerai Kios"
+                folder="tenants"
                 value={logo}
-                onChange={(e) => setLogo(e.target.value)}
+                onChange={setLogo}
+                aspectRatio="square"
                 disabled={isSaving}
+                helperText="Rasio 1:1 persegi, format JPG, PNG, atau WebP (Maksimal 1 MB)"
               />
             </div>
 

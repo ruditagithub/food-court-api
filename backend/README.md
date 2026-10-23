@@ -988,6 +988,47 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
 
 ---
 
+### 9. Media & File Upload (`/api/upload`, `/uploads/*`)
+
+Modul penyimpanan file gambar lokal (Local Storage) dengan pembatasan ketat ukuran file **maksimal 1 MB** per file, validasi tipe gambar (`image/jpeg`, `image/png`, `image/webp`), sanitasi nama file acak, dan proteksi path traversal.
+
+#### `POST /api/upload`
+- **Fungsi**: Mengunggah file foto sajian menu, logo kios gerai, atau logo cabang food court.
+- **Akses**: Authenticated (`admin`, `admin-food-court`, `tenant`).
+- **Headers**:
+  - `Authorization: Bearer <token>`
+  - `Content-Type: multipart/form-data`
+- **Body (`multipart/form-data`)**:
+  - `file`: Binary file gambar (Maks. 1 MB, tipe `.jpg`, `.png`, `.webp`).
+  - `folder` *(opsional)*: Subfolder tujuan: `'menus' | 'tenants' | 'food-courts'`. Default: `'menus'`.
+- **Response `200 OK`**:
+```json
+{
+  "message": "File berhasil disimpan di server",
+  "data": {
+    "url": "http://localhost:3000/uploads/menus/1730000000000-a1b2c3d4.jpg",
+    "filename": "1730000000000-a1b2c3d4.jpg",
+    "size": 412500,
+    "mimeType": "image/jpeg"
+  }
+}
+```
+- **Response `400 / 422 Bad Request` (Jika file > 1 MB)**:
+```json
+{
+  "success": false,
+  "error": "BadRequestError",
+  "message": "Ukuran file melebihi batas maksimal 1 MB (Terdeteksi 1.85 MB). Silakan kompres gambar terlebih dahulu."
+}
+```
+
+#### `GET /uploads/:folder/:filename`
+- **Fungsi**: Mengambil file gambar statis publik untuk ditampilkan di browser / web pelanggan.
+- **Akses**: Publik (Tanpa token).
+- **Keamanan**: Dilengkapi proteksi path traversal attack (menolak `..`), header `X-Content-Type-Options: nosniff`, dan browser cache `max-age=86400`.
+
+---
+
 ## Struktur Error Response
 
 Semua error pada API ini mengikuti format respons JSON terstandar:

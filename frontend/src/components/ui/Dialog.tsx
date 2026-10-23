@@ -5,9 +5,29 @@ export interface DialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   children: ReactNode
+  className?: string
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | 'full'
 }
 
-export function Dialog({ open, onOpenChange, children }: DialogProps) {
+const sizeClasses: Record<string, string> = {
+  sm: 'max-w-sm',
+  md: 'max-w-md',
+  lg: 'max-w-lg',
+  xl: 'max-w-xl',
+  '2xl': 'max-w-2xl',
+  '3xl': 'max-w-3xl',
+  '4xl': 'max-w-4xl',
+  '5xl': 'max-w-5xl',
+  full: 'max-w-[95vw]',
+}
+
+export function Dialog({
+  open,
+  onOpenChange,
+  children,
+  className = '',
+  size = 'lg',
+}: DialogProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && open) {
@@ -28,6 +48,8 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
 
   if (!open) return null
 
+  const widthClass = className.includes('max-w-') ? '' : sizeClasses[size] || sizeClasses.lg
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -36,7 +58,9 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
         onClick={() => onOpenChange(false)}
       />
       {/* Dialog container */}
-      <div className="relative z-10 w-full max-w-lg rounded-[24px] bg-[#ffffff] border border-[#e5e5e5] p-6 shadow-2xl transition-all duration-200 max-h-[90vh] overflow-y-auto">
+      <div
+        className={`relative z-10 w-full ${widthClass} rounded-[24px] bg-[#ffffff] border border-[#e5e5e5] p-6 shadow-2xl transition-all duration-200 max-h-[90vh] overflow-y-auto ${className}`}
+      >
         {children}
       </div>
     </div>

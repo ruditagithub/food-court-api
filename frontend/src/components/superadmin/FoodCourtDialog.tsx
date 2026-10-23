@@ -14,6 +14,7 @@ import { Input } from '../ui/Input'
 import { Label } from '../ui/Label'
 import { Select } from '../ui/Select'
 import { Icons } from '../ui/Icons'
+import { ImageUploadInput } from '../ui/ImageUploadInput'
 import type { FoodCourt } from '../../types'
 
 interface FoodCourtDialogProps {
@@ -135,7 +136,7 @@ export function FoodCourtDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} size="3xl">
       <DialogClose onClick={() => onOpenChange(false)} />
       <DialogHeader>
         <DialogTitle>
@@ -218,14 +219,14 @@ export function FoodCourtDialog({
         </div>
 
         <div>
-          <Label htmlFor="fc-logo">URL Logo / Foto Cabang</Label>
-          <Input
-            id="fc-logo"
-            type="url"
-            placeholder="https://example.com/logo.jpg"
+          <ImageUploadInput
+            label="Logo / Foto Cabang Food Court"
+            folder="food-courts"
             value={logo}
-            onChange={(e) => setLogo(e.target.value)}
+            onChange={setLogo}
+            aspectRatio="video"
             disabled={isLoading}
+            helperText="Format JPG, PNG, atau WebP (Maksimal 1 MB)"
           />
         </div>
 

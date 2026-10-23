@@ -57,6 +57,32 @@ export async function apiFetch<T>(
 }
 
 /**
+ * Upload helper for multipart/form-data
+ */
+export async function apiUpload<T = { url: string; filename: string; size: number }>(
+  formData: FormData,
+  token?: string
+): Promise<{ message: string; data: T }> {
+  const headers: HeadersInit = {}
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const url = `${API_BASE_URL}/api/upload`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: formData,
+  })
+
+  const data = await response.json()
+  if (!response.ok) {
+    throw new Error(data.message || 'Gagal mengunggah file')
+  }
+  return data
+}
+
+/**
  * Get auth token from localStorage
  */
 export function getToken(): string | null {

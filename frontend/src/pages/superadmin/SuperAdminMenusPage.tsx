@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/Input'
 import { Label } from '../../components/ui/Label'
 import { Select } from '../../components/ui/Select'
 import { Switch } from '../../components/ui/Switch'
+import { ImageUploadInput } from '../../components/ui/ImageUploadInput'
 import {
   Dialog,
   DialogHeader,
@@ -873,7 +874,7 @@ export function SuperAdminMenusPage() {
       </div>
 
       {/* Create & Edit Menu Dialog */}
-      <Dialog open={formDialogOpen} onOpenChange={setFormDialogOpen}>
+      <Dialog open={formDialogOpen} onOpenChange={setFormDialogOpen} size="3xl">
         <DialogClose onClick={() => setFormDialogOpen(false)} />
         <DialogHeader>
           <DialogTitle>
@@ -1091,30 +1092,16 @@ export function SuperAdminMenusPage() {
             />
           </div>
 
-          {/* Image URL with live preview */}
+          {/* Image Upload with live preview & 1MB validation */}
           <div>
-            <Label htmlFor="form-image">URL Foto Menu (Opsional)</Label>
-            <div className="flex gap-2.5 items-center">
-              <Input
-                id="form-image"
-                placeholder="https://images.unsplash.com/..."
-                value={formImageUrl}
-                onChange={(e) => setFormImageUrl(e.target.value)}
-                className="text-xs flex-1"
-              />
-              {formImageUrl.trim() && (
-                <div className="w-10 h-10 rounded-[12px] bg-[#f5f5f5] border border-[#e5e5e5] shrink-0 overflow-hidden">
-                  <img
-                    src={formImageUrl}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      ;(e.target as HTMLImageElement).style.display = 'none'
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+            <ImageUploadInput
+              label="Foto Sajian Menu (Opsional)"
+              folder="menus"
+              value={formImageUrl}
+              onChange={setFormImageUrl}
+              aspectRatio="video"
+              helperText="Format gambar JPG, PNG, atau WebP (Maksimal 1 MB)"
+            />
           </div>
 
           {/* Availability Switch */}

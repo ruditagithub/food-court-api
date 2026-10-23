@@ -15,6 +15,7 @@ import { Label } from '../ui/Label'
 import { Select } from '../ui/Select'
 import { Switch } from '../ui/Switch'
 import { Icons } from '../ui/Icons'
+import { ImageUploadInput } from '../ui/ImageUploadInput'
 import type { Menu } from '../../types'
 
 interface MenuFormDialogProps {
@@ -156,7 +157,7 @@ export function MenuFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} size="3xl">
       <DialogClose onClick={() => onOpenChange(false)} />
       <DialogHeader>
         <DialogTitle>{isEdit ? 'Edit Item Menu' : 'Tambah Menu Baru'}</DialogTitle>
@@ -186,7 +187,7 @@ export function MenuFormDialog({
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <div>
             <Label htmlFor="menu-category">Kategori Menu</Label>
             <Select
@@ -222,9 +223,7 @@ export function MenuFormDialog({
               disabled={isLoading}
             />
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label htmlFor="menu-stock">Stok Porsi Harian</Label>
             <Input
@@ -241,18 +240,19 @@ export function MenuFormDialog({
               disabled={isLoading}
             />
           </div>
+        </div>
 
-          <div>
-            <Label htmlFor="menu-image">URL Foto Menu</Label>
-            <Input
-              id="menu-image"
-              type="url"
-              placeholder="https://example.com/rawon.jpg"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              disabled={isLoading}
-            />
-          </div>
+        <div>
+          <ImageUploadInput
+            label="Foto Sajian Menu"
+            folder="menus"
+            value={imageUrl}
+            onChange={setImageUrl}
+            error={errors.imageUrl}
+            disabled={isLoading}
+            aspectRatio="video"
+            helperText="Format gambar JPG, PNG, atau WebP (Maksimal 1 MB)"
+          />
         </div>
 
         <div>

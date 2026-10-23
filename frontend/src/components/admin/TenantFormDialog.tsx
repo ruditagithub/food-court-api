@@ -14,6 +14,7 @@ import { Input } from '../ui/Input'
 import { Label } from '../ui/Label'
 import { Switch } from '../ui/Switch'
 import { Icons } from '../ui/Icons'
+import { ImageUploadInput } from '../ui/ImageUploadInput'
 import type { Tenant } from '../../types'
 
 interface TenantFormDialogProps {
@@ -143,7 +144,7 @@ export function TenantFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} size="3xl">
       <DialogClose onClick={() => onOpenChange(false)} />
       <DialogHeader>
         <DialogTitle>{isEdit ? 'Edit Stan Tenant' : 'Daftarkan Stan Baru'}</DialogTitle>
@@ -249,14 +250,14 @@ export function TenantFormDialog({
         </div>
 
         <div>
-          <Label htmlFor="tenant-logo">URL Foto / Logo Gerai</Label>
-          <Input
-            id="tenant-logo"
-            type="url"
-            placeholder="https://example.com/logo-rawon.jpg"
+          <ImageUploadInput
+            label="Foto / Logo Gerai Stan"
+            folder="tenants"
             value={logo}
-            onChange={(e) => setLogo(e.target.value)}
+            onChange={setLogo}
+            aspectRatio="square"
             disabled={isLoading}
+            helperText="Rasio 1:1 persegi, format JPG, PNG, atau WebP (Maksimal 1 MB)"
           />
         </div>
 

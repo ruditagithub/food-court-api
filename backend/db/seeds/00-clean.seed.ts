@@ -4,7 +4,7 @@ import { poolConnection } from '../index'
  * Cleanly truncates all database tables in a safe order with FK checks disabled
  */
 export async function cleanDatabase(): Promise<void> {
-  console.log('🧹 [Clean] Menghapus dan mereset seluruh tabel database...')
+  console.log('[1/7] [CLEAN] Menghapus dan mereset seluruh tabel database...')
   const startTime = Date.now()
 
   const tables = [
@@ -35,7 +35,8 @@ export async function cleanDatabase(): Promise<void> {
     for (const tbl of tables) {
       await poolConnection.query(`TRUNCATE TABLE \`${tbl}\`;`)
     }
-    console.log(`✅ [Clean] Berhasil mereset ${tables.length} tabel dalam ${Date.now() - startTime}ms`)
+    const durationSec = ((Date.now() - startTime) / 1000).toFixed(2)
+    console.log(`      [OK] Berhasil mereset ${tables.length} tabel (${durationSec} detik)`)
   } finally {
     await poolConnection.query('SET FOREIGN_KEY_CHECKS = 1;')
   }

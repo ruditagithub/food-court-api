@@ -8,7 +8,8 @@ export async function chunkedInsert<T extends Record<string, any>>(
   table: any,
   rows: T[],
   chunkSize = 1000,
-  label = 'records'
+  label = 'records',
+  showLog = false
 ): Promise<void> {
   const total = rows.length
   if (total === 0) return
@@ -20,14 +21,10 @@ export async function chunkedInsert<T extends Record<string, any>>(
     const chunk = rows.slice(i, i + chunkSize)
     await db.insert(table).values(chunk as any)
     inserted += chunk.length
-
-    const pct = Math.round((inserted / total) * 100)
-    if (total >= 5000 && (inserted % 5000 === 0 || inserted === total)) {
-      const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1)
-      console.log(`   ⏳ [${label}] ${inserted.toLocaleString()} / ${total.toLocaleString()} (${pct}%) [${elapsedSec}s]`)
-    }
   }
 
-  const durationMs = Date.now() - startTime
-  console.log(`✅ [${label}] Selesai: ${total.toLocaleString()} baris berhasil disimpan (${(durationMs / 1000).toFixed(2)} detik)`)
+  if (showLog) {
+    const durationSec = ((Date.now() - startTime) / 1000).toFixed(2)
+    console.log(`      [OK] ${label}: ${total.toLocaleString()} baris tersimpan (${durationSec} detik)`)
+  }
 }

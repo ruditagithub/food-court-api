@@ -1,202 +1,73 @@
-import { eq } from "drizzle-orm";
-import { db } from "./index";
-import { users, foodCourts, tables, tenants, menuCategories, menus } from "./schema";
+import { cleanDatabase } from './seeds/00-clean.seed'
+import { seedUsers } from './seeds/01-users.seed'
+import { seedFoodCourts } from './seeds/02-food-courts.seed'
+import { seedTablesAndKiosks } from './seeds/03-tables-kiosks.seed'
+import { seedTenants } from './seeds/04-tenants.seed'
+import { seedMenus } from './seeds/05-menus.seed'
+import { seedOrdersHistory } from './seeds/06-orders-history.seed'
 
-async function seed() {
-  console.log("🌱 Memulai seeding akun dan data pengujian...");
+async function runMasterSeed() {
+  console.log('====================================================================')
+  console.log('AMICI FOOD COURT - MASTER DATABASE SEEDER (SIMULASI 1 TAHUN)')
+  console.log('====================================================================')
+  const masterStart = Date.now()
 
-  // 1. Password hash untuk seluruh user pengujian
-  const defaultPassword = "password123";
-  const passwordHash = await Bun.password.hash(defaultPassword, {
-    algorithm: "argon2id",
-  });
+  try {
+    // 1. Reset Bersih Database (Truncate dengan FK checks = 0)
+    await cleanDatabase()
 
-  const seedUsers = [
-    {
-      id: "usr-super-admin-001",
-      name: "Super Admin Amici",
-      email: "admin@foodcourt.com",
-      passwordHash,
-      role: "admin" as const,
-    },
-    {
-      id: "usr-manager-fc-002",
-      name: "Manajer Grand City",
-      email: "manager@foodcourt.com",
-      passwordHash,
-      role: "admin-food-court" as const,
-    },
-    {
-      id: "usr-tenant-owner-003",
-      name: "Ibu Siti (Warung Rawon)",
-      email: "tenant@foodcourt.com",
-      passwordHash,
-      role: "tenant" as const,
-    },
-    {
-      id: "usr-customer-004",
-      name: "Rizky Ramadhan",
-      email: "customer@foodcourt.com",
-      passwordHash,
-      role: "customer" as const,
-    },
-  ];
+    // 2. Akun Pengguna (Admin, Manajer, 105 Pemilik Kios, 200 Pelanggan)
+    const usersData = await seedUsers()
 
-  for (const u of seedUsers) {
-    const [existing] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, u.email))
-      .limit(1);
+    // 3. 5 Cabang Food Court di Indonesia
+    const foodCourtsData = await seedFoodCourts(usersData)
 
-    if (!existing) {
-      await db.insert(users).values(u);
-      console.log(`✅ User dibuat: ${u.email} (${u.role})`);
-    } else {
-      console.log(`ℹ️ User sudah ada: ${u.email} (${existing.role})`);
-    }
+    // 4. Meja QR (Random 25 - 80 per cabang) & Perangkat Kiosk
+    const tablesData = await seedTablesAndKiosks(foodCourtsData)
+
+    // 5. 105 Stan Tenant Kios Kuliner (21 per cabang)
+    const tenantsData = await seedTenants(foodCourtsData, usersData)
+
+    // 6. Kategori & ~2.800 Menu Hidangan Nusantara (10 - 40 per tenant)
+    const menusData = await seedMenus(tenantsData)
+
+    // 7. 40.000 Pesanan Historis Terdistribusi (1 Agustus 2025 s/d 24 Oktober 2026)
+    await seedOrdersHistory(
+      {
+        foodCourtsData,
+        tablesData,
+        tenantsData,
+        menusData,
+        usersData,
+      },
+      40000
+    )
+
+    const totalSeconds = ((Date.now() - masterStart) / 1000).toFixed(2)
+    console.log('\n====================================================================')
+    console.log(`FULL SEEDING SELESAI SUKSES DALAM ${totalSeconds} DETIK`)
+    console.log('====================================================================')
+    console.log('Ringkasan Data yang Dibuat:')
+    console.log('  Food Courts     : 5 Cabang (Surabaya, Jakarta, Bandung, Bali, Jogja)')
+    console.log(`  Meja QR         : ${tablesData.tablesList.length} Meja (${tablesData.tablesList.length / 5 | 0} rata-rata per cabang, 25-80 acak)`)
+    console.log('  Perangkat Kiosk : 10 Terminal Kiosk Mandiri (2 per cabang)')
+    console.log('  Stan Tenant     : 105 Gerai Kios (21 per cabang, STAN-A01 s/d STAN-C07)')
+    console.log(`  Katalog Menu    : ${menusData.menusList.length.toLocaleString()} Menu Sajian Kuliner`)
+    console.log('  Total Pesanan   : 40.000 Orders (Lengkap Sesi, Sub-order, Antrean, Pembayaran)')
+    console.log('  Rentang Waktu   : 1 Agustus 2025 s/d 24 Oktober 2026')
+    console.log('--------------------------------------------------------------------')
+    console.log('Akun Login Pengujian (Password: "password123"):')
+    console.log('  - Super Admin   : admin@foodcourt.com')
+    console.log('  - Manajer FC    : manager@foodcourt.com (Grand City Surabaya)')
+    console.log('  - Mitra Tenant  : tenant@foodcourt.com (Warung Rawon Bu Siti)')
+    console.log('  - Customer      : customer@foodcourt.com (Rizky Ramadhan)')
+    console.log('====================================================================\n')
+
+    process.exit(0)
+  } catch (err) {
+    console.error('\n[ERROR] Fatal Seeding Error:', err)
+    process.exit(1)
   }
-
-  // 2. Sample Food Court
-  const foodCourtId = "fc-grand-city-001";
-  const [existingFc] = await db
-    .select()
-    .from(foodCourts)
-    .where(eq(foodCourts.id, foodCourtId))
-    .limit(1);
-
-  if (!existingFc) {
-    await db.insert(foodCourts).values({
-      id: foodCourtId,
-      name: "Amici Food Court Grand City",
-      slug: "amici-food-court-grand-city",
-      managerId: "usr-manager-fc-002",
-      address: "Jl. Pemuda No. 10 Lantai 2, Surabaya",
-      phone: "081234567890",
-      status: "ACTIVE",
-    });
-    console.log("✅ Food Court sampel dibuat: Amici Food Court Grand City");
-  }
-
-  // 3. Sample Tables
-  const sampleTables = [
-    {
-      id: "tbl-01-gc",
-      foodCourtId,
-      tableNumber: "T-01",
-      qrToken: "QR-MEJA-T01-SURABAYA",
-      capacity: 4,
-      status: "available" as const,
-    },
-    {
-      id: "tbl-02-gc",
-      foodCourtId,
-      tableNumber: "T-02",
-      qrToken: "QR-MEJA-T02-SURABAYA",
-      capacity: 6,
-      status: "available" as const,
-    },
-  ];
-
-  for (const tbl of sampleTables) {
-    const [existingTbl] = await db
-      .select()
-      .from(tables)
-      .where(eq(tables.id, tbl.id))
-      .limit(1);
-
-    if (!existingTbl) {
-      await db.insert(tables).values(tbl);
-      console.log(`✅ Meja sampel dibuat: ${tbl.tableNumber} (QR Token: ${tbl.qrToken})`);
-    }
-  }
-
-  // 4. Sample Tenant
-  const tenantId = "tnt-rawon-siti-001";
-  const [existingTenant] = await db
-    .select()
-    .from(tenants)
-    .where(eq(tenants.id, tenantId))
-    .limit(1);
-
-  if (!existingTenant) {
-    await db.insert(tenants).values({
-      id: tenantId,
-      foodCourtId,
-      ownerId: "usr-tenant-owner-003",
-      name: "Warung Rawon Bu Siti",
-      slug: "warung-rawon-bu-siti",
-      stallNumber: "STAN-A01",
-      description: "Rawon kuah hitam kental daging sapi empal khas Surabaya",
-      isOpen: true,
-      openingTime: "09:00",
-      closingTime: "21:00",
-    });
-    console.log("✅ Tenant sampel dibuat: Warung Rawon Bu Siti (STAN-A01)");
-  }
-
-  // 5. Sample Category
-  const catId = "cat-makanan-001";
-  const [existingCat] = await db
-    .select()
-    .from(menuCategories)
-    .where(eq(menuCategories.id, catId))
-    .limit(1);
-
-  if (!existingCat) {
-    await db.insert(menuCategories).values({
-      id: catId,
-      tenantId,
-      name: "Makanan Utama",
-      sortOrder: 1,
-    });
-    console.log("✅ Kategori menu dibuat: Makanan Utama");
-  }
-
-  // 6. Sample Menus
-  const sampleMenus = [
-    {
-      id: "menu-rawon-001",
-      tenantId,
-      categoryId: catId,
-      name: "Rawon Daging Spesial",
-      description: "Daging empal empuk dengan kuah rawon kluwek kaya rempah",
-      price: 32000,
-      stock: 40,
-      status: "AVAILABLE" as const,
-      isAvailable: true,
-    },
-    {
-      id: "menu-es-teh-002",
-      tenantId,
-      categoryId: catId,
-      name: "Es Teh Manis Segar",
-      description: "Teh melati wangi dengan es batu segar",
-      price: 5000,
-      stock: 100,
-      status: "AVAILABLE" as const,
-      isAvailable: true,
-    },
-  ];
-
-  for (const m of sampleMenus) {
-    const [existingMenu] = await db
-      .select()
-      .from(menus)
-      .where(eq(menus.id, m.id))
-      .limit(1);
-
-    if (!existingMenu) {
-      await db.insert(menus).values(m);
-      console.log(`✅ Menu sampel dibuat: ${m.name} (${m.price})`);
-    }
-  }
-
-  console.log("\n✨ Seeding selesai sukses! Seluruh akun siap digunakan.");
-  process.exit(0);
 }
 
-seed().catch((err) => {
-  console.error("❌ Gagal seeding:", err);
-  process.exit(1);
-});
+runMasterSeed()

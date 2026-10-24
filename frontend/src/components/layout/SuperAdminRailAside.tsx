@@ -59,12 +59,6 @@ export function SuperAdminRailAside() {
             location.pathname.startsWith('/app/tenant/orders'),
         },
         {
-          to: '/app/admin/tables',
-          label: 'Status Meja Cabang',
-          icon: Layers,
-          isActive: location.pathname.startsWith('/app/admin/tables'),
-        },
-        {
           to: '/app/tenant/profile',
           label: 'Profil & Operasional Kios',
           icon: Store,

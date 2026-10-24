@@ -59,7 +59,9 @@ export function Dialog({
       />
       {/* Dialog container */}
       <div
-        className={`relative z-10 w-full ${widthClass} rounded-[24px] bg-[#ffffff] border border-[#e5e5e5] p-6 shadow-2xl transition-all duration-200 max-h-[90vh] overflow-y-auto ${className}`}
+        data-lenis-prevent
+        onWheel={(e) => e.stopPropagation()}
+        className={`relative z-10 w-full ${widthClass} rounded-[24px] bg-[#ffffff] border border-[#e5e5e5] p-6 shadow-2xl transition-all duration-200 max-h-[90vh] overflow-y-auto overscroll-contain ${className}`}
       >
         {children}
       </div>

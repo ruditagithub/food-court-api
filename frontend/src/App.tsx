@@ -125,7 +125,7 @@ function App() {
         <Route
           path="/app/admin/tables"
           element={
-            <RoleGuard allowedRoles={['admin-food-court', 'admin', 'tenant']}>
+            <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
               <AdminTablesPage />
             </RoleGuard>
           }

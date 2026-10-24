@@ -738,6 +738,24 @@ export class OrderService {
           .set({ status: "COMPLETED", updatedAt: new Date() })
           .where(eq(tenantOrders.orderId, id));
       }
+
+      // Mark all tenant orders cancelled if order is cancelled
+      if (targetStatus === "CANCELLED") {
+        await db
+          .update(tenantOrders)
+          .set({ status: "CANCELLED", updatedAt: new Date() })
+          .where(eq(tenantOrders.orderId, id));
+
+        const tOrders = await db.query.tenantOrders.findMany({
+          where: eq(tenantOrders.orderId, id),
+        });
+        const tOrderIds = tOrders.map((to) => to.id);
+        if (tOrderIds.length > 0) {
+          await db
+            .delete(kitchenQueues)
+            .where(inArray(kitchenQueues.tenantOrderId, tOrderIds));
+        }
+      }
     }
 
     return this.getById(id);
@@ -761,23 +779,25 @@ export class OrderService {
       throw new ForbiddenError("You can only update your own stall's orders");
     }
 
+    const targetStatus = data.status.toUpperCase();
+
     await db
       .update(tenantOrders)
-      .set({ status: data.status, updatedAt: new Date() })
+      .set({ status: targetStatus as any, updatedAt: new Date() })
       .where(eq(tenantOrders.id, tenantOrderId));
 
     // Update kitchen queue status
-    if (data.status === "PREPARING") {
+    if (targetStatus === "PREPARING") {
       await db
         .update(kitchenQueues)
         .set({ status: "COOKING", startedAt: new Date(), updatedAt: new Date() })
         .where(eq(kitchenQueues.tenantOrderId, tenantOrderId));
-    } else if (data.status === "READY") {
+    } else if (targetStatus === "READY") {
       await db
         .update(kitchenQueues)
         .set({ status: "READY", finishedAt: new Date(), updatedAt: new Date() })
         .where(eq(kitchenQueues.tenantOrderId, tenantOrderId));
-    } else if (data.status === "COMPLETED") {
+    } else if (targetStatus === "COMPLETED") {
       await db
         .update(kitchenQueues)
         .set({ status: "PICKED_UP", finishedAt: new Date(), updatedAt: new Date() })
@@ -796,6 +816,51 @@ export class OrderService {
         await this.updateStatus(
           tOrder.orderId,
           { status: "COMPLETED" },
+          user,
+        );
+      }
+    } else if (targetStatus === "CANCELLED") {
+      // Remove kitchen queue for this tenant order
+      await db
+        .delete(kitchenQueues)
+        .where(eq(kitchenQueues.tenantOrderId, tenantOrderId));
+
+      // Restore stock for items in this tenant order
+      const tOrderItems = await db.query.orderItems.findMany({
+        where: eq(orderItems.tenantOrderId, tenantOrderId),
+      });
+
+      for (const item of tOrderItems) {
+        if (!item.menuId) continue;
+        const menu = await db.query.menus.findFirst({
+          where: eq(menus.id, item.menuId),
+        });
+        if (menu) {
+          const newStock = menu.stock + item.quantity;
+          await db
+            .update(menus)
+            .set({
+              stock: newStock,
+              status: menu.status === "OUT_OF_STOCK" ? "AVAILABLE" : menu.status,
+              updatedAt: new Date(),
+            })
+            .where(eq(menus.id, item.menuId));
+        }
+      }
+
+      // Check if all tenant orders are now cancelled
+      const allOrders = await db.query.tenantOrders.findMany({
+        where: eq(tenantOrders.orderId, tOrder.orderId),
+      });
+
+      const allCancelled = allOrders.every((o) =>
+        o.id === tenantOrderId ? true : o.status === "CANCELLED",
+      );
+
+      if (allCancelled) {
+        await this.updateStatus(
+          tOrder.orderId,
+          { status: "CANCELLED" },
           user,
         );
       }

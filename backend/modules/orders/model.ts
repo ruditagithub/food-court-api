@@ -48,7 +48,10 @@ export const UpdateTenantOrderStatusDTO = t.Object({
     t.Literal("PREPARING"),
     t.Literal("READY"),
     t.Literal("COMPLETED"),
+    t.Literal("CANCELLED"),
+    t.Literal("cancelled"),
   ]),
+  cookingStatus: t.Optional(t.String()),
 });
 
 export const UpdateOrderItemStatusDTO = t.Object({

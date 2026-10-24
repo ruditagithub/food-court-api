@@ -24,7 +24,7 @@ export const tablesController = new Elysia({ prefix: "/api/tables" })
   .get(
     "/",
     async ({ query, user }) => {
-      requireRoles(user, ["admin", "admin-food-court", "tenant"]);
+      requireRoles(user, ["admin", "admin-food-court"]);
       const data = await tableService.getAll(
         { status: query.status },
         user
@@ -42,7 +42,7 @@ export const tablesController = new Elysia({ prefix: "/api/tables" })
   .get(
     "/:id",
     async ({ params: { id }, user }) => {
-      requireRoles(user, ["admin", "admin-food-court", "tenant"]);
+      requireRoles(user, ["admin", "admin-food-court"]);
       const data = await tableService.getById(id, user);
       return { data };
     },
@@ -59,7 +59,7 @@ export const tablesController = new Elysia({ prefix: "/api/tables" })
   .get(
     "/:id/sessions",
     async ({ params: { id }, query, user }) => {
-      requireRoles(user, ["admin", "admin-food-court", "tenant"]);
+      requireRoles(user, ["admin", "admin-food-court"]);
       const data = await tableService.getSessionHistory(
         id,
         {

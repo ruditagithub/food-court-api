@@ -59,11 +59,10 @@ export function DashboardPage() {
 
       if (isTenant) {
         try {
-          const [mineRes, ordersRes, menusRes, tablesRes] = await Promise.allSettled([
+          const [mineRes, ordersRes, menusRes] = await Promise.allSettled([
             apiFetch<{ data: any }>('/api/tenants/mine', headers),
             apiFetch<{ data: any[] }>('/api/orders', headers),
             apiFetch<{ data: any[] }>('/api/menus', headers),
-            apiFetch<{ data: any[] }>('/api/tables', headers),
           ])
 
           if (mineRes.status === 'fulfilled' && mineRes.value?.data) {
@@ -74,9 +73,6 @@ export function DashboardPage() {
           }
           if (menusRes.status === 'fulfilled' && menusRes.value?.data) {
             setTenantMenus(menusRes.value.data)
-          }
-          if (tablesRes.status === 'fulfilled' && tablesRes.value?.data) {
-            setTables(tablesRes.value.data)
           }
         } catch (err) {
           console.warn('Tenant dashboard data fetch fallback active:', err)
@@ -808,20 +804,20 @@ export function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Card 4: Meja Food Court */}
+                  {/* Card 4: Total Omzet Gerai */}
                   <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-[#737373]">Meja Food Court</span>
+                      <span className="text-xs font-semibold text-[#737373]">Total Omzet Gerai</span>
                       <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
-                        <QrCode className="w-3.5 h-3.5" />
+                        <Wallet className="w-3.5 h-3.5" />
                       </div>
                     </div>
                     <div>
                       <div className="font-heading text-lg sm:text-xl font-bold tracking-tight text-[#0a0a0a]">
-                        {occupiedTablesCount} / {totalTablesCount} Meja
+                        {formatRupiah(displayRevenue)}
                       </div>
                       <div className="text-[11px] text-[#737373] mt-1 font-medium">
-                        {occupancyPercentage}% Meja Terisi
+                        {tenantCompletedCount} pesanan selesai
                       </div>
                     </div>
                   </div>

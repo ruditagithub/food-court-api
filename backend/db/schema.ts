@@ -400,6 +400,7 @@ export const tenantOrders = mysqlTable("tenant_orders", {
     "PREPARING",
     "READY",
     "COMPLETED",
+    "CANCELLED",
   ])
     .notNull()
     .default("WAITING_PAYMENT"),

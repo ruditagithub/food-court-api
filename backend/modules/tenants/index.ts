@@ -155,4 +155,21 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
         summary: "Delete a tenant (Owner or Admin)",
       },
     },
+  )
+  .post(
+    "/:id/resend-activation",
+    async ({ params: { id }, user }) => {
+      requireRoles(user, ["admin", "admin-food-court"]);
+      const result = await tenantService.resendActivation(id);
+      return result;
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      detail: {
+        tags: ["Tenants"],
+        summary: "Resend activation email to tenant owner (Admin only)",
+      },
+    },
   );

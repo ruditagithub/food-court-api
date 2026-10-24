@@ -18,4 +18,13 @@ export const env = {
   MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY || "",
   MIDTRANS_CLIENT_KEY: process.env.MIDTRANS_CLIENT_KEY || "",
   MIDTRANS_IS_PRODUCTION: process.env.MIDTRANS_IS_PRODUCTION === "true",
+
+  // Mailer (Gmail SMTP)
+  SMTP_HOST: process.env.SMTP_HOST || "smtp.gmail.com",
+  SMTP_PORT: Number(process.env.SMTP_PORT) || 465,
+  SMTP_SECURE: process.env.SMTP_SECURE !== "false",
+  SMTP_USER: process.env.SMTP_USER || "",
+  SMTP_PASS: process.env.SMTP_PASS || "",
+  MAIL_FROM: process.env.MAIL_FROM || "FoodCourt OS <no-reply@amici.food>",
+  FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:5173",
 };

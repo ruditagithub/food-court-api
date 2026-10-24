@@ -21,6 +21,11 @@ export const users = mysqlTable("users", {
   role: mysqlEnum("role", ["admin", "admin-food-court", "tenant", "customer"])
     .notNull()
     .default("customer"),
+  status: mysqlEnum("status", ["ACTIVE", "PENDING_ACTIVATION", "SUSPENDED"])
+    .notNull()
+    .default("ACTIVE"),
+  activationToken: varchar("activation_token", { length: 255 }),
+  activationExpires: timestamp("activation_expires"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });
@@ -138,13 +143,16 @@ export const tenants = mysqlTable(
     stallNumber: varchar("stall_number", { length: 50 }).notNull(),
     description: text("description"),
     logo: varchar("logo", { length: 255 }),
-    isOpen: boolean("is_open").notNull().default(true),
+    isOpen: boolean("is_open").notNull().default(false),
     openingTime: varchar("opening_time", { length: 8 }),
     closingTime: varchar("closing_time", { length: 8 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
   },
-  (table) => [unique("uq_foodcourt_slug").on(table.foodCourtId, table.slug)],
+  (table) => [
+    unique("uq_foodcourt_slug").on(table.foodCourtId, table.slug),
+    unique("uq_tenant_owner_id").on(table.ownerId),
+  ],
 );
 
 export const tenantsRelations = relations(tenants, ({ one, many }) => ({

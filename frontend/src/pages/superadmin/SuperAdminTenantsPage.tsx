@@ -91,6 +91,31 @@ export function SuperAdminTenantsPage() {
     }
   }
 
+  const [resendingId, setResendingId] = useState<string | null>(null)
+
+  const handleResendActivation = async (tenant: Tenant) => {
+    setResendingId(tenant.id)
+    try {
+      const token = getToken()
+      const res = await apiFetch<{ message: string }>(
+        `/api/tenants/${tenant.id}/resend-activation`,
+        {
+          method: 'POST',
+          token: token || undefined,
+        }
+      )
+      toastSuccess(
+        'Tautan Terkirim',
+        res.message || 'Tautan aktivasi baru telah dikirimkan ke email pemilik.'
+      )
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal mengirim ulang aktivasi'
+      toastError('Gagal Mengirim', msg)
+    } finally {
+      setResendingId(null)
+    }
+  }
+
   const filteredTenants = tenants.filter((t) =>
     search.trim()
       ? t.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -166,6 +191,7 @@ export function SuperAdminTenantsPage() {
                 <tr className="border-b border-[#e5e5e5] bg-[#fafafa] text-[11px] font-mono uppercase tracking-wider text-[#737373]">
                   <th className="py-3 px-4 font-medium">Gerai Makanan</th>
                   <th className="py-3 px-4 font-medium">Nomor Stan</th>
+                  <th className="py-3 px-4 font-medium">Pemilik & Akun</th>
                   <th className="py-3 px-4 font-medium hidden sm:table-cell">Jam Buka/Tutup</th>
                   <th className="py-3 px-4 font-medium">Status</th>
                   <th className="py-3 px-4 font-medium text-right">Aksi</th>
@@ -174,7 +200,7 @@ export function SuperAdminTenantsPage() {
               <tbody className="divide-y divide-[#e5e5e5]">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-[#737373]">
+                    <td colSpan={6} className="py-12 text-center text-[#737373]">
                       <div className="flex items-center justify-center gap-2">
                         <Icons.Refresh className="w-4 h-4 animate-spin" />
                         <span>Memuat seluruh tenant...</span>
@@ -183,7 +209,7 @@ export function SuperAdminTenantsPage() {
                   </tr>
                 ) : filteredTenants.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-[#737373]">
+                    <td colSpan={6} className="py-12 text-center text-[#737373]">
                       Tidak ada tenant yang cocok dengan filter.
                     </td>
                   </tr>
@@ -222,6 +248,33 @@ export function SuperAdminTenantsPage() {
                         </span>
                       </td>
 
+                      {/* Owner & Account status */}
+                      <td className="py-3.5 px-4">
+                        {t.owner ? (
+                          <div className="space-y-1">
+                            <p className="font-medium text-[#0a0a0a] text-xs leading-none">
+                              {t.owner.name}
+                            </p>
+                            <p className="text-[11px] font-mono text-[#737373]">
+                              {t.owner.email}
+                            </p>
+                            <div>
+                              {t.owner.status === 'ACTIVE' ? (
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#dcfce7] text-[#15803d]">
+                                  Aktif
+                                </span>
+                              ) : (
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#fef9c3] text-[#a16207]">
+                                  Menunggu Aktivasi
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[#737373] italic">Belum terhubung</span>
+                        )}
+                      </td>
+
                       {/* Jam */}
                       <td className="py-3.5 px-4 text-xs font-mono text-[#737373] hidden sm:table-cell">
                         {t.openingTime?.slice(0, 5) || '09:00'} -{' '}
@@ -238,6 +291,22 @@ export function SuperAdminTenantsPage() {
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {t.owner?.status === 'PENDING_ACTIVATION' && (
+                            <button
+                              type="button"
+                              title="Kirim Ulang Email Aktivasi"
+                              disabled={resendingId === t.id}
+                              onClick={() => handleResendActivation(t)}
+                              className="p-1.5 rounded-[12px] text-[#a16207] hover:text-[#713f12] hover:bg-[#fef9c3] transition-colors disabled:opacity-50"
+                            >
+                              {resendingId === t.id ? (
+                                <Icons.Refresh className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Icons.Mail className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
+
                           <button
                             type="button"
                             title="Edit"

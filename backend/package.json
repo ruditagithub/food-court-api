@@ -19,10 +19,12 @@
     "elysia": "latest",
     "midtrans-client": "^1.4.3",
     "mysql2": "^3.24.4",
+    "nodemailer": "^10.2.1",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@libsql/client": "^0.18.0",
+    "@types/nodemailer": "^8.0.2",
     "bun-types": "latest",
     "drizzle-kit": "^0.31.10"
   },

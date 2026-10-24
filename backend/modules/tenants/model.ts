@@ -15,7 +15,9 @@ export const CreateTenantDTO = t.Object({
   }),
   logo: t.Optional(t.String()),
   ownerId: t.Optional(t.String()),
-  isOpen: t.Optional(t.Boolean({ default: true })),
+  ownerName: t.Optional(t.String({ minLength: 2, maxLength: 100 })),
+  ownerEmail: t.Optional(t.String({ minLength: 3, maxLength: 191 })),
+  isOpen: t.Optional(t.Boolean({ default: false })),
   openingTime: t.Optional(t.String({ default: "09:00:00" })),
   closingTime: t.Optional(t.String({ default: "21:00:00" })),
 });

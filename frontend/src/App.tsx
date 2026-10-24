@@ -4,6 +4,7 @@ import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { ProfilePage } from './pages/auth/ProfilePage'
+import { ActivateAccountPage } from './pages/auth/ActivateAccountPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { SuperAdminFoodCourtsPage } from './pages/superadmin/SuperAdminFoodCourtsPage'
 import { FoodCourtProfilePage } from './pages/admin/FoodCourtProfilePage'
@@ -44,6 +45,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/app/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/activate-account" element={<ActivateAccountPage />} />
         <Route path="/app/profile" element={<ProfilePage />} />
 
         {/* Unified Food Court Dashboard */}

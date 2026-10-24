@@ -30,9 +30,11 @@ import {
   AlertCircle,
   Zap,
   Download,
+  Mail,
 } from 'lucide-react'
 
 // Standalone icon exports for backwards compatibility
+export const IconMail = Mail
 export const IconQrCode = QrCode
 export const IconKitchen = ChefHat
 export const IconStore = Store
@@ -97,4 +99,5 @@ export const Icons = {
   CreditCard: IconCreditCard,
   AlertCircle: IconAlertCircle,
   Download: IconDownload,
+  Mail: IconMail,
 }

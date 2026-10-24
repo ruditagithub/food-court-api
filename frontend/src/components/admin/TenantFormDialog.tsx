@@ -37,11 +37,12 @@ export function TenantFormDialog({
 
   const [name, setName] = useState('')
   const [stallNumber, setStallNumber] = useState('')
-  const [ownerId, setOwnerId] = useState('')
+  const [ownerName, setOwnerName] = useState('')
+  const [ownerEmail, setOwnerEmail] = useState('')
   const [description, setDescription] = useState('')
   const [openingTime, setOpeningTime] = useState('09:00')
   const [closingTime, setClosingTime] = useState('21:00')
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
   const [logo, setLogo] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -50,20 +51,22 @@ export function TenantFormDialog({
     if (initialData) {
       setName(initialData.name || '')
       setStallNumber(initialData.stallNumber || '')
-      setOwnerId(initialData.ownerId || '')
+      setOwnerName(initialData.owner?.name || '')
+      setOwnerEmail(initialData.owner?.email || '')
       setDescription(initialData.description || '')
       setOpeningTime(initialData.openingTime ? initialData.openingTime.slice(0, 5) : '09:00')
       setClosingTime(initialData.closingTime ? initialData.closingTime.slice(0, 5) : '21:00')
-      setIsOpen(initialData.isOpen ?? true)
+      setIsOpen(initialData.isOpen ?? false)
       setLogo(initialData.logo || '')
     } else {
       setName('')
       setStallNumber('')
-      setOwnerId('')
+      setOwnerName('')
+      setOwnerEmail('')
       setDescription('')
       setOpeningTime('09:00')
       setClosingTime('21:00')
-      setIsOpen(true)
+      setIsOpen(false)
       setLogo('')
     }
     setErrors({})
@@ -73,7 +76,12 @@ export function TenantFormDialog({
     const errs: Record<string, string> = {}
     if (!name.trim()) errs.name = 'Nama stan minimal 2 karakter'
     if (!stallNumber.trim()) errs.stallNumber = 'Nomor stan wajib diisi'
-    if (!isEdit && !ownerId.trim()) errs.ownerId = 'ID Akun pemilik stan (tenant) wajib diisi'
+    if (!isEdit) {
+      if (!ownerName.trim()) errs.ownerName = 'Nama pemilik stan wajib diisi'
+      if (!ownerEmail.trim() || !ownerEmail.includes('@')) {
+        errs.ownerEmail = 'Alamat email pemilik stan wajib diisi dengan benar'
+      }
+    }
     if (description && description.length > 500) errs.description = 'Deskripsi maksimal 500 karakter'
 
     setErrors(errs)
@@ -115,7 +123,8 @@ export function TenantFormDialog({
             foodCourtId: foodCourtId || undefined,
             name: name.trim(),
             stallNumber: stallNumber.trim(),
-            ownerId: ownerId.trim(),
+            ownerName: ownerName.trim(),
+            ownerEmail: ownerEmail.trim().toLowerCase(),
             description: description.trim() || undefined,
             openingTime: formattedOpeningTime,
             closingTime: formattedClosingTime,
@@ -123,7 +132,10 @@ export function TenantFormDialog({
             logo: logo.trim() || undefined,
           },
         })
-        toastSuccess('Stan Terdaftar', `Stan ${name} (Nomor: ${stallNumber}) berhasil ditambahkan.`)
+        toastSuccess(
+          'Stan Terdaftar & Email Dikirim',
+          `Stan ${name} berhasil ditambahkan. Tautan aktivasi akun telah dikirim ke ${ownerEmail}.`
+        )
       }
 
       onOpenChange(false)
@@ -134,6 +146,11 @@ export function TenantFormDialog({
         setErrors((prev) => ({
           ...prev,
           stallNumber: `Nomor stan '${stallNumber}' sudah digunakan oleh kios aktif lain di food court ini.`,
+        }))
+      } else if (msg.toLowerCase().includes('sudah terdaftar sebagai pemilik')) {
+        setErrors((prev) => ({
+          ...prev,
+          ownerEmail: msg,
         }))
       } else {
         toastError('Gagal Menyimpan', msg)
@@ -151,7 +168,7 @@ export function TenantFormDialog({
         <DialogDescription>
           {isEdit
             ? 'Perbarui informasi gerai makanan, jam operasional, atau nomor stan.'
-            : 'Tambahkan gerai makanan atau kios baru ke cabang food court.'}
+            : 'Tambahkan gerai makanan baru. Akun pemilik dan tautan aktivasi akan dibuat otomatis.'}
         </DialogDescription>
       </DialogHeader>
 
@@ -174,43 +191,106 @@ export function TenantFormDialog({
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="stall-number" required>
-              Nomor Stan / Lokasi Kios
-            </Label>
-            <Input
-              id="stall-number"
-              placeholder="STAN-A01"
-              value={stallNumber}
-              onChange={(e) => {
-                setStallNumber(e.target.value)
-                if (errors.stallNumber) setErrors((prev) => ({ ...prev, stallNumber: '' }))
-              }}
-              error={!!errors.stallNumber}
-              helperText={errors.stallNumber}
-              disabled={isLoading}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="tenant-owner-id" required={!isEdit}>
-              ID Akun Pemilik (User UUID)
-            </Label>
-            <Input
-              id="tenant-owner-id"
-              placeholder="UUID akun user role tenant"
-              value={ownerId}
-              onChange={(e) => {
-                setOwnerId(e.target.value)
-                if (errors.ownerId) setErrors((prev) => ({ ...prev, ownerId: '' }))
-              }}
-              error={!!errors.ownerId}
-              helperText={errors.ownerId}
-              disabled={isLoading || isEdit}
-            />
-          </div>
+        <div>
+          <Label htmlFor="stall-number" required>
+            Nomor Stan / Lokasi Kios
+          </Label>
+          <Input
+            id="stall-number"
+            placeholder="STAN-A01"
+            value={stallNumber}
+            onChange={(e) => {
+              setStallNumber(e.target.value)
+              if (errors.stallNumber) setErrors((prev) => ({ ...prev, stallNumber: '' }))
+            }}
+            error={!!errors.stallNumber}
+            helperText={errors.stallNumber}
+            disabled={isLoading}
+          />
         </div>
+
+        {/* Owner Information Section */}
+        {isEdit ? (
+          <div className="p-3.5 rounded-[18px] bg-[#fafafa] border border-[#e5e5e5] space-y-1.5 text-xs">
+            <p className="font-semibold text-[#0a0a0a]">Informasi Akun Pemilik Stan</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="font-medium text-[#0a0a0a]">
+                  {initialData?.owner?.name || 'Belum Terhubung'}
+                </p>
+                <p className="text-[11px] font-mono text-[#737373]">
+                  {initialData?.owner?.email || '-'}
+                </p>
+              </div>
+              <span
+                className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                  initialData?.owner?.status === 'ACTIVE'
+                    ? 'bg-[#dcfce7] text-[#15803d]'
+                    : 'bg-[#fef9c3] text-[#a16207]'
+                }`}
+              >
+                {initialData?.owner?.status === 'ACTIVE'
+                  ? 'Akun Aktif'
+                  : 'Menunggu Aktivasi'}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="p-3.5 rounded-[20px] bg-[#fafafa] border border-[#e5e5e5] space-y-3">
+            <div className="flex items-center gap-2">
+              <Icons.User className="w-4 h-4 text-[#0a0a0a]" />
+              <p className="text-xs font-bold text-[#0a0a0a] uppercase tracking-wider">
+                Akun Pemilik Stan Baru
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="tenant-owner-name" required>
+                  Nama Lengkap Pemilik
+                </Label>
+                <Input
+                  id="tenant-owner-name"
+                  placeholder="Contoh: Budi Santoso"
+                  value={ownerName}
+                  onChange={(e) => {
+                    setOwnerName(e.target.value)
+                    if (errors.ownerName) setErrors((prev) => ({ ...prev, ownerName: '' }))
+                  }}
+                  error={!!errors.ownerName}
+                  helperText={errors.ownerName}
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="tenant-owner-email" required>
+                  Alamat Email Pemilik
+                </Label>
+                <Input
+                  id="tenant-owner-email"
+                  type="email"
+                  placeholder="budi@warungpadang.com"
+                  value={ownerEmail}
+                  onChange={(e) => {
+                    setOwnerEmail(e.target.value)
+                    if (errors.ownerEmail) setErrors((prev) => ({ ...prev, ownerEmail: '' }))
+                  }}
+                  error={!!errors.ownerEmail}
+                  helperText={errors.ownerEmail}
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
+            <p className="text-[11px] text-[#737373] flex items-center gap-1.5 pt-1">
+              <span>✉️</span>
+              <span>
+                Tautan aktivasi mandiri dan pembuatan kata sandi akan otomatis dikirimkan ke email ini (masa aktif 7 hari).
+              </span>
+            </p>
+          </div>
+        )}
 
         <div>
           <Label htmlFor="tenant-desc">Deskripsi Kuliner & Spesialisasi</Label>

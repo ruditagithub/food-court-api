@@ -1,4 +1,4 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { authPlugin, requireAuth } from "../../common/middlewares/auth";
 import { LoginDTO, RegisterDTO } from "./model";
 import { authService } from "./service";
@@ -47,6 +47,52 @@ export const authController = new Elysia({ prefix: "/api/auth" })
       detail: {
         tags: ["Auth"],
         summary: "Authenticate user and get JWT token",
+      },
+    },
+  )
+  .get(
+    "/verify-activation-token",
+    async ({ query: { token } }) => {
+      const result = await authService.verifyActivationToken(token);
+      return result;
+    },
+    {
+      query: t.Object({
+        token: t.String(),
+      }),
+      detail: {
+        tags: ["Auth"],
+        summary: "Verify tenant account activation token",
+      },
+    },
+  )
+  .post(
+    "/activate-account",
+    async ({ body, jwt }) => {
+      const user = await authService.activateAccount(body.token, body.password);
+      const token = await jwt.sign({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      });
+
+      return {
+        message: "Akun berhasil diaktifkan",
+        data: {
+          token,
+          user,
+        },
+      };
+    },
+    {
+      body: t.Object({
+        token: t.String(),
+        password: t.String({ minLength: 6 }),
+      }),
+      detail: {
+        tags: ["Auth"],
+        summary: "Activate tenant account by setting password",
       },
     },
   )

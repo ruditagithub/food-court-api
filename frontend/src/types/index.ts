@@ -39,6 +39,14 @@ export interface Tenant {
   isOpen: boolean
   openingTime: string | null
   closingTime: string | null
+  owner?: {
+    id: string
+    name: string
+    email: string
+    status: 'ACTIVE' | 'PENDING_ACTIVATION' | 'SUSPENDED'
+    role: string
+  } | null
+  foodCourt?: FoodCourt | null
   createdAt: string
   updatedAt: string
 }

@@ -1,8 +1,9 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../common/errors";
+import { mailerService } from "../../common/mailer";
 import type { AuthUser } from "../../common/middlewares/auth";
 import { db } from "../../db";
-import { foodCourts, menus, tenants } from "../../db/schema";
+import { foodCourts, menus, tenants, users } from "../../db/schema";
 import { generateSlug } from "../food-courts/service";
 import type { CreateTenantDTOType, UpdateTenantDTOType } from "./model";
 
@@ -55,18 +56,46 @@ export class TenantService {
       conditions.push(eq(tenants.isOpen, filter.isOpen));
     }
 
+    const queryOptions = {
+      with: {
+        owner: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+            status: true,
+            role: true,
+          },
+        },
+        foodCourt: true,
+      },
+    } as const;
+
     if (conditions.length > 0) {
       return db.query.tenants.findMany({
         where: and(...conditions),
+        ...queryOptions,
       });
     }
 
-    return db.query.tenants.findMany();
+    return db.query.tenants.findMany(queryOptions);
   }
 
   async getById(id: string) {
     const tenant = await db.query.tenants.findFirst({
       where: eq(tenants.id, id),
+      with: {
+        owner: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+            status: true,
+            role: true,
+          },
+        },
+        foodCourt: true,
+      },
     });
 
     if (!tenant) {
@@ -124,8 +153,91 @@ export class TenantService {
         foodCourtId ?? (await this.getOrCreateDefaultFoodCourt());
     }
 
-    // 1. Validasi keunikan stall number pada tenant yang aktif di food court yang sama
-    const isOpen = data.isOpen ?? true;
+    // 1. Resolve target food court name for emails
+    const targetFc = await db.query.foodCourts.findFirst({
+      where: eq(foodCourts.id, foodCourtId),
+    });
+
+    // 2. Resolve owner and enforce 1-to-1 User = Tenant rule
+    let ownerId: string;
+    if (data.ownerEmail && data.ownerEmail.trim()) {
+      const email = data.ownerEmail.trim().toLowerCase();
+      const existingUser = await db.query.users.findFirst({
+        where: eq(users.email, email),
+      });
+
+      if (existingUser) {
+        // Enforce: User cannot already own another tenant
+        const alreadyTenant = await db.query.tenants.findFirst({
+          where: eq(tenants.ownerId, existingUser.id),
+        });
+        if (alreadyTenant) {
+          throw new ConflictError(
+            `Email '${email}' sudah terdaftar sebagai pemilik gerai '${alreadyTenant.name}'. Setiap akun hanya boleh mengelola 1 gerai.`,
+          );
+        }
+        ownerId = existingUser.id;
+        if (existingUser.role !== "admin" && existingUser.role !== "admin-food-court") {
+          await db
+            .update(users)
+            .set({ role: "tenant" })
+            .where(eq(users.id, existingUser.id));
+        }
+      } else {
+        // Create new user in PENDING_ACTIVATION state
+        const newUserId = crypto.randomUUID();
+        const activationToken = `${crypto.randomUUID().replace(/-/g, "")}${crypto.randomUUID().replace(/-/g, "")}`;
+        const activationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+        const placeholderHash = await Bun.password.hash(crypto.randomUUID());
+        const ownerDisplayName = (data.ownerName || data.name).trim();
+
+        await db.insert(users).values({
+          id: newUserId,
+          name: ownerDisplayName,
+          email,
+          passwordHash: placeholderHash,
+          role: "tenant",
+          status: "PENDING_ACTIVATION",
+          activationToken,
+          activationExpires,
+        });
+
+        ownerId = newUserId;
+
+        // Send activation email
+        await mailerService.sendActivationEmail({
+          to: email,
+          ownerName: ownerDisplayName,
+          tenantName: data.name,
+          stallNumber: data.stallNumber,
+          foodCourtName: targetFc?.name,
+          activationToken,
+        });
+      }
+    } else if (data.ownerId) {
+      const alreadyTenant = await db.query.tenants.findFirst({
+        where: eq(tenants.ownerId, data.ownerId),
+      });
+      if (alreadyTenant) {
+        throw new ConflictError(
+          `User ID '${data.ownerId}' sudah terdaftar sebagai pemilik gerai '${alreadyTenant.name}'. Satu akun hanya boleh mengelola 1 gerai.`,
+        );
+      }
+      ownerId = data.ownerId;
+    } else {
+      const alreadyTenant = await db.query.tenants.findFirst({
+        where: eq(tenants.ownerId, currentUser.id),
+      });
+      if (alreadyTenant) {
+        throw new ConflictError(
+          `Akun Anda sudah memiliki gerai '${alreadyTenant.name}'. Satu akun hanya boleh mengelola 1 gerai.`,
+        );
+      }
+      ownerId = currentUser.id;
+    }
+
+    // 3. Validasi keunikan stall number pada tenant yang aktif di food court yang sama
+    const isOpen = data.isOpen ?? false;
     if (isOpen) {
       const activeStall = await db
         .select({ id: tenants.id, name: tenants.name })
@@ -146,7 +258,7 @@ export class TenantService {
       }
     }
 
-    // 2. Generate slug otomatis dan pastikan unique per food court
+    // 4. Generate slug otomatis dan pastikan unique per food court
     const baseSlug = generateSlug(data.name);
     let slug = baseSlug;
     let counter = 1;
@@ -168,7 +280,6 @@ export class TenantService {
     }
 
     const id = crypto.randomUUID();
-    const ownerId = data.ownerId || currentUser.id;
 
     const newTenant = {
       id,
@@ -187,7 +298,51 @@ export class TenantService {
     };
 
     await db.insert(tenants).values(newTenant);
-    return newTenant;
+    return this.getById(id);
+  }
+
+  async resendActivation(id: string) {
+    const tenant = await this.getById(id);
+    if (!tenant.ownerId) {
+      throw new NotFoundError("Gerai ini belum memiliki akun pemilik");
+    }
+    const owner = await db.query.users.findFirst({
+      where: eq(users.id, tenant.ownerId),
+    });
+    if (!owner) {
+      throw new NotFoundError("Akun pemilik tidak ditemukan");
+    }
+    if (owner.status === "ACTIVE") {
+      throw new ConflictError("Akun pemilik gerai ini sudah aktif");
+    }
+
+    const activationToken = `${crypto.randomUUID().replace(/-/g, "")}${crypto.randomUUID().replace(/-/g, "")}`;
+    const activationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    await db
+      .update(users)
+      .set({
+        activationToken,
+        activationExpires,
+      })
+      .where(eq(users.id, owner.id));
+
+    const fc = await db.query.foodCourts.findFirst({
+      where: eq(foodCourts.id, tenant.foodCourtId),
+    });
+
+    await mailerService.sendActivationEmail({
+      to: owner.email,
+      ownerName: owner.name,
+      tenantName: tenant.name,
+      stallNumber: tenant.stallNumber,
+      foodCourtName: fc?.name,
+      activationToken,
+    });
+
+    return {
+      message: `Tautan aktivasi berhasil dikirim ulang ke ${owner.email}`,
+    };
   }
 
   async update(id: string, data: UpdateTenantDTOType, currentUser: AuthUser) {

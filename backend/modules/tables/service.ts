@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
+import QRCode from "qrcode";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../common/errors";
 import { db } from "../../db";
 import { diningSessions, foodCourts, tables, tenants } from "../../db/schema";
@@ -183,6 +184,30 @@ export class TableService {
       .where(eq(tables.id, id));
       
     return this.getById(id, currentUser);
+  }
+
+  async generateQrSvg(id: string, origin?: string): Promise<string> {
+    const table = await db.query.tables.findFirst({
+      where: eq(tables.id, id),
+    });
+
+    if (!table) {
+      throw new NotFoundError(`Table with id '${id}' not found`);
+    }
+
+    const frontendBaseUrl = (origin || process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+    const orderUrl = `${frontendBaseUrl}/s/${table.qrToken}`;
+
+    return QRCode.toString(orderUrl, {
+      type: "svg",
+      errorCorrectionLevel: "M",
+      margin: 2,
+      width: 320,
+      color: {
+        dark: "#0a0a0a",
+        light: "#ffffff",
+      },
+    });
   }
 
   // ALIASES for Test Compatibility (test/tables_qr.test.ts)

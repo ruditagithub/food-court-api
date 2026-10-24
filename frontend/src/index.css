@@ -76,3 +76,48 @@ html.lenis, html.lenis body {
     letter-spacing: -0.025em;
   }
 }
+
+/* Print optimization for physical table QR sticker card */
+@page {
+  size: auto;
+  margin: 0mm;
+}
+
+@media print {
+  html, body {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  #printable-table-qr, #printable-table-qr * {
+    visibility: visible;
+  }
+  #printable-table-qr [data-print-hidden="true"],
+  #printable-table-qr [data-print-hidden="true"] *,
+  .print\:hidden,
+  .print-hidden {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  #printable-table-qr {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 340px !important;
+    margin: 0 !important;
+    padding: 28px 24px !important;
+    box-shadow: none !important;
+    border: 2.5px solid #0a0a0a !important;
+    background: #ffffff !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

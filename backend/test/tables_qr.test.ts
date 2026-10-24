@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { tableService } from "../src/modules/tables/service";
+import { tableService } from "../modules/tables/service";
 
 describe("Table QR Code Resolver & Generation", () => {
   it("should generate a QR code for a table and resolve it correctly", async () => {
@@ -22,6 +22,13 @@ describe("Table QR Code Resolver & Generation", () => {
     expect(resolved).toBeDefined();
     expect(resolved.table.tableNumber).toBe(tableNumber);
     expect(resolved.isAvailable).toBe(true);
+
+    // 4. Generate real SVG QR Code
+    const svg = await tableService.generateQrSvg(created.id, "http://localhost:5173");
+    expect(svg).toBeDefined();
+    expect(svg.startsWith("<svg")).toBe(true);
+    expect(svg.includes("</svg>")).toBe(true);
+    expect(svg.includes("viewBox=")).toBe(true);
 
     // Clean up
     await tableService.delete(created.id);

@@ -391,6 +391,7 @@ export function AdminTablesPage() {
       {/* QR Print Modal */}
       <QrPrintModal
         table={selectedForPrint}
+        foodCourtName={selectedForPrint?.foodCourt?.name || foodCourt?.name}
         open={printModalOpen}
         onOpenChange={setPrintModalOpen}
         onTokenRegenerated={fetchTables}

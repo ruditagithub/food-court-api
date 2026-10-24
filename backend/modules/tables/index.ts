@@ -19,6 +19,27 @@ export const tablesController = new Elysia({ prefix: "/api/tables" })
         tags: ["Tables"],
         summary: "Get table details by QR token (Public)",
       },
+    }
+  )
+  .get(
+    "/:id/qr",
+    async ({ params: { id }, query, set }) => {
+      const svg = await tableService.generateQrSvg(id, query.origin);
+      set.headers["content-type"] = "image/svg+xml";
+      set.headers["cache-control"] = "public, max-age=3600";
+      return svg;
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      query: t.Object({
+        origin: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Tables"],
+        summary: "Generate and stream scannable SVG QR Code for a table (Public)",
+      },
     },
   )
   .get(

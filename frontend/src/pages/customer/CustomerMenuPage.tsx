@@ -6,6 +6,7 @@ import { TenantDirectoryCard } from '../../components/customer/TenantDirectoryCa
 import { TenantStorefrontView } from '../../components/customer/TenantStorefrontView'
 import { MenuItemCard } from '../../components/customer/MenuItemCard'
 import { ItemDetailModal } from '../../components/customer/ItemDetailModal'
+import { CartDrawer } from '../../components/customer/CartDrawer'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -50,6 +51,7 @@ export function CustomerMenuPage() {
     (Menu & { tenantName?: string; stallNumber?: string; tenantIsOpen?: boolean }) | null
   >(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false)
 
   // Local cart state scoped to qrToken
   const [cartQrToken, setCartQrToken] = useState<string | undefined>(qrToken)
@@ -117,6 +119,7 @@ export function CustomerMenuPage() {
           tableId: table.id,
           tableNumber: table.tableNumber,
           foodCourtId: table.foodCourtId,
+          foodCourtName: table.foodCourt?.name,
           qrToken: table.qrToken,
         })
       )
@@ -363,8 +366,8 @@ export function CustomerMenuPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f5] pb-28 text-[#0a0a0a]">
-      {/* Mobile-first centered container */}
-      <div className="max-w-md sm:max-w-xl md:max-w-2xl mx-auto p-4 sm:p-6 space-y-4">
+      {/* Responsive wide container */}
+      <div className="w-full max-w-7xl 2xl:max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 xl:p-10 space-y-6">
         {/* Customer Header with Food Court brand & table number */}
         <FoodCourtCustomerHeader
           foodCourtName={tableData.foodCourt?.name}
@@ -400,59 +403,62 @@ export function CustomerMenuPage() {
             onDecrease={handleDecreaseCart}
           />
         ) : (
-          <div className="space-y-4">
-            {/* Global Search Input */}
-            <div className="relative">
-              <Input
-                placeholder="Cari makanan, minuman, atau gerai stan..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 h-11 text-xs sm:text-sm rounded-[18px]"
-              />
-              <Icons.Search className="w-4 h-4 text-[#737373] absolute left-3 top-3.5 pointer-events-none" />
-              {search && (
+          <div className="space-y-6">
+            {/* Search and Tabs Control Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              {/* Global Search Input */}
+              <div className="relative flex-1">
+                <Input
+                  placeholder="Cari makanan, minuman, atau gerai stan..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 h-11 text-xs sm:text-sm rounded-[18px]"
+                />
+                <Icons.Search className="w-4 h-4 text-[#737373] absolute left-3 top-3.5 pointer-events-none" />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    className="absolute right-3 top-3.5 text-[#737373] hover:text-[#0a0a0a] text-xs cursor-pointer"
+                  >
+                    <Icons.Close className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Navigation Tab Switcher: Direktori Stan vs Eksplor Menu */}
+              <div className="flex p-1 rounded-[20px] bg-[#e5e5e5] gap-1 sm:w-auto shrink-0">
                 <button
                   type="button"
-                  onClick={() => setSearch('')}
-                  className="absolute right-3 top-3 text-[#737373] hover:text-[#0a0a0a] text-xs"
+                  onClick={() => setActiveTab('stalls')}
+                  className={`flex-1 sm:flex-initial py-2 px-4 rounded-[16px] text-xs font-bold transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${
+                    activeTab === 'stalls'
+                      ? 'bg-[#0a0a0a] text-white shadow-xs'
+                      : 'text-[#525252] hover:text-[#0a0a0a]'
+                  }`}
                 >
-                  <Icons.Close className="w-4 h-4" />
+                  <Icons.Store className="w-3.5 h-3.5" />
+                  <span>Daftar Stan ({stalls.length})</span>
                 </button>
-              )}
-            </div>
 
-            {/* Navigation Tab Switcher: Direktori Stan vs Eksplor Menu */}
-            <div className="flex p-1 rounded-[20px] bg-[#e5e5e5] gap-1">
-              <button
-                type="button"
-                onClick={() => setActiveTab('stalls')}
-                className={`flex-1 py-2 px-3 rounded-[16px] text-xs font-bold transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${
-                  activeTab === 'stalls'
-                    ? 'bg-[#0a0a0a] text-white shadow-xs'
-                    : 'text-[#525252] hover:text-[#0a0a0a]'
-                }`}
-              >
-                <Icons.Store className="w-3.5 h-3.5" />
-                <span>Daftar Stan ({stalls.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('explore')}
-                className={`flex-1 py-2 px-3 rounded-[16px] text-xs font-bold transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${
-                  activeTab === 'explore'
-                    ? 'bg-[#0a0a0a] text-white shadow-xs'
-                    : 'text-[#525252] hover:text-[#0a0a0a]'
-                }`}
-              >
-                <Icons.Utensils className="w-3.5 h-3.5" />
-                <span>Eksplor Semua Menu ({openStallMenus.length})</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('explore')}
+                  className={`flex-1 sm:flex-initial py-2 px-4 rounded-[16px] text-xs font-bold transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${
+                    activeTab === 'explore'
+                      ? 'bg-[#0a0a0a] text-white shadow-xs'
+                      : 'text-[#525252] hover:text-[#0a0a0a]'
+                  }`}
+                >
+                  <Icons.Utensils className="w-3.5 h-3.5" />
+                  <span>Eksplor Semua Menu ({openStallMenus.length})</span>
+                </button>
+              </div>
             </div>
 
             {/* Content Tab 1: Stalls Directory Grid */}
             {activeTab === 'stalls' && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between px-1">
                   <h2 className="text-xs font-mono uppercase tracking-wider text-[#737373] font-semibold">
                     Pilih Gerai Kuliner
@@ -467,7 +473,7 @@ export function CustomerMenuPage() {
                     Tidak ada stan yang cocok dengan kata kunci &quot;{search}&quot;.
                   </Card>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2200px]:grid-cols-6 gap-4">
                     {filteredStalls.map((stall) => (
                       <TenantDirectoryCard
                         key={stall.id}
@@ -482,13 +488,13 @@ export function CustomerMenuPage() {
 
             {/* Content Tab 2: Explore All Menus */}
             {activeTab === 'explore' && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {exploreCategories.length > 0 && (
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none py-1">
                     <button
                       type="button"
                       onClick={() => setExploreCategory('all')}
-                      className={`px-3 py-1.5 rounded-[14px] text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                      className={`px-3.5 py-1.5 rounded-[14px] text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
                         exploreCategory === 'all'
                           ? 'bg-[#0a0a0a] text-white'
                           : 'bg-white text-[#737373] border border-[#e5e5e5] hover:text-[#0a0a0a]'
@@ -501,7 +507,7 @@ export function CustomerMenuPage() {
                         key={cat}
                         type="button"
                         onClick={() => setExploreCategory(cat)}
-                        className={`px-3 py-1.5 rounded-[14px] text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                        className={`px-3.5 py-1.5 rounded-[14px] text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
                           exploreCategory === cat
                             ? 'bg-[#0a0a0a] text-white'
                             : 'bg-white text-[#737373] border border-[#e5e5e5] hover:text-[#0a0a0a]'
@@ -527,7 +533,7 @@ export function CustomerMenuPage() {
                     Tidak ada sajian yang cocok dengan kata kunci &quot;{search}&quot;.
                   </Card>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2200px]:grid-cols-6 gap-4">
                     {filteredExploreMenus.map((item) => (
                       <MenuItemCard
                         key={item.id}
@@ -576,10 +582,14 @@ export function CustomerMenuPage() {
 
       {/* Floating Universal Multi-Tenant Bottom Cart Bar */}
       {totalCartCount > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-40 p-4 bg-gradient-to-t from-[#f5f5f5] via-[#f5f5f5]/90 to-transparent pointer-events-none">
-          <div className="max-w-md sm:max-w-xl md:max-w-2xl mx-auto pointer-events-auto">
-            <div className="p-3.5 sm:p-4 rounded-[26px] bg-[#0a0a0a] text-white shadow-2xl flex items-center justify-between gap-3 border border-white/10">
-              <div className="flex items-center gap-3 min-w-0 pl-1">
+        <div className="fixed bottom-0 inset-x-0 z-40 p-4 sm:p-6 bg-gradient-to-t from-[#f5f5f5] via-[#f5f5f5]/90 to-transparent pointer-events-none">
+          <div className="w-full max-w-7xl 2xl:max-w-[1600px] mx-auto pointer-events-auto">
+            <div className="p-3.5 sm:p-4 rounded-[26px] bg-[#0a0a0a] text-white shadow-2xl flex items-center justify-between gap-4 border border-white/10">
+              <div
+                className="flex items-center gap-3 min-w-0 pl-1 cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => setIsCartDrawerOpen(true)}
+                title="Buka rincian keranjang"
+              >
                 <div className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center font-mono font-bold text-sm shrink-0 border border-white/10">
                   {totalCartCount}
                 </div>
@@ -592,30 +602,71 @@ export function CustomerMenuPage() {
                     <Badge variant="soft" className="bg-white/10 text-white text-[10px] py-0 px-1.5 border border-white/10">
                       {uniqueTenantNames.length} Stan
                     </Badge>
-                    <span className="text-[10px] text-white/60 truncate max-w-[140px] sm:max-w-[240px]">
+                    <span className="text-[10px] text-white/60 truncate max-w-[140px] sm:max-w-[320px] lg:max-w-none">
                       ({uniqueTenantNames.join(', ')})
                     </span>
                   </div>
-                  <p className="font-mono text-base font-black text-white mt-0.5 tracking-tight">
+                  <p className="font-mono text-base sm:text-lg font-black text-white mt-0.5 tracking-tight">
                     {formatRupiah(totalCartAmount)}
                   </p>
                 </div>
               </div>
 
-              <Button
-                type="button"
-                variant="secondary"
-                size="md"
-                onClick={() => navigate(`/checkout?qrToken=${qrToken}`)}
-                className="gap-2 shrink-0 font-bold rounded-[18px] bg-white text-[#0a0a0a] hover:bg-[#e5e5e5] px-4"
-              >
-                <span>Lihat Pesanan</span>
-                <Icons.ArrowRight className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  onClick={() => setIsCartDrawerOpen(true)}
+                  className="hidden sm:inline-flex gap-1.5 font-bold rounded-[18px] border-white/20 text-white hover:bg-white/10 px-4 h-11"
+                >
+                  <Icons.ShoppingBag className="w-4 h-4" />
+                  <span>Rincian</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  onClick={() => navigate(`/checkout?qrToken=${qrToken}`)}
+                  className="gap-2 shrink-0 font-bold rounded-[18px] bg-white text-[#0a0a0a] hover:bg-[#e5e5e5] px-5 sm:px-6 h-11"
+                >
+                  <span>Checkout</span>
+                  <Icons.ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Cart Drawer */}
+      <CartDrawer
+        open={isCartDrawerOpen}
+        onOpenChange={setIsCartDrawerOpen}
+        items={cart}
+        onUpdateQuantity={(index, newQty) => {
+          setCart((prev) => {
+            if (index < 0 || index >= prev.length) return prev
+            const target = prev[index]
+            const maxStock = typeof target.stock === 'number' ? target.stock : 99
+            const clampedQty = Math.min(newQty, maxStock)
+            if (clampedQty <= 0) {
+              return prev.filter((_, idx) => idx !== index)
+            }
+            const updated = [...prev]
+            updated[index] = { ...target, quantity: clampedQty }
+            return updated
+          })
+        }}
+        onRemoveItem={(index) => {
+          setCart((prev) => prev.filter((_, idx) => idx !== index))
+        }}
+        onCheckout={() => {
+          setIsCartDrawerOpen(false)
+          navigate(`/checkout?qrToken=${qrToken}`)
+        }}
+      />
     </div>
   )
 }

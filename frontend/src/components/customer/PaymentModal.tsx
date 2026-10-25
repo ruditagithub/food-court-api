@@ -517,7 +517,7 @@ export function PaymentModal({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && !processingGroupId && !syncingGroupId && onClose()} size="xl">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && !processingGroupId && !syncingGroupId && onClose()} size="3xl">
       <DialogClose onClick={onClose} />
       <DialogHeader>
         <div className="flex items-center justify-between pr-6">

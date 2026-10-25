@@ -63,7 +63,12 @@ export function CashierQRScannerModal({
   useEffect(() => {
     if (!isOpen || !selectedCameraId) return
 
-    const qrScanner = new Html5Qrcode(scannerContainerId)
+    const qrScanner = new Html5Qrcode(scannerContainerId, {
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true,
+      },
+      verbose: false,
+    })
     qrReaderRef.current = qrScanner
     let active = true
 
@@ -73,8 +78,15 @@ export function CashierQRScannerModal({
         await qrScanner.start(
           selectedCameraId,
           {
-            fps: 10,
-            qrbox: { width: 240, height: 240 },
+            fps: 30,
+            qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+              const minEdge = Math.min(viewfinderWidth, viewfinderHeight)
+              const qrboxSize = Math.floor(minEdge * 0.85)
+              return {
+                width: qrboxSize,
+                height: qrboxSize,
+              }
+            },
             aspectRatio: 1.0,
           },
           (decodedText) => {
@@ -95,6 +107,17 @@ export function CashierQRScannerModal({
         )
         if (active) {
           setIsScanning(true)
+          // Attempt continuous autofocus if supported by camera device
+          try {
+            const capabilities = qrScanner.getRunningTrackCapabilities() as any
+            if (capabilities?.focusMode?.includes('continuous')) {
+              await qrScanner.applyVideoConstraints({
+                advanced: [{ focusMode: 'continuous' } as any],
+              })
+            }
+          } catch {
+            // ignore if not supported
+          }
         } else {
           // If unmounted or closed while start() was resolving, shut down camera immediately
           qrScanner
@@ -153,7 +176,14 @@ export function CashierQRScannerModal({
         await qrReaderRef.current.stop().catch(() => {})
         setIsScanning(false)
       }
-      const scanner = qrReaderRef.current || new Html5Qrcode(scannerContainerId)
+      const scanner =
+        qrReaderRef.current ||
+        new Html5Qrcode(scannerContainerId, {
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true,
+          },
+          verbose: false,
+        })
       const decodedText = await scanner.scanFile(file, false)
       if (decodedText) {
         onScanSuccess(decodedText)
@@ -189,7 +219,7 @@ export function CashierQRScannerModal({
 
       <div className="space-y-4 py-2">
         {/* Camera Scanner Viewport */}
-        <div className="relative w-full aspect-square max-w-[320px] mx-auto rounded-[24px] overflow-hidden bg-black border-2 border-[#0a0a0a] shadow-inner flex flex-col items-center justify-center">
+        <div className="relative w-full aspect-square max-w-[340px] sm:max-w-[400px] mx-auto rounded-[24px] overflow-hidden bg-black border-2 border-[#0a0a0a] shadow-inner flex flex-col items-center justify-center">
           {/* HTML5 QR Code Mount Element */}
           <div
             id={scannerContainerId}
@@ -199,12 +229,12 @@ export function CashierQRScannerModal({
           {/* Scanner Overlay Visual Guide */}
           {isScanning && !scanError && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-              <div className="w-[220px] h-[220px] border-2 border-white/40 rounded-[20px] relative">
+              <div className="w-[85%] h-[85%] border-2 border-white/40 rounded-[20px] relative">
                 {/* Corner Accents */}
-                <span className="absolute -top-0.5 -left-0.5 w-5 h-5 border-t-4 border-l-4 border-white rounded-tl-[8px]" />
-                <span className="absolute -top-0.5 -right-0.5 w-5 h-5 border-t-4 border-r-4 border-white rounded-tr-[8px]" />
-                <span className="absolute -bottom-0.5 -left-0.5 w-5 h-5 border-b-4 border-l-4 border-white rounded-bl-[8px]" />
-                <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 border-b-4 border-r-4 border-white rounded-br-[8px]" />
+                <span className="absolute -top-0.5 -left-0.5 w-6 h-6 border-t-4 border-l-4 border-white rounded-tl-[10px]" />
+                <span className="absolute -top-0.5 -right-0.5 w-6 h-6 border-t-4 border-r-4 border-white rounded-tr-[10px]" />
+                <span className="absolute -bottom-0.5 -left-0.5 w-6 h-6 border-b-4 border-l-4 border-white rounded-bl-[10px]" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-6 h-6 border-b-4 border-r-4 border-white rounded-br-[10px]" />
 
                 {/* Animated Horizontal Scanline */}
                 <div className="w-full h-0.5 bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse absolute top-1/2 -translate-y-1/2" />

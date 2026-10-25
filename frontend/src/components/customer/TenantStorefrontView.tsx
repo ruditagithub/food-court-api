@@ -156,13 +156,13 @@ export function TenantStorefrontView({
       </Card>
 
       {/* Menu List of this Stall */}
-      <div className="space-y-3">
-        {filteredMenus.length === 0 ? (
-          <Card surface="paper" className="p-8 text-center text-sm text-[#737373] rounded-[24px]">
-            Tidak ada sajian menu yang ditemukan di stan ini.
-          </Card>
-        ) : (
-          filteredMenus.map((item) => (
+      {filteredMenus.length === 0 ? (
+        <Card surface="paper" className="p-8 text-center text-sm text-[#737373] rounded-[24px]">
+          Tidak ada sajian menu yang ditemukan di stan ini.
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 min-[1800px]:grid-cols-5 min-[2200px]:grid-cols-6 gap-4">
+          {filteredMenus.map((item) => (
             <MenuItemCard
               key={item.id}
               item={item}
@@ -174,9 +174,9 @@ export function TenantStorefrontView({
               onQuickAdd={onQuickAdd}
               onDecrease={onDecrease}
             />
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

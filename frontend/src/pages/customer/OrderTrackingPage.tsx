@@ -276,24 +276,39 @@ export function OrderTrackingPage() {
     )
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] py-8 px-4 sm:px-6 text-[#0a0a0a]">
-      <div className="max-w-md sm:max-w-xl mx-auto space-y-5">
+    <div className="min-h-screen bg-[#f5f5f5] py-8 px-4 sm:px-6 lg:px-8 xl:px-10 text-[#0a0a0a]">
+      <div className="w-full max-w-7xl 2xl:max-w-[1600px] mx-auto space-y-6">
         {/* Top return link to Table Menu if available */}
-        {activeTableQr && (
-          <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center flex-wrap gap-2">
+          {activeTableQr ? (
             <Link
               to={`/s/${activeTableQr}`}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#737373] hover:text-[#0a0a0a] transition-colors py-1.5 px-3 rounded-[16px] bg-white border border-[#e5e5e5] shadow-xs"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#737373] hover:text-[#0a0a0a] transition-colors py-1.5 px-3 rounded-[16px] bg-white border border-[#e5e5e5] shadow-xs cursor-pointer hover:border-[#0a0a0a]"
             >
               <Icons.ArrowLeft className="w-3.5 h-3.5" />
               <span>Pesan Menu Tambahan</span>
             </Link>
+          ) : (
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#737373] hover:text-[#0a0a0a] transition-colors py-1.5 px-3 rounded-[16px] bg-white border border-[#e5e5e5] shadow-xs cursor-pointer hover:border-[#0a0a0a]"
+            >
+              <Icons.ArrowLeft className="w-3.5 h-3.5" />
+              <span>Beranda Food Court</span>
+            </Link>
+          )}
 
+          <div className="flex items-center gap-2">
+            {order.foodCourtName && (
+              <span className="text-xs font-bold text-[#0a0a0a] hidden sm:inline">
+                {order.foodCourtName} •
+              </span>
+            )}
             <Badge variant="solid" className="font-mono text-xs">
               {order.tableNumber ? `Meja ${order.tableNumber}` : 'Bawa Pulang'}
             </Badge>
           </div>
-        )}
+        </div>
 
         {/* Ready Buzzer Notification Banner */}
         {readyStalls.length > 0 && (
@@ -316,522 +331,524 @@ export function OrderTrackingPage() {
           </div>
         )}
 
-        {/* Order Header Card */}
-        <Card surface="paper" className="space-y-4 rounded-[24px]">
-          <div className="flex items-start justify-between">
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#737373]">
-                Nomor Pesanan Terpadu
-              </span>
-              <h1 className="text-xl sm:text-2xl font-black font-mono text-[#0a0a0a] tracking-tight">
-                {order.orderNumber}
-              </h1>
-              <p className="text-xs text-[#737373] mt-0.5">
-                {order.createdAt ? formatDate(order.createdAt) : ''}
-              </p>
-            </div>
-
-            <div className="text-right">
-              <Badge variant="solid" className="font-mono text-xs">
-                {order.tableNumber ? `Meja ${order.tableNumber}` : 'Bawa Pulang'}
-              </Badge>
-              {order.customerName && (
-                <p className="text-xs text-[#737373] mt-1 font-medium">
-                  {order.customerName}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-[#e5e5e5] space-y-1.5 text-xs">
-            <div className="flex justify-between text-[#737373]">
-              <span>Subtotal Makanan:</span>
-              <span className="font-mono text-[#0a0a0a]">{formatRupiah(order.subtotal || order.totalAmount)}</span>
-            </div>
-            {(order.serviceFee > 0 || order.taxAmount > 0) && (
-              <>
-                <div className="flex justify-between text-[#737373]">
-                  <span>Biaya Layanan (3%):</span>
-                  <span className="font-mono text-[#0a0a0a]">{formatRupiah(order.serviceFee || 0)}</span>
-                </div>
-                <div className="flex justify-between text-[#737373]">
-                  <span>Pajak Restoran PB1 (10%):</span>
-                  <span className="font-mono text-[#0a0a0a]">{formatRupiah(order.taxAmount || 0)}</span>
-                </div>
-              </>
-            )}
-            <div className="pt-1 border-t border-[#f0f0f0] flex justify-between items-center font-bold">
-              <span className="text-[#0a0a0a]">Total Tagihan:</span>
-              <span className="font-mono text-sm text-[#0a0a0a]">{formatRupiah(order.totalAmount || 0)}</span>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-[#e5e5e5] flex items-center justify-between text-xs">
-            <span className="text-[#737373]">Status Pembayaran:</span>
-            <div className="flex items-center gap-2">
-              <Badge
-                variant={isOrderFullyPaid ? 'solid' : 'soft'}
-                className={
-                  isOrderFullyPaid
-                    ? 'bg-[#16a34a] text-white'
-                    : isPartiallyPaid
-                      ? 'bg-blue-100 text-blue-900 border border-blue-300'
-                      : 'bg-amber-100 text-amber-900 border border-amber-300'
-                }
-              >
-                {isOrderFullyPaid
-                  ? 'LUNAS'
-                  : isPartiallyPaid
-                    ? 'DIBAYAR SEBAGIAN'
-                    : 'BELUM BAYAR'}
-              </Badge>
-              {!isOrderFullyPaid ? (
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={handleOpenDirectPay}
-                  className="h-7 text-xs px-2.5 rounded-[14px]"
-                >
-                  Bayar Sekarang
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsReceiptModalOpen(true)}
-                  className="h-7 text-xs px-2.5 rounded-[14px] flex items-center gap-1"
-                >
-                  <Icons.Printer className="w-3.5 h-3.5" />
-                  Struk
-                </Button>
-              )}
-            </div>
-          </div>
-        </Card>
-
-        {/* ===================== SPLIT BILL ACTIVE PANEL ===================== */}
-        {order.paymentGroups && order.paymentGroups.length > 1 ? (
-          <Card surface="paper" className="p-4 sm:p-5 rounded-[24px] space-y-4 border border-[#e5e5e5] shadow-xs">
-            {/* Split Bill Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-[#e5e5e5]">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-[#f5f5f5] flex items-center justify-center border border-[#e5e5e5]">
-                  <Icons.Users className="w-4 h-4 text-[#0a0a0a]" />
-                </div>
+        {/* 2-Column Responsive Layout */}
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+          {/* Left Column: Stalls Kitchen Progress Tracking */}
+          <div className="w-full lg:col-span-7 xl:col-span-8 space-y-6 order-2 lg:order-1">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
                 <div>
-                  <h3 className="font-bold text-sm text-[#0a0a0a]">
-                    Tagihan Split Bill ({order.paymentGroups.length} Orang)
-                  </h3>
-                  <p className="text-[11px] text-[#737373]">
-                    Setiap teman dapat membayar bagiannya dari HP masing-masing
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-[#0a0a0a] font-mono">
+                    Proses Dapur Masing-Masing Stan
+                  </h2>
+                  <p className="text-xs text-[#737373] mt-0.5">
+                    Pantau status memasak dari masing-masing koki gerai secara langsung
                   </p>
                 </div>
+                <Badge variant="soft" className="text-xs font-semibold">
+                  {(order.stalls || order.tenantOrders || []).length} Stan
+                </Badge>
               </div>
-              <Badge
-                variant="soft"
-                className={`text-[10px] font-bold ${
-                  isOrderFullyPaid
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : isPartiallyPaid
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-amber-100 text-amber-800'
-                }`}
-              >
-                {isOrderFullyPaid
-                  ? 'Semua Lunas'
-                  : isPartiallyPaid
-                    ? 'Sebagian Lunas'
-                    : 'Menunggu Pembayaran'}
-              </Badge>
-            </div>
 
-            {/* Share Link Banner (shown if not fully paid) */}
-            {!isOrderFullyPaid && (
-              <div className="p-3.5 rounded-[18px] bg-[#fafafa] border border-[#e5e5e5] space-y-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#0a0a0a]">
-                    <Icons.Share className="w-3.5 h-3.5 text-[#0a0a0a]" />
-                    <span>Bagikan Link ke Teman Semeja</span>
-                  </div>
-                  <span className="text-[10px] text-[#737373]">Bayar dari device masing-masing</span>
-                </div>
-                <p className="text-xs text-[#737373] leading-relaxed">
-                  Kirimkan link ini agar teman semeja dapat membuka daftar pesanan dan langsung membayar tagihan sesuai namanya:
-                </p>
-                <div className="grid grid-cols-2 gap-2 pt-0.5">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleCopyOrderLink()}
-                    className="h-8 text-xs font-semibold rounded-[12px] flex items-center justify-center gap-1.5"
-                  >
-                    <Icons.Copy className="w-3.5 h-3.5" />
-                    <span>Salin Link Meja</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    onClick={handleShareTableWhatsApp}
-                    className="h-8 text-xs font-semibold rounded-[12px] flex items-center justify-center gap-1.5 bg-[#16a34a] hover:bg-[#15803d] text-white border-none"
-                  >
-                    <Icons.Message className="w-3.5 h-3.5" />
-                    <span>Share WhatsApp</span>
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Participants Cards List */}
-            <div className="space-y-3">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#737373] block">
-                Daftar Tagihan per Orang:
-              </span>
-              {order.paymentGroups.map((pg: any) => {
-                const isGroupPaid = pg.status === 'PAID'
-                
+              {(order.stalls || order.tenantOrders || []).map((stall: any, idx: number) => {
+                const cookingStatus = stall.status || stall.cookingStatus || 'QUEUED'
+                const progress = getStepProgress(cookingStatus)
+                const statusBadge = getStallStatusBadge(cookingStatus)
 
                 return (
-                  <div
-                    key={pg.id}
-                    className="p-3.5 rounded-[18px] bg-white border border-[#e5e5e5] space-y-3 shadow-xs hover:border-[#d4d4d4] transition-colors"
-                  >
-                    {/* Participant Header & Subtotal */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-[#0a0a0a] truncate">
-                            {pg.participantName}
-                          </span>
-                          <Badge
-                            variant={isGroupPaid ? 'solid' : 'soft'}
-                            className={`text-[9px] py-0 px-2 font-mono ${
-                              isGroupPaid
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-amber-100 text-amber-900 border border-amber-300'
-                            }`}
-                          >
-                            {isGroupPaid ? 'LUNAS' : 'BELUM BAYAR'}
-                          </Badge>
-                        </div>
+                  <Card key={stall.id || idx} surface="paper" className="space-y-4 rounded-[24px]">
+                    <div className="flex items-center justify-between pb-3 border-b border-[#e5e5e5] gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Icons.Store className="w-4 h-4 text-[#737373] shrink-0" />
+                        <span className="font-bold text-sm text-[#0a0a0a] truncate">
+                          {stall.tenantName || 'Stan Kios'}
+                        </span>
                       </div>
-                      <span className="font-mono font-bold text-sm text-[#0a0a0a] shrink-0">
-                        {formatRupiah(pg.amountDue)}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                        <span className={`font-semibold text-[10px] px-2 py-0.5 rounded-[10px] ${statusBadge.className}`}>
+                          {statusBadge.label}
+                        </span>
+                        {stall.queueNumber && stall.queueNumber !== '-' && (
+                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-[10px] bg-[#0a0a0a] text-white">
+                            #{stall.queueNumber}
+                          </span>
+                        )}
+                        {stall.stallNumber && (
+                          <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-[10px] bg-[#f5f5f5] text-[#0a0a0a] border border-[#e5e5e5]">
+                            Kios {stall.stallNumber}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Allocated Items List */}
-                    <div className="p-2.5 rounded-[12px] bg-[#fafafa] border border-[#f0f0f0] space-y-1 text-xs">
-                      {(pg.items || []).map((it: any, itemIdx: number) => (
-                        <div key={it.id || itemIdx} className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <span className="text-[#0a0a0a] font-medium">
-                              {it.quantity}x {it.menuName || it.menuNameSnapshot || 'Item'}
-                            </span>
-                            {it.notes && (
-                              <span className="text-[11px] text-[#737373] block italic">
-                                Catatan: &quot;{it.notes}&quot;
+                    {/* 4-Step Visual Progress Bar */}
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-4 gap-1.5">
+                        <div
+                          className={`h-2 rounded-full transition-colors ${
+                            progress >= 1 ? 'bg-[#0a0a0a]' : 'bg-[#e5e5e5]'
+                          }`}
+                        />
+                        <div
+                          className={`h-2 rounded-full transition-colors ${
+                            progress >= 2 ? 'bg-[#0a0a0a]' : 'bg-[#e5e5e5]'
+                          }`}
+                        />
+                        <div
+                          className={`h-2 rounded-full transition-colors ${
+                            progress >= 3 ? 'bg-amber-500' : 'bg-[#e5e5e5]'
+                          }`}
+                        />
+                        <div
+                          className={`h-2 rounded-full transition-colors ${
+                            progress >= 4 ? 'bg-emerald-500' : 'bg-[#e5e5e5]'
+                          }`}
+                        />
+                      </div>
+
+                      <div className="flex justify-between text-[10px] font-mono uppercase text-[#737373]">
+                        <span className={progress >= 1 ? 'text-[#0a0a0a] font-bold' : ''}>
+                          1. Antre
+                        </span>
+                        <span className={progress >= 2 ? 'text-[#0a0a0a] font-bold' : ''}>
+                          2. Dimasak
+                        </span>
+                        <span className={progress >= 3 ? 'text-amber-600 font-bold' : ''}>
+                          3. Siap Gerai
+                        </span>
+                        <span className={progress >= 4 ? 'text-emerald-600 font-bold' : ''}>
+                          4. Disajikan
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Stall Items */}
+                    {stall.items && stall.items.length > 0 && (
+                      <div className="pt-2 border-t border-[#e5e5e5] space-y-2 text-xs">
+                        {stall.items.map((it: any, iIdx: number) => (
+                          <div key={iIdx} className="space-y-0.5">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-[#0a0a0a] font-medium">
+                                {it.quantity}x {it.name || it.menuNameSnapshot}
                               </span>
+                              {it.options && it.options.length > 0 && (
+                                <span className="text-[#737373] text-[11px]">
+                                  ({it.options.join(', ')})
+                                </span>
+                              )}
+                            </div>
+                            {it.notes && (
+                              <p className="text-[11px] text-[#737373] italic pl-4">
+                                Catatan: &quot;{it.notes}&quot;
+                              </p>
                             )}
                           </div>
-                          <span className="font-mono text-[#737373] shrink-0 text-[11px]">
-                            {formatRupiah(it.allocatedAmount || it.subtotal || 0)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Financial Breakdown (Subtotal, Layanan 3%, PB1 10%, Total) */}
-                    {(() => {
-                      const sub = pg.subtotal ?? (pg.items || []).reduce((acc: number, it: any) => acc + (it.allocatedAmount || 0), 0)
-                      const svc = pg.serviceFee ?? Math.round(sub * 0.03)
-                      const tax = pg.taxAmount ?? Math.round(sub * 0.10)
-                      const due = pg.amountDue ?? (sub + svc + tax)
-                      return (
-                        <div className="pt-2 border-t border-[#f0f0f0] space-y-1 text-xs">
-                          <div className="flex justify-between text-[#737373]">
-                            <span>Subtotal Menu:</span>
-                            <span className="font-mono text-[#0a0a0a]">{formatRupiah(sub)}</span>
-                          </div>
-                          <div className="flex justify-between text-[#737373]">
-                            <span>Biaya Layanan (3%):</span>
-                            <span className="font-mono text-[#0a0a0a]">{formatRupiah(svc)}</span>
-                          </div>
-                          <div className="flex justify-between text-[#737373]">
-                            <span>Pajak Restoran PB1 (10%):</span>
-                            <span className="font-mono text-[#0a0a0a]">{formatRupiah(tax)}</span>
-                          </div>
-                          <div className="flex justify-between font-bold text-[#0a0a0a] pt-1 border-t border-[#e5e5e5]">
-                            <span>Total Tagihan:</span>
-                            <span className="font-mono">{formatRupiah(due)}</span>
-                          </div>
-                        </div>
-                      )
-                    })()}
-
-                    {/* Actions for this participant if not yet paid */}
-                    {!isGroupPaid && (
-                      <div className="pt-2 border-t border-[#f5f5f5] space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            type="button"
-                            variant="primary"
-                            size="sm"
-                            onClick={() => handlePayParticipantMidtrans(pg.id)}
-                            className="h-8 text-xs font-bold rounded-[12px] flex items-center justify-center gap-1.5"
-                          >
-                            <Icons.CreditCard className="w-3.5 h-3.5" />
-                            <span>Bayar via Midtrans</span>
-                          </Button>
-
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleOpenParticipantCashPass(pg)}
-                            
-                            className="h-8 text-xs font-bold rounded-[12px] flex items-center justify-center gap-1.5"
-                          >
-                            <Icons.Check className="w-3.5 h-3.5" />
-                            <span>Bayar Kasir (Cash)</span>
-                          </Button>
-                        </div>
-
-                        {/* Personal Share Buttons */}
-                        <div className="flex items-center justify-end gap-2 pt-0.5">
-                          <button
-                            type="button"
-                            onClick={() => handleCopyParticipantBill(pg)}
-                            className="text-[11px] font-semibold text-[#737373] hover:text-[#0a0a0a] transition-colors flex items-center gap-1 cursor-pointer"
-                          >
-                            <Icons.Copy className="w-3 h-3" />
-                            <span>Salin Tagihan {pg.participantName}</span>
-                          </button>
-                          <span className="text-[#d4d4d4]">•</span>
-                          <button
-                            type="button"
-                            onClick={() => handleShareParticipantWA(pg)}
-                            className="text-[11px] font-semibold text-[#16a34a] hover:text-[#15803d] transition-colors flex items-center gap-1 cursor-pointer"
-                          >
-                            <Icons.Message className="w-3 h-3" />
-                            <span>Kirim WA ke {pg.participantName}</span>
-                          </button>
-                        </div>
+                        ))}
                       </div>
                     )}
-                  </div>
+                  </Card>
                 )
               })}
             </div>
 
-            {/* Split configuration edit button or lock notification */}
-            {!hasAnyGroupPaid ? (
-              <div className="pt-2 border-t border-[#e5e5e5] text-center">
-                <button
-                  type="button"
-                  onClick={handleOpenSplitEditor}
-                  className="text-xs font-bold text-[#737373] hover:text-[#0a0a0a] transition-colors underline underline-offset-4 cursor-pointer"
-                >
-                  Atur Ulang Pembagian Menu (Edit Split Bill)
-                </button>
+            {/* Polling live footer */}
+            <div className="text-center pt-2 space-y-2">
+              <div className="inline-flex items-center gap-1.5 text-xs text-[#737373]">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Memperbarui status otomatis setiap 4 detik</span>
               </div>
-            ) : (
-              <div className="pt-2 border-t border-[#e5e5e5] flex items-center justify-center gap-1.5 text-[11px] text-[#737373]">
-                <Icons.Lock className="w-3.5 h-3.5 text-[#a3a3a3]" />
-                <span>Pembagian menu telah dikunci karena pembayaran sudah dimulai.</span>
-              </div>
-            )}
-          </Card>
-        ) : (
-          /* ===================== SINGLE BILL / SPLIT PROMPT PANEL ===================== */
-          !isOrderFullyPaid && (
-            <Card surface="paper" className="p-4 sm:p-5 rounded-[24px] space-y-3.5 border border-[#e5e5e5] shadow-xs">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="font-bold text-sm text-[#0a0a0a]">Pilihan Pembayaran Meja</h3>
-                  <p className="text-xs text-[#737373] mt-0.5">
-                    Total tagihan: <span className="font-mono font-bold text-[#0a0a0a]">{formatRupiah(order.totalAmount || 0)}</span>
-                  </p>
-                </div>
-                <Badge variant="soft" className="text-xs bg-amber-100 text-amber-900 border border-amber-300">
-                  BELUM BAYAR
-                </Badge>
-              </div>
-
-              <p className="text-xs text-[#737373] leading-relaxed">
-                Anda dapat langsung melunasi seluruh tagihan meja, atau membaginya (Split Bill) per menu makanan ke teman semeja agar bisa dibayar dari HP masing-masing.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                <Button
-                  type="button"
-                  variant="primary"
-                  onClick={handleOpenDirectPay}
-                  className="h-9 text-xs font-bold rounded-[14px] flex items-center justify-center gap-1.5"
+              <div>
+                <Link
+                  to="/"
+                  className="text-xs text-[#737373] hover:text-[#0a0a0a] underline underline-offset-2"
                 >
-                  <Icons.CreditCard className="w-3.5 h-3.5" />
-                  <span>Bayar via Midtrans</span>
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleOpenDirectCashPass}
-                  
-                  className="h-9 text-xs font-bold rounded-[14px] flex items-center justify-center gap-1.5"
-                >
-                  <Icons.Check className="w-3.5 h-3.5" />
-                  <span>Bayar Kasir (Cash)</span>
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleOpenSplitEditor}
-                  className="h-9 text-xs font-bold rounded-[14px] flex items-center justify-center gap-1.5"
-                >
-                  <Icons.Users className="w-3.5 h-3.5" />
-                  <span>Bagi Tagihan (Split Bill)</span>
-                </Button>
+                  Kembali ke Beranda Food Court
+                </Link>
               </div>
-            </Card>
-          )
-        )}
-
-        {/* Stalls Progress Tracking */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-xs font-mono uppercase tracking-wider text-[#737373] font-semibold">
-              Proses Dapur Masing-Masing Stan
-            </h2>
-            <span className="text-[11px] text-[#737373]">
-              {(order.stalls || order.tenantOrders || []).length} Stan
-            </span>
+            </div>
           </div>
 
-          {(order.stalls || order.tenantOrders || []).map((stall: any, idx: number) => {
-            const cookingStatus = stall.status || stall.cookingStatus || 'QUEUED'
-            const progress = getStepProgress(cookingStatus)
-            const statusBadge = getStallStatusBadge(cookingStatus)
-
-            return (
-              <Card key={stall.id || idx} surface="paper" className="space-y-4 rounded-[22px]">
-                <div className="flex items-center justify-between pb-3 border-b border-[#e5e5e5] gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Icons.Store className="w-4 h-4 text-[#737373] shrink-0" />
-                    <span className="font-bold text-sm text-[#0a0a0a] truncate">
-                      {stall.tenantName || 'Stan Kios'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-                    <span className={`font-semibold text-[10px] px-2 py-0.5 rounded-[10px] ${statusBadge.className}`}>
-                      {statusBadge.label}
-                    </span>
-                    {stall.queueNumber && stall.queueNumber !== '-' && (
-                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-[10px] bg-[#0a0a0a] text-white">
-                        #{stall.queueNumber}
-                      </span>
-                    )}
-                    {stall.stallNumber && (
-                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-[10px] bg-[#f5f5f5] text-[#0a0a0a] border border-[#e5e5e5]">
-                        Kios {stall.stallNumber}
-                      </span>
-                    )}
-                  </div>
+          {/* Right Column: Order Header, Bill Summary & Sticky Payment/Split Controls */}
+          <div className="w-full lg:col-span-5 xl:col-span-4 space-y-6 lg:sticky lg:top-6 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto order-1 lg:order-2">
+            {/* Order Header Card */}
+            <Card surface="paper" className="space-y-4 rounded-[24px]">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#737373]">
+                    Nomor Pesanan Terpadu
+                  </span>
+                  <h1 className="text-xl sm:text-2xl font-black font-mono text-[#0a0a0a] tracking-tight">
+                    {order.orderNumber}
+                  </h1>
+                  <p className="text-xs text-[#737373] mt-0.5">
+                    {order.createdAt ? formatDate(order.createdAt) : ''}
+                  </p>
                 </div>
 
-                {/* 4-Step Visual Progress Bar */}
-                <div className="space-y-2">
-                  <div className="grid grid-cols-4 gap-1.5">
-                    <div
-                      className={`h-2 rounded-full transition-colors ${
-                        progress >= 1 ? 'bg-[#0a0a0a]' : 'bg-[#e5e5e5]'
-                      }`}
-                    />
-                    <div
-                      className={`h-2 rounded-full transition-colors ${
-                        progress >= 2 ? 'bg-[#0a0a0a]' : 'bg-[#e5e5e5]'
-                      }`}
-                    />
-                    <div
-                      className={`h-2 rounded-full transition-colors ${
-                        progress >= 3 ? 'bg-amber-500' : 'bg-[#e5e5e5]'
-                      }`}
-                    />
-                    <div
-                      className={`h-2 rounded-full transition-colors ${
-                        progress >= 4 ? 'bg-emerald-500' : 'bg-[#e5e5e5]'
-                      }`}
-                    />
-                  </div>
+                <div className="text-right">
+                  <Badge variant="solid" className="font-mono text-xs">
+                    {order.tableNumber ? `Meja ${order.tableNumber}` : 'Bawa Pulang'}
+                  </Badge>
+                  {order.customerName && (
+                    <p className="text-xs text-[#737373] mt-1 font-medium">
+                      {order.customerName}
+                    </p>
+                  )}
+                </div>
+              </div>
 
-                  <div className="flex justify-between text-[10px] font-mono uppercase text-[#737373]">
-                    <span className={progress >= 1 ? 'text-[#0a0a0a] font-bold' : ''}>
-                      1. Antre
-                    </span>
-                    <span className={progress >= 2 ? 'text-[#0a0a0a] font-bold' : ''}>
-                      2. Dimasak
-                    </span>
-                    <span className={progress >= 3 ? 'text-amber-600 font-bold' : ''}>
-                      3. Siap Gerai
-                    </span>
-                    <span className={progress >= 4 ? 'text-emerald-600 font-bold' : ''}>
-                      4. Disajikan
-                    </span>
+              <div className="pt-2 border-t border-[#e5e5e5] space-y-1.5 text-xs">
+                <div className="flex justify-between text-[#737373]">
+                  <span>Subtotal Makanan:</span>
+                  <span className="font-mono text-[#0a0a0a]">{formatRupiah(order.subtotal || order.totalAmount)}</span>
+                </div>
+                {(order.serviceFee > 0 || order.taxAmount > 0) && (
+                  <>
+                    <div className="flex justify-between text-[#737373]">
+                      <span>Biaya Layanan (3%):</span>
+                      <span className="font-mono text-[#0a0a0a]">{formatRupiah(order.serviceFee || 0)}</span>
+                    </div>
+                    <div className="flex justify-between text-[#737373]">
+                      <span>Pajak Restoran PB1 (10%):</span>
+                      <span className="font-mono text-[#0a0a0a]">{formatRupiah(order.taxAmount || 0)}</span>
+                    </div>
+                  </>
+                )}
+                <div className="pt-1 border-t border-[#f0f0f0] flex justify-between items-center font-bold">
+                  <span className="text-[#0a0a0a]">Total Tagihan:</span>
+                  <span className="font-mono text-sm text-[#0a0a0a]">{formatRupiah(order.totalAmount || 0)}</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-[#e5e5e5] flex items-center justify-between text-xs">
+                <span className="text-[#737373]">Status Pembayaran:</span>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={isOrderFullyPaid ? 'solid' : 'soft'}
+                    className={
+                      isOrderFullyPaid
+                        ? 'bg-[#16a34a] text-white'
+                        : isPartiallyPaid
+                          ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                          : 'bg-amber-100 text-amber-900 border border-amber-300'
+                    }
+                  >
+                    {isOrderFullyPaid
+                      ? 'LUNAS'
+                      : isPartiallyPaid
+                        ? 'DIBAYAR SEBAGIAN'
+                        : 'BELUM BAYAR'}
+                  </Badge>
+                  {!isOrderFullyPaid ? (
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={handleOpenDirectPay}
+                      className="h-7 text-xs px-2.5 rounded-[14px]"
+                    >
+                      Bayar Sekarang
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsReceiptModalOpen(true)}
+                      className="h-7 text-xs px-2.5 rounded-[14px] flex items-center gap-1"
+                    >
+                      <Icons.Printer className="w-3.5 h-3.5" />
+                      Struk
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Card>
+
+            {/* ===================== SPLIT BILL ACTIVE PANEL ===================== */}
+            {order.paymentGroups && order.paymentGroups.length > 1 ? (
+              <Card surface="paper" className="p-4 sm:p-5 rounded-[24px] space-y-4 border border-[#e5e5e5] shadow-xs">
+                {/* Split Bill Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-[#e5e5e5]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-[#f5f5f5] flex items-center justify-center border border-[#e5e5e5]">
+                      <Icons.Users className="w-4 h-4 text-[#0a0a0a]" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-[#0a0a0a]">
+                        Tagihan Split Bill ({order.paymentGroups.length} Orang)
+                      </h3>
+                      <p className="text-[11px] text-[#737373]">
+                        Setiap teman dapat membayar bagiannya dari HP masing-masing
+                      </p>
+                    </div>
                   </div>
+                  <Badge
+                    variant="soft"
+                    className={`text-[10px] font-bold ${
+                      isOrderFullyPaid
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : isPartiallyPaid
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {isOrderFullyPaid
+                      ? 'Semua Lunas'
+                      : isPartiallyPaid
+                        ? 'Sebagian Lunas'
+                        : 'Menunggu Pembayaran'}
+                  </Badge>
                 </div>
 
-                {/* Stall Items */}
-                {stall.items && stall.items.length > 0 && (
-                  <div className="pt-2 border-t border-[#e5e5e5] space-y-2 text-xs">
-                    {stall.items.map((it: any, iIdx: number) => (
-                      <div key={iIdx} className="space-y-0.5">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-[#0a0a0a] font-medium">
-                            {it.quantity}x {it.name || it.menuNameSnapshot}
+                {/* Share Link Banner (shown if not fully paid) */}
+                {!isOrderFullyPaid && (
+                  <div className="p-3.5 rounded-[18px] bg-[#fafafa] border border-[#e5e5e5] space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-[#0a0a0a]">
+                        <Icons.Share className="w-3.5 h-3.5 text-[#0a0a0a]" />
+                        <span>Bagikan Link ke Teman Semeja</span>
+                      </div>
+                      <span className="text-[10px] text-[#737373]">Bayar dari device masing-masing</span>
+                    </div>
+                    <p className="text-xs text-[#737373] leading-relaxed">
+                      Kirimkan link ini agar teman semeja dapat membuka daftar pesanan dan langsung membayar tagihan sesuai namanya:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleCopyOrderLink()}
+                        className="h-8 text-xs font-semibold rounded-[12px] flex items-center justify-center gap-1.5"
+                      >
+                        <Icons.Copy className="w-3.5 h-3.5" />
+                        <span>Salin Link Meja</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        onClick={handleShareTableWhatsApp}
+                        className="h-8 text-xs font-semibold rounded-[12px] flex items-center justify-center gap-1.5 bg-[#16a34a] hover:bg-[#15803d] text-white border-none"
+                      >
+                        <Icons.Message className="w-3.5 h-3.5" />
+                        <span>Share WhatsApp</span>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Participants Cards List */}
+                <div className="space-y-3">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#737373] block">
+                    Daftar Tagihan per Orang:
+                  </span>
+                  {order.paymentGroups.map((pg: any) => {
+                    const isGroupPaid = pg.status === 'PAID'
+
+                    return (
+                      <div
+                        key={pg.id}
+                        className="p-3.5 rounded-[18px] bg-white border border-[#e5e5e5] space-y-3 shadow-xs hover:border-[#d4d4d4] transition-colors"
+                      >
+                        {/* Participant Header & Subtotal */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-sm text-[#0a0a0a] truncate">
+                                {pg.participantName}
+                              </span>
+                              <Badge
+                                variant={isGroupPaid ? 'solid' : 'soft'}
+                                className={`text-[9px] py-0 px-2 font-mono ${
+                                  isGroupPaid
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-amber-100 text-amber-900 border border-amber-300'
+                                }`}
+                              >
+                                {isGroupPaid ? 'LUNAS' : 'BELUM BAYAR'}
+                              </Badge>
+                            </div>
+                          </div>
+                          <span className="font-mono font-bold text-sm text-[#0a0a0a] shrink-0">
+                            {formatRupiah(pg.amountDue)}
                           </span>
-                          {it.options && it.options.length > 0 && (
-                            <span className="text-[#737373] text-[11px]">
-                              ({it.options.join(', ')})
-                            </span>
-                          )}
                         </div>
-                        {it.notes && (
-                          <p className="text-[11px] text-[#737373] italic pl-4">
-                            Catatan: &quot;{it.notes}&quot;
-                          </p>
+
+                        {/* Allocated Items List */}
+                        <div className="p-2.5 rounded-[12px] bg-[#fafafa] border border-[#f0f0f0] space-y-1 text-xs">
+                          {(pg.items || []).map((it: any, itemIdx: number) => (
+                            <div key={it.id || itemIdx} className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <span className="text-[#0a0a0a] font-medium">
+                                  {it.quantity}x {it.menuName || it.menuNameSnapshot || 'Item'}
+                                </span>
+                                {it.notes && (
+                                  <span className="text-[11px] text-[#737373] block italic">
+                                    Catatan: &quot;{it.notes}&quot;
+                                  </span>
+                                )}
+                              </div>
+                              <span className="font-mono text-[#737373] shrink-0 text-[11px]">
+                                {formatRupiah(it.allocatedAmount || it.subtotal || 0)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Financial Breakdown (Subtotal, Layanan 3%, PB1 10%, Total) */}
+                        {(() => {
+                          const sub = pg.subtotal ?? (pg.items || []).reduce((acc: number, it: any) => acc + (it.allocatedAmount || 0), 0)
+                          const svc = pg.serviceFee ?? Math.round(sub * 0.03)
+                          const tax = pg.taxAmount ?? Math.round(sub * 0.10)
+                          const due = pg.amountDue ?? (sub + svc + tax)
+                          return (
+                            <div className="pt-2 border-t border-[#f0f0f0] space-y-1 text-xs">
+                              <div className="flex justify-between text-[#737373]">
+                                <span>Subtotal Menu:</span>
+                                <span className="font-mono text-[#0a0a0a]">{formatRupiah(sub)}</span>
+                              </div>
+                              <div className="flex justify-between text-[#737373]">
+                                <span>Biaya Layanan (3%):</span>
+                                <span className="font-mono text-[#0a0a0a]">{formatRupiah(svc)}</span>
+                              </div>
+                              <div className="flex justify-between text-[#737373]">
+                                <span>Pajak Restoran PB1 (10%):</span>
+                                <span className="font-mono text-[#0a0a0a]">{formatRupiah(tax)}</span>
+                              </div>
+                              <div className="flex justify-between font-bold text-[#0a0a0a] pt-1 border-t border-[#e5e5e5]">
+                                <span>Total Tagihan:</span>
+                                <span className="font-mono">{formatRupiah(due)}</span>
+                              </div>
+                            </div>
+                          )
+                        })()}
+
+                        {/* Actions for this participant if not yet paid */}
+                        {!isGroupPaid && (
+                          <div className="pt-2 border-t border-[#f5f5f5] space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <Button
+                                type="button"
+                                variant="primary"
+                                size="sm"
+                                onClick={() => handlePayParticipantMidtrans(pg.id)}
+                                className="h-8 text-xs font-bold rounded-[12px] flex items-center justify-center gap-1.5"
+                              >
+                                <Icons.CreditCard className="w-3.5 h-3.5" />
+                                <span>Bayar via Midtrans</span>
+                              </Button>
+
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleOpenParticipantCashPass(pg)}
+                                className="h-8 text-xs font-bold rounded-[12px] flex items-center justify-center gap-1.5"
+                              >
+                                <Icons.Check className="w-3.5 h-3.5" />
+                                <span>Bayar Kasir (Cash)</span>
+                              </Button>
+                            </div>
+
+                            {/* Personal Share Buttons */}
+                            <div className="flex items-center justify-end gap-2 pt-0.5">
+                              <button
+                                type="button"
+                                onClick={() => handleCopyParticipantBill(pg)}
+                                className="text-[11px] font-semibold text-[#737373] hover:text-[#0a0a0a] transition-colors flex items-center gap-1 cursor-pointer"
+                              >
+                                <Icons.Copy className="w-3 h-3" />
+                                <span>Salin Tagihan {pg.participantName}</span>
+                              </button>
+                              <span className="text-[#d4d4d4]">•</span>
+                              <button
+                                type="button"
+                                onClick={() => handleShareParticipantWA(pg)}
+                                className="text-[11px] font-semibold text-[#16a34a] hover:text-[#15803d] transition-colors flex items-center gap-1 cursor-pointer"
+                              >
+                                <Icons.Message className="w-3 h-3" />
+                                <span>Kirim WA ke {pg.participantName}</span>
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
-                    ))}
+                    )
+                  })}
+                </div>
+
+                {/* Split configuration edit button or lock notification */}
+                {!hasAnyGroupPaid ? (
+                  <div className="pt-2 border-t border-[#e5e5e5] text-center">
+                    <button
+                      type="button"
+                      onClick={handleOpenSplitEditor}
+                      className="text-xs font-bold text-[#737373] hover:text-[#0a0a0a] transition-colors underline underline-offset-4 cursor-pointer"
+                    >
+                      Atur Ulang Pembagian Menu (Edit Split Bill)
+                    </button>
+                  </div>
+                ) : (
+                  <div className="pt-2 border-t border-[#e5e5e5] flex items-center justify-center gap-1.5 text-[11px] text-[#737373]">
+                    <Icons.Lock className="w-3.5 h-3.5 text-[#a3a3a3]" />
+                    <span>Pembagian menu telah dikunci karena pembayaran sudah dimulai.</span>
                   </div>
                 )}
               </Card>
-            )
-          })}
-        </div>
+            ) : (
+              /* ===================== SINGLE BILL / SPLIT PROMPT PANEL ===================== */
+              !isOrderFullyPaid && (
+                <Card surface="paper" className="p-4 sm:p-5 rounded-[24px] space-y-3.5 border border-[#e5e5e5] shadow-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-bold text-sm text-[#0a0a0a]">Pilihan Pembayaran Meja</h3>
+                      <p className="text-xs text-[#737373] mt-0.5">
+                        Total tagihan: <span className="font-mono font-bold text-[#0a0a0a]">{formatRupiah(order.totalAmount || 0)}</span>
+                      </p>
+                    </div>
+                    <Badge variant="soft" className="text-xs bg-amber-100 text-amber-900 border border-amber-300">
+                      BELUM BAYAR
+                    </Badge>
+                  </div>
 
-        {/* Total Summary Card */}
-        <Card surface="paper" className="p-4 flex items-center justify-between rounded-[20px]">
-          <span className="text-sm font-bold text-[#0a0a0a]">Total Tagihan</span>
-          <span className="font-mono text-lg font-black text-[#0a0a0a]">
-            {formatRupiah(order.totalAmount || 0)}
-          </span>
-        </Card>
+                  <p className="text-xs text-[#737373] leading-relaxed">
+                    Anda dapat langsung melunasi seluruh tagihan meja, atau membaginya (Split Bill) per menu makanan ke teman semeja agar bisa dibayar dari HP masing-masing.
+                  </p>
 
-        {/* Polling live footer */}
-        <div className="text-center pt-2 space-y-2">
-          <div className="inline-flex items-center gap-1.5 text-xs text-[#737373]">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Memperbarui status otomatis setiap 4 detik</span>
-          </div>
-          <div>
-            <Link
-              to="/"
-              className="text-xs text-[#737373] hover:text-[#0a0a0a] underline underline-offset-2"
-            >
-              Kembali ke Beranda Food Court
-            </Link>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={handleOpenDirectPay}
+                      className="h-9 text-xs font-bold rounded-[14px] flex items-center justify-center gap-1.5"
+                    >
+                      <Icons.CreditCard className="w-3.5 h-3.5" />
+                      <span>Bayar via Midtrans</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={handleOpenDirectCashPass}
+                      className="h-9 text-xs font-bold rounded-[14px] flex items-center justify-center gap-1.5"
+                    >
+                      <Icons.Check className="w-3.5 h-3.5" />
+                      <span>Bayar Kasir (Cash)</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleOpenSplitEditor}
+                      className="h-9 text-xs font-bold rounded-[14px] flex items-center justify-center gap-1.5"
+                    >
+                      <Icons.Users className="w-3.5 h-3.5" />
+                      <span>Bagi Tagihan (Split Bill)</span>
+                    </Button>
+                  </div>
+                </Card>
+              )
+            )}
           </div>
         </div>
 

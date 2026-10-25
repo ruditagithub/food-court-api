@@ -285,8 +285,8 @@ export function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] py-8 px-4 sm:px-6 text-[#0a0a0a]">
-      <div className="max-w-xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#f5f5f5] py-8 px-4 sm:px-6 lg:px-8 xl:px-10 text-[#0a0a0a]">
+      <div className="w-full max-w-7xl 2xl:max-w-[1600px] mx-auto space-y-6">
         {/* Header navigation */}
         <div className="flex items-center justify-between">
           <button
@@ -298,6 +298,11 @@ export function CheckoutPage() {
             <span>Tambah Menu Lain</span>
           </button>
           <div className="flex items-center gap-2">
+            {activeTable?.foodCourtName && (
+              <span className="text-xs font-bold text-[#0a0a0a] hidden sm:inline">
+                {activeTable.foodCourtName} •
+              </span>
+            )}
             <span className="text-xs text-[#737373]">Lokasi Meja:</span>
             <Badge variant="solid" className="text-xs font-mono">
               {activeTable?.tableNumber ? `Meja ${activeTable.tableNumber}` : 'Bawa Pulang'}
@@ -306,7 +311,7 @@ export function CheckoutPage() {
         </div>
 
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-[#0a0a0a]">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0a0a0a]">
             Konfirmasi Pesanan
           </h1>
           <p className="text-xs sm:text-sm text-[#737373] mt-1">
@@ -314,204 +319,232 @@ export function CheckoutPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmitOrder} className="space-y-6">
-          {/* Customer Details Card */}
-          <Card surface="paper" className="space-y-4 rounded-[24px]">
-            <h3 className="text-sm font-bold text-[#0a0a0a] pb-2 border-b border-[#e5e5e5]">
-              Identitas Pemesan
-            </h3>
+        <form onSubmit={handleSubmitOrder}>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+            {/* Left Column: Order Items Breakdown */}
+            <div className="lg:col-span-7 xl:col-span-8 space-y-6">
+              {/* Stalls Breakdown Card */}
+              <Card surface="paper" className="space-y-4 rounded-[24px]">
+                <div className="flex items-center justify-between pb-2 border-b border-[#e5e5e5]">
+                  <h3 className="text-sm font-bold text-[#0a0a0a]">
+                    Rincian Sajian ({totalCount} Porsi)
+                  </h3>
+                  <Badge variant="soft" className="text-xs font-semibold">
+                    {Object.keys(groupedByTenant).length} Stan Berbeda
+                  </Badge>
+                </div>
 
-            <div>
-              <Label htmlFor="checkout-name" required>
-                Nama Pemanggil / Pemesan Utama
-              </Label>
-              <Input
-                id="checkout-name"
-                placeholder="Contoh: Rizky Ramadhan"
-                value={customerName}
-                onChange={(e) => {
-                  setCustomerName(e.target.value)
-                  if (nameError) setNameError(null)
-                }}
-                error={!!nameError}
-                helperText={nameError || undefined}
-                disabled={isSubmitting}
-                className="rounded-[16px] h-11"
-              />
-              <p className="text-[11px] text-[#737373] mt-1.5">
-                Nama ini akan digunakan untuk identifikasi meja. Jika ingin membagi tagihan per orang (Split Bill), Anda dapat mengaturnya di langkah pembayaran setelah ini.
-              </p>
-            </div>
-          </Card>
-
-          {/* Stalls Breakdown Card */}
-          <Card surface="paper" className="space-y-4 rounded-[24px]">
-            <div className="flex items-center justify-between pb-2 border-b border-[#e5e5e5]">
-              <h3 className="text-sm font-bold text-[#0a0a0a]">
-                Rincian Sajian ({totalCount} Porsi)
-              </h3>
-              <Badge variant="soft" className="text-xs font-semibold">
-                {Object.keys(groupedByTenant).length} Stan Berbeda
-              </Badge>
-            </div>
-
-            <div className="space-y-4">
-              {Object.entries(groupedByTenant).map(([tenantName, group]) => {
-                const subtotal = group.items.reduce(
-                  (sum, it) => sum + it.price * it.quantity,
-                  0
-                )
-                return (
-                  <div
-                    key={tenantName}
-                    className="p-4 rounded-[20px] bg-[#fafafa] border border-[#e5e5e5] space-y-3 text-xs"
-                  >
-                    {/* Tenant Header */}
-                    <div className="flex items-center justify-between pb-2 border-b border-[#e5e5e5]">
-                      <div className="flex items-center gap-1.5 font-bold text-[#0a0a0a]">
-                        <Icons.Store className="w-4 h-4 text-[#737373]" />
-                        <span className="text-sm">{tenantName}</span>
-                      </div>
-                      {group.stallNumber && (
-                        <Badge variant="solid" className="font-mono text-[10px] bg-[#0a0a0a] text-white">
-                          Kios {group.stallNumber}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Items in this tenant */}
-                    <div className="space-y-3">
-                      {group.items.map((it, idx) => (
-                        <div
-                          key={`${it.menuId}-${idx}`}
-                          className="bg-white p-3.5 rounded-[18px] border border-[#f0f0f0] space-y-2.5 shadow-2xs"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <p className="font-bold text-xs sm:text-sm text-[#0a0a0a]">
-                                {it.name}
-                              </p>
-                              <p className="font-mono text-xs font-semibold text-[#0a0a0a] mt-0.5">
-                                {formatRupiah(it.price)} <span className="text-[10px] text-[#737373] font-normal">/ porsi</span>
-                              </p>
-                            </div>
-
-                            {/* Stepper & Subtotal */}
-                            <div className="flex flex-col items-end gap-1.5 shrink-0">
-                              <div className="flex items-center gap-1.5 bg-[#f5f5f5] p-1 rounded-[14px] border border-[#e5e5e5]">
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuantityChange(it.menuId, it.notes, -1)}
-                                  className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[#0a0a0a] hover:bg-[#e5e5e5] transition-colors cursor-pointer"
-                                >
-                                  <Icons.Minus className="w-3 h-3" />
-                                </button>
-                                <span className="font-mono font-bold text-xs w-5 text-center">
-                                  {it.quantity}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuantityChange(it.menuId, it.notes, 1)}
-                                  className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[#0a0a0a] hover:bg-[#e5e5e5] transition-colors cursor-pointer"
-                                >
-                                  <Icons.Plus className="w-3 h-3" />
-                                </button>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-xs font-bold text-[#0a0a0a]">
-                                  {formatRupiah(it.price * it.quantity)}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveItem(it.menuId, it.notes)}
-                                  className="text-[#dc2626] hover:text-[#991b1b] p-1 cursor-pointer transition-colors"
-                                  title="Hapus sajian"
-                                >
-                                  <Icons.Trash className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
+                <div className="space-y-4">
+                  {Object.entries(groupedByTenant).map(([tenantName, group]) => {
+                    const subtotal = group.items.reduce(
+                      (sum, it) => sum + it.price * it.quantity,
+                      0
+                    )
+                    return (
+                      <div
+                        key={tenantName}
+                        className="p-4 rounded-[20px] bg-[#fafafa] border border-[#e5e5e5] space-y-3 text-xs"
+                      >
+                        {/* Tenant Header */}
+                        <div className="flex items-center justify-between pb-2 border-b border-[#e5e5e5]">
+                          <div className="flex items-center gap-1.5 font-bold text-[#0a0a0a]">
+                            <Icons.Store className="w-4 h-4 text-[#737373]" />
+                            <span className="text-sm">{tenantName}</span>
                           </div>
-
-                          {/* Per-Item Notes Input */}
-                          <div className="pt-2 border-t border-[#f5f5f5] space-y-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <label className="text-[11px] font-semibold text-[#737373] flex items-center gap-1">
-                                <Icons.Edit className="w-3 h-3 text-[#737373]" />
-                                <span>Catatan Makanan Ini:</span>
-                              </label>
-                              {it.quantity > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleSplitItemPortion(it.menuId, it.notes)}
-                                  className="text-[10px] font-semibold text-[#0a0a0a] bg-[#f5f5f5] hover:bg-[#e5e5e5] px-2 py-0.5 rounded-[10px] border border-[#e5e5e5] transition-colors cursor-pointer"
-                                >
-                                  Pisah {it.quantity} Porsi (Beda Catatan)
-                                </button>
-                              )}
-                            </div>
-                            <input
-                              type="text"
-                              value={it.notes || ''}
-                              onChange={(e) => handleItemNoteChange(it.menuId, it.notes, e.target.value)}
-                              placeholder={`Misal: jangan pedas, kuah dipisah, ekstra sambal...`}
-                              disabled={isSubmitting}
-                              className="w-full h-8 rounded-[12px] bg-[#fafafa] text-[#0a0a0a] placeholder-[#a3a3a3] text-xs px-3 border border-[#e5e5e5] focus:border-[#0a0a0a] focus:bg-white outline-none transition-all"
-                            />
-                          </div>
+                          {group.stallNumber && (
+                            <Badge variant="solid" className="font-mono text-[10px] bg-[#0a0a0a] text-white">
+                              Kios {group.stallNumber}
+                            </Badge>
+                          )}
                         </div>
-                      ))}
-                    </div>
 
-                    {/* Tenant Subtotal */}
-                    <div className="pt-2 border-t border-[#e5e5e5] flex justify-between text-xs">
-                      <span className="text-[#737373]">Subtotal Stan Ini:</span>
-                      <span className="font-mono font-bold text-[#0a0a0a]">
-                        {formatRupiah(subtotal)}
+                        {/* Items in this tenant */}
+                        <div className="space-y-3">
+                          {group.items.map((it, idx) => (
+                            <div
+                              key={`${it.menuId}-${idx}`}
+                              className="bg-white p-3.5 rounded-[18px] border border-[#f0f0f0] space-y-2.5 shadow-2xs"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-bold text-xs sm:text-sm text-[#0a0a0a]">
+                                    {it.name}
+                                  </p>
+                                  <p className="font-mono text-xs font-semibold text-[#0a0a0a] mt-0.5">
+                                    {formatRupiah(it.price)}{' '}
+                                    <span className="text-[10px] text-[#737373] font-normal">/ porsi</span>
+                                  </p>
+                                </div>
+
+                                {/* Stepper & Subtotal */}
+                                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                  <div className="flex items-center gap-1.5 bg-[#f5f5f5] p-1 rounded-[14px] border border-[#e5e5e5]">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleQuantityChange(it.menuId, it.notes, -1)}
+                                      className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[#0a0a0a] hover:bg-[#e5e5e5] transition-colors cursor-pointer"
+                                    >
+                                      <Icons.Minus className="w-3 h-3" />
+                                    </button>
+                                    <span className="font-mono font-bold text-xs w-5 text-center">
+                                      {it.quantity}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleQuantityChange(it.menuId, it.notes, 1)}
+                                      className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[#0a0a0a] hover:bg-[#e5e5e5] transition-colors cursor-pointer"
+                                    >
+                                      <Icons.Plus className="w-3 h-3" />
+                                    </button>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-xs font-bold text-[#0a0a0a]">
+                                      {formatRupiah(it.price * it.quantity)}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveItem(it.menuId, it.notes)}
+                                      className="text-[#dc2626] hover:text-[#991b1b] p-1 cursor-pointer transition-colors"
+                                      title="Hapus sajian"
+                                    >
+                                      <Icons.Trash className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Per-Item Notes Input */}
+                              <div className="pt-2 border-t border-[#f5f5f5] space-y-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <label className="text-[11px] font-semibold text-[#737373] flex items-center gap-1">
+                                    <Icons.Edit className="w-3 h-3 text-[#737373]" />
+                                    <span>Catatan Makanan Ini:</span>
+                                  </label>
+                                  {it.quantity > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSplitItemPortion(it.menuId, it.notes)}
+                                      className="text-[10px] font-semibold text-[#0a0a0a] bg-[#f5f5f5] hover:bg-[#e5e5e5] px-2 py-0.5 rounded-[10px] border border-[#e5e5e5] transition-colors cursor-pointer"
+                                    >
+                                      Pisah {it.quantity} Porsi (Beda Catatan)
+                                    </button>
+                                  )}
+                                </div>
+                                <input
+                                  type="text"
+                                  value={it.notes || ''}
+                                  onChange={(e) => handleItemNoteChange(it.menuId, it.notes, e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') e.preventDefault()
+                                  }}
+                                  placeholder={`Misal: jangan pedas, kuah dipisah, ekstra sambal...`}
+                                  disabled={isSubmitting}
+                                  className="w-full h-8 rounded-[12px] bg-[#fafafa] text-[#0a0a0a] placeholder-[#a3a3a3] text-xs px-3 border border-[#e5e5e5] focus:border-[#0a0a0a] focus:bg-white outline-none transition-all"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Tenant Subtotal */}
+                        <div className="pt-2 border-t border-[#e5e5e5] flex justify-between text-xs">
+                          <span className="text-[#737373]">Subtotal Stan Ini:</span>
+                          <span className="font-mono font-bold text-[#0a0a0a]">
+                            {formatRupiah(subtotal)}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </Card>
+            </div>
+
+            {/* Right Column: Customer Details, Bill Summary & Sticky CTA */}
+            <div className="lg:col-span-5 xl:col-span-4 space-y-6 lg:sticky lg:top-6 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+              {/* Customer Details Card */}
+              <Card surface="paper" className="space-y-4 rounded-[24px]">
+                <h3 className="text-sm font-bold text-[#0a0a0a] pb-2 border-b border-[#e5e5e5]">
+                  Identitas Pemesan
+                </h3>
+
+                <div>
+                  <Label htmlFor="checkout-name" required>
+                    Nama Pemanggil / Pemesan Utama
+                  </Label>
+                  <Input
+                    id="checkout-name"
+                    placeholder="Contoh: Rizky Ramadhan"
+                    value={customerName}
+                    onChange={(e) => {
+                      setCustomerName(e.target.value)
+                      if (nameError) setNameError(null)
+                    }}
+                    error={!!nameError}
+                    helperText={nameError || undefined}
+                    disabled={isSubmitting}
+                    className="rounded-[16px] h-11"
+                  />
+                  <p className="text-[11px] text-[#737373] mt-1.5">
+                    Nama ini akan digunakan untuk identifikasi meja. Jika ingin membagi tagihan per orang (Split Bill), Anda dapat mengaturnya di langkah pembayaran setelah ini.
+                  </p>
+                </div>
+              </Card>
+
+              {/* Bill Summary & Action Card */}
+              <Card surface="paper" className="space-y-4 rounded-[24px]">
+                <h3 className="text-sm font-bold text-[#0a0a0a] pb-2 border-b border-[#e5e5e5]">
+                  Ringkasan Tagihan
+                </h3>
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between text-[#737373]">
+                    <span>Total Sajian:</span>
+                    <span className="font-mono font-bold text-[#0a0a0a]">{totalCount} Porsi</span>
+                  </div>
+                  <div className="flex justify-between text-[#737373]">
+                    <span>Stan Dipesan:</span>
+                    <span className="font-mono font-bold text-[#0a0a0a]">{Object.keys(groupedByTenant).length} Stan</span>
+                  </div>
+                  <div className="pt-2 border-t border-[#e5e5e5] flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-bold text-[#0a0a0a] block">
+                        Total Tagihan Meja
+                      </span>
+                      <span className="text-[11px] text-[#737373]">
+                        Termasuk seluruh pesanan stan
                       </span>
                     </div>
+                    <span className="text-xl sm:text-2xl font-mono font-black text-[#0a0a0a]">
+                      {formatRupiah(totalAmount)}
+                    </span>
                   </div>
-                )
-              })}
-            </div>
+                </div>
 
-            {/* Total Calculation */}
-            <div className="pt-3 border-t border-[#e5e5e5] flex items-center justify-between">
-              <div>
-                <span className="text-sm sm:text-base font-bold text-[#0a0a0a] block">
-                  Total Tagihan Meja
-                </span>
-                <span className="text-[11px] text-[#737373]">
-                  Termasuk seluruh pesanan stan
-                </span>
-              </div>
-              <span className="text-xl sm:text-2xl font-mono font-black text-[#0a0a0a]">
-                {formatRupiah(totalAmount)}
-              </span>
+                {/* Checkout CTA */}
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  className="w-full text-base font-bold py-3.5 h-12 shadow-md gap-2 rounded-[18px]"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center gap-2">
+                      <Icons.Refresh className="w-4 h-4 animate-spin" />
+                      Meneruskan ke Dapur...
+                    </span>
+                  ) : (
+                    <>
+                      <span>Kirim Pesanan ke Dapur ({totalCount} Item)</span>
+                      <Icons.ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </Button>
+              </Card>
             </div>
-          </Card>
-
-          {/* Checkout CTA */}
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            className="w-full text-base font-bold py-3.5 h-12 shadow-md gap-2 rounded-[18px]"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <span className="flex items-center gap-2">
-                <Icons.Refresh className="w-4 h-4 animate-spin" />
-                Meneruskan ke Dapur...
-              </span>
-            ) : (
-              <>
-                <span>Kirim Pesanan ke Dapur ({totalCount} Item)</span>
-                <Icons.ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </Button>
+          </div>
         </form>
       </div>
     </div>

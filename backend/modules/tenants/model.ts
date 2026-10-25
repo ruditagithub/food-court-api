@@ -29,7 +29,9 @@ export const UpdateTenantDTO = t.Object({
   logo: t.Optional(t.String()),
   isOpen: t.Optional(t.Boolean()),
   openingTime: t.Optional(t.String()),
-  closingTime: t.Optional(t.String()),
+  bankName: t.Optional(t.String({ maxLength: 50 })),
+  bankAccountNumber: t.Optional(t.String({ maxLength: 50 })),
+  bankAccountHolder: t.Optional(t.String({ maxLength: 100 })),
 });
 
 export const TenantQueryDTO = t.Object({
@@ -37,5 +39,28 @@ export const TenantQueryDTO = t.Object({
   foodCourtId: t.Optional(t.String()),
 });
 
+export const RequestWithdrawalDTO = t.Object({
+  amount: t.Integer({ minimum: 10000 }),
+  paymentMethod: t.Union([t.Literal("CASH"), t.Literal("TRANSFER")]),
+  bankName: t.Optional(t.String({ maxLength: 50 })),
+  bankAccountNumber: t.Optional(t.String({ maxLength: 50 })),
+  bankAccountHolder: t.Optional(t.String({ maxLength: 100 })),
+});
+
+export const ProcessWithdrawalDTO = t.Object({
+  paymentMethod: t.Optional(t.Union([t.Literal("CASH"), t.Literal("TRANSFER")])),
+  proofReceiptUrl: t.Optional(t.String({ maxLength: 255 })),
+  transferReference: t.Optional(t.String({ maxLength: 100 })),
+  adminNotes: t.Optional(t.String({ maxLength: 500 })),
+});
+
+export const RejectWithdrawalDTO = t.Object({
+  reason: t.String({ minLength: 2, maxLength: 500 }),
+});
+
 export type CreateTenantDTOType = typeof CreateTenantDTO.static;
 export type UpdateTenantDTOType = typeof UpdateTenantDTO.static;
+export type RequestWithdrawalDTOType = typeof RequestWithdrawalDTO.static;
+export type ProcessWithdrawalDTOType = typeof ProcessWithdrawalDTO.static;
+export type RejectWithdrawalDTOType = typeof RejectWithdrawalDTO.static;
+

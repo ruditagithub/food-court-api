@@ -21,6 +21,7 @@ export function InternalSidebar({ onClose }: InternalSidebarProps) {
         { to: '/app/categories', label: 'Kategori Menu Global', icon: Icons.Layers },
         { to: '/app/admin/orders', label: 'Monitoring Seluruh Pesanan', icon: Icons.ShoppingBag },
         { to: '/app/admin/payments', label: 'Rekap Pembayaran QRIS', icon: Icons.CreditCard },
+        { to: '/app/admin/withdrawals', label: 'Pencairan Dana Tenant', icon: Icons.CreditCard },
         { to: '/app/admin/tables', label: 'Manajemen Meja QR Global', icon: Icons.QrCode },
         { to: '/app/profile', label: 'Pengaturan Akun Super Admin', icon: Icons.User },
       ]
@@ -37,6 +38,7 @@ export function InternalSidebar({ onClose }: InternalSidebarProps) {
         { to: '/app/admin/tables', label: 'Manajemen Meja', icon: Icons.QrCode },
         { to: '/app/admin/orders', label: 'Monitoring Pesanan', icon: Icons.ShoppingBag },
         { to: '/app/admin/payments', label: 'Log Transaksi', icon: Icons.CreditCard },
+        { to: '/app/admin/withdrawals', label: 'Pencairan Dana Tenant', icon: Icons.CreditCard },
         { to: '/app/profile', label: 'Profil Akun', icon: Icons.User },
       ]
     }
@@ -51,6 +53,7 @@ export function InternalSidebar({ onClose }: InternalSidebarProps) {
     if (user.role === 'tenant') {
       return [
         { to: '/app/dashboard', label: 'Ringkasan Omzet', icon: Icons.Building },
+        { to: '/app/tenant/wallet', label: 'Dompet & Saldo Stan', icon: Icons.CreditCard },
         { to: '/app/tenant/kds', label: 'Layar Dapur (KDS)', icon: Icons.Kitchen },
         { to: '/app/tenant/menus', label: 'Katalog Menu & Stok', icon: Icons.Utensils },
         { to: '/app/categories', label: 'Kelola Kategori Menu', icon: Icons.Layers },

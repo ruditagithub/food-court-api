@@ -1,11 +1,16 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
-import { ConflictError, ForbiddenError, NotFoundError } from "../../common/errors";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../../common/errors";
 import { mailerService } from "../../common/mailer";
 import type { AuthUser } from "../../common/middlewares/auth";
 import { db } from "../../db";
-import { foodCourts, menus, tenants, users } from "../../db/schema";
+import { foodCourts, menus, tenantBalanceLogs, tenants, users, withdrawalRequests } from "../../db/schema";
 import { generateSlug } from "../food-courts/service";
-import type { CreateTenantDTOType, UpdateTenantDTOType } from "./model";
+import type {
+  CreateTenantDTOType,
+  ProcessWithdrawalDTOType,
+  RequestWithdrawalDTOType,
+  UpdateTenantDTOType,
+} from "./model";
 
 export class TenantService {
   private async getOrCreateDefaultFoodCourt(): Promise<string> {
@@ -224,7 +229,7 @@ export class TenantService {
         );
       }
       ownerId = data.ownerId;
-    } else {
+    } else if (currentUser.role === "tenant") {
       const alreadyTenant = await db.query.tenants.findFirst({
         where: eq(tenants.ownerId, currentUser.id),
       });
@@ -234,6 +239,9 @@ export class TenantService {
         );
       }
       ownerId = currentUser.id;
+    } else {
+      // Admin atau admin-food-court membuat stan tanpa pemilik langsung (ownerId null sampai diundang)
+      ownerId = null;
     }
 
     // 3. Validasi keunikan stall number pada tenant yang aktif di food court yang sama
@@ -450,6 +458,480 @@ export class TenantService {
 
     await db.delete(tenants).where(eq(tenants.id, id));
     return { success: true, message: `Tenant '${existing.name}' deleted` };
+  }
+
+  // ==========================================
+  // WALLET & WITHDRAWAL MANAGEMENT
+  // ==========================================
+
+  private async getTenantForUser(user: AuthUser, explicitTenantId?: string) {
+    if (user.role === "tenant") {
+      const owned = await db.query.tenants.findFirst({
+        where: eq(tenants.ownerId, user.id),
+      });
+      if (!owned) {
+        throw new NotFoundError("No tenant stall found for your account");
+      }
+      if (explicitTenantId && explicitTenantId !== owned.id) {
+        throw new ForbiddenError("You cannot access wallet data for another tenant stall");
+      }
+      return owned;
+    }
+
+    if (user.role === "admin-food-court") {
+      if (!explicitTenantId) {
+        throw new BadRequestError("tenantId is required for admin-food-court");
+      }
+      const target = await db.query.tenants.findFirst({
+        where: eq(tenants.id, explicitTenantId),
+        with: { foodCourt: true },
+      });
+      if (!target) {
+        throw new NotFoundError(`Tenant '${explicitTenantId}' not found`);
+      }
+      if (target.foodCourt?.managerId !== user.id) {
+        throw new ForbiddenError("You do not have permission to manage this tenant's wallet");
+      }
+      return target;
+    }
+
+    if (user.role === "admin") {
+      if (!explicitTenantId) {
+        throw new BadRequestError("tenantId is required for admin");
+      }
+      const target = await db.query.tenants.findFirst({
+        where: eq(tenants.id, explicitTenantId),
+      });
+      if (!target) {
+        throw new NotFoundError(`Tenant '${explicitTenantId}' not found`);
+      }
+      return target;
+    }
+
+    throw new ForbiddenError("Unauthorized role for wallet operations");
+  }
+
+  async getTenantWalletSummary(user: AuthUser, explicitTenantId?: string) {
+    const tenant = await this.getTenantForUser(user, explicitTenantId);
+
+    const logs = await db.query.tenantBalanceLogs.findMany({
+      where: eq(tenantBalanceLogs.tenantId, tenant.id),
+      orderBy: [desc(tenantBalanceLogs.createdAt)],
+      limit: 100,
+      with: {
+        tenantOrder: true,
+        withdrawalRequest: true,
+      },
+    });
+
+    const grossTotal = logs
+      .filter((l) => l.type === "ORDER_REVENUE")
+      .reduce((acc, l) => acc + (l.grossAmount || 0), 0);
+
+    const feeTotal = logs
+      .filter((l) => l.type === "ORDER_REVENUE")
+      .reduce((acc, l) => acc + (l.platformFee || 0), 0);
+
+    const disbursedTotal = logs
+      .filter((l) => l.type === "WITHDRAWAL_COMPLETED")
+      .reduce((acc, l) => acc + Math.abs(l.netAmount || 0), 0);
+
+    return {
+      tenantId: tenant.id,
+      tenantName: tenant.name,
+      stallNumber: tenant.stallNumber,
+      balance: tenant.balance || 0,
+      grossTotal,
+      feeTotal,
+      disbursedTotal,
+      bankName: tenant.bankName,
+      bankAccountNumber: tenant.bankAccountNumber,
+      bankAccountHolder: tenant.bankAccountHolder,
+      logs,
+    };
+  }
+
+  async createWithdrawalRequest(
+    user: AuthUser,
+    data: RequestWithdrawalDTOType,
+    explicitTenantId?: string,
+  ) {
+    const tenant = await this.getTenantForUser(user, explicitTenantId);
+
+    if (data.amount < 10000) {
+      throw new BadRequestError("Nominal penarikan minimal Rp 10.000");
+    }
+
+    const currentBalance = tenant.balance || 0;
+    if (data.amount > currentBalance) {
+      throw new BadRequestError(
+        `Saldo tidak mencukupi. Saldo saat ini: Rp ${currentBalance.toLocaleString("id-ID")}, jumlah ditarik: Rp ${data.amount.toLocaleString("id-ID")}`,
+      );
+    }
+
+    if (data.paymentMethod === "TRANSFER") {
+      if (!data.bankName || !data.bankAccountNumber || !data.bankAccountHolder) {
+        throw new BadRequestError(
+          "Informasi rekening (bankName, bankAccountNumber, bankAccountHolder) wajib diisi untuk metode transfer",
+        );
+      }
+    }
+
+    const newBalance = currentBalance - data.amount;
+    const withdrawalId = crypto.randomUUID();
+
+    // Update tenant balance and default bank info
+    await db
+      .update(tenants)
+      .set({
+        balance: newBalance,
+        ...(data.bankName ? { bankName: data.bankName } : {}),
+        ...(data.bankAccountNumber ? { bankAccountNumber: data.bankAccountNumber } : {}),
+        ...(data.bankAccountHolder ? { bankAccountHolder: data.bankAccountHolder } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(tenants.id, tenant.id));
+
+    // Create withdrawal request record
+    await db.insert(withdrawalRequests).values({
+      id: withdrawalId,
+      foodCourtId: tenant.foodCourtId,
+      tenantId: tenant.id,
+      amount: data.amount,
+      paymentMethod: data.paymentMethod,
+      bankName: data.bankName ?? tenant.bankName,
+      bankAccountNumber: data.bankAccountNumber ?? tenant.bankAccountNumber,
+      bankAccountHolder: data.bankAccountHolder ?? tenant.bankAccountHolder,
+      status: "PENDING",
+      requestedAt: new Date(),
+    });
+
+    // Create ledger hold log
+    await db.insert(tenantBalanceLogs).values({
+      id: crypto.randomUUID(),
+      tenantId: tenant.id,
+      withdrawalRequestId: withdrawalId,
+      type: "WITHDRAWAL_HOLD",
+      grossAmount: 0,
+      platformFee: 0,
+      netAmount: -data.amount,
+      balanceAfter: newBalance,
+      description: `Pengajuan penarikan dana (${data.paymentMethod === "CASH" ? "Tunai" : `Transfer ${data.bankName}`}) - Saldo ditahan`,
+      createdAt: new Date(),
+    });
+
+    return db.query.withdrawalRequests.findFirst({
+      where: eq(withdrawalRequests.id, withdrawalId),
+      with: {
+        tenant: true,
+      },
+    });
+  }
+
+  async getTenantWithdrawals(user: AuthUser, explicitTenantId?: string) {
+    const tenant = await this.getTenantForUser(user, explicitTenantId);
+
+    return db.query.withdrawalRequests.findMany({
+      where: eq(withdrawalRequests.tenantId, tenant.id),
+      orderBy: [desc(withdrawalRequests.requestedAt)],
+      with: {
+        processor: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  async confirmWithdrawalReceipt(user: AuthUser, withdrawalId: string) {
+    const wr = await db.query.withdrawalRequests.findFirst({
+      where: eq(withdrawalRequests.id, withdrawalId),
+      with: {
+        tenant: true,
+      },
+    });
+
+    if (!wr) {
+      throw new NotFoundError(`Withdrawal request '${withdrawalId}' not found`);
+    }
+
+    if (user.role === "tenant" && wr.tenant.ownerId !== user.id) {
+      throw new ForbiddenError("You can only confirm withdrawal for your own tenant stall");
+    }
+
+    if (wr.status !== "PROCESSED") {
+      throw new BadRequestError(
+        `Cannot confirm receipt for withdrawal with status '${wr.status}'. Status must be 'PROCESSED'.`,
+      );
+    }
+
+    await db
+      .update(withdrawalRequests)
+      .set({
+        status: "COMPLETED",
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(withdrawalRequests.id, wr.id));
+
+    await db.insert(tenantBalanceLogs).values({
+      id: crypto.randomUUID(),
+      tenantId: wr.tenantId,
+      withdrawalRequestId: wr.id,
+      type: "WITHDRAWAL_COMPLETED",
+      grossAmount: 0,
+      platformFee: 0,
+      netAmount: 0,
+      balanceAfter: wr.tenant.balance || 0,
+      description: `Pencairan dana ${wr.paymentMethod === "CASH" ? "Tunai" : "Transfer"} Rp ${wr.amount.toLocaleString("id-ID")} telah dikonfirmasi diterima`,
+      createdAt: new Date(),
+    });
+
+    return db.query.withdrawalRequests.findFirst({
+      where: eq(withdrawalRequests.id, wr.id),
+      with: {
+        tenant: true,
+        processor: {
+          columns: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
+  // ==========================================
+  // ADMIN FOOD COURT WITHDRAWAL MANAGEMENT
+  // ==========================================
+
+  async listAdminWithdrawals(user: AuthUser, statusFilter?: string) {
+    const conditions = [];
+
+    if (user.role === "admin-food-court") {
+      const managedCourts = await db
+        .select({ id: foodCourts.id })
+        .from(foodCourts)
+        .where(eq(foodCourts.managerId, user.id));
+
+      const courtIds = managedCourts.map((c) => c.id);
+      if (courtIds.length === 0) {
+        return [];
+      }
+      conditions.push(inArray(withdrawalRequests.foodCourtId, courtIds));
+    }
+
+    if (statusFilter && ["PENDING", "PROCESSED", "COMPLETED", "REJECTED"].includes(statusFilter)) {
+      conditions.push(eq(withdrawalRequests.status, statusFilter as any));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    return db.query.withdrawalRequests.findMany({
+      where: whereClause,
+      orderBy: [desc(withdrawalRequests.requestedAt)],
+      with: {
+        tenant: true,
+        foodCourt: true,
+        processor: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  async processAdminWithdrawal(
+    user: AuthUser,
+    withdrawalId: string,
+    data: ProcessWithdrawalDTOType,
+  ) {
+    const wr = await db.query.withdrawalRequests.findFirst({
+      where: eq(withdrawalRequests.id, withdrawalId),
+      with: {
+        tenant: true,
+        foodCourt: true,
+      },
+    });
+
+    if (!wr) {
+      throw new NotFoundError(`Withdrawal request '${withdrawalId}' not found`);
+    }
+
+    if (user.role === "admin-food-court" && wr.foodCourt.managerId !== user.id) {
+      throw new ForbiddenError("You do not have permission to process withdrawals for this food court");
+    }
+
+    if (wr.status !== "PENDING") {
+      throw new BadRequestError(`Cannot process withdrawal with status '${wr.status}'. Only PENDING can be processed.`);
+    }
+
+    const paymentMethod = data.paymentMethod ?? wr.paymentMethod;
+
+    await db
+      .update(withdrawalRequests)
+      .set({
+        status: "PROCESSED",
+        paymentMethod,
+        proofReceiptUrl: data.proofReceiptUrl ?? wr.proofReceiptUrl,
+        transferReference: data.transferReference ?? wr.transferReference,
+        adminNotes: data.adminNotes ?? wr.adminNotes,
+        processedBy: user.id,
+        processedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(withdrawalRequests.id, wr.id));
+
+    return db.query.withdrawalRequests.findFirst({
+      where: eq(withdrawalRequests.id, wr.id),
+      with: {
+        tenant: true,
+        foodCourt: true,
+        processor: {
+          columns: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
+  async rejectAdminWithdrawal(
+    user: AuthUser,
+    withdrawalId: string,
+    reason: string,
+  ) {
+    const wr = await db.query.withdrawalRequests.findFirst({
+      where: eq(withdrawalRequests.id, withdrawalId),
+      with: {
+        tenant: true,
+        foodCourt: true,
+      },
+    });
+
+    if (!wr) {
+      throw new NotFoundError(`Withdrawal request '${withdrawalId}' not found`);
+    }
+
+    if (user.role === "admin-food-court" && wr.foodCourt.managerId !== user.id) {
+      throw new ForbiddenError("You do not have permission to reject withdrawals for this food court");
+    }
+
+    if (wr.status !== "PENDING") {
+      throw new BadRequestError(`Cannot reject withdrawal with status '${wr.status}'. Only PENDING can be rejected.`);
+    }
+
+    // Refund tenant balance
+    const currentBalance = wr.tenant.balance || 0;
+    const restoredBalance = currentBalance + wr.amount;
+
+    await db
+      .update(tenants)
+      .set({
+        balance: restoredBalance,
+        updatedAt: new Date(),
+      })
+      .where(eq(tenants.id, wr.tenantId));
+
+    // Insert refund log
+    await db.insert(tenantBalanceLogs).values({
+      id: crypto.randomUUID(),
+      tenantId: wr.tenantId,
+      withdrawalRequestId: wr.id,
+      type: "WITHDRAWAL_REFUND",
+      grossAmount: 0,
+      platformFee: 0,
+      netAmount: wr.amount,
+      balanceAfter: restoredBalance,
+      description: `Pengajuan penarikan ditolak: ${reason} (Saldo Rp ${wr.amount.toLocaleString("id-ID")} dikembalikan)`,
+      createdAt: new Date(),
+    });
+
+    // Update status to REJECTED
+    await db
+      .update(withdrawalRequests)
+      .set({
+        status: "REJECTED",
+        adminNotes: reason,
+        processedBy: user.id,
+        processedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(withdrawalRequests.id, wr.id));
+
+    return db.query.withdrawalRequests.findFirst({
+      where: eq(withdrawalRequests.id, wr.id),
+      with: {
+        tenant: true,
+        foodCourt: true,
+      },
+    });
+  }
+
+  async completeAdminWithdrawal(user: AuthUser, withdrawalId: string) {
+    const wr = await db.query.withdrawalRequests.findFirst({
+      where: eq(withdrawalRequests.id, withdrawalId),
+      with: {
+        tenant: true,
+        foodCourt: true,
+      },
+    });
+
+    if (!wr) {
+      throw new NotFoundError(`Withdrawal request '${withdrawalId}' not found`);
+    }
+
+    if (user.role === "admin-food-court" && wr.foodCourt.managerId !== user.id) {
+      throw new ForbiddenError("You do not have permission to complete withdrawals for this food court");
+    }
+
+    if (wr.status !== "PENDING" && wr.status !== "PROCESSED") {
+      throw new BadRequestError(`Cannot complete withdrawal with status '${wr.status}'`);
+    }
+
+    await db
+      .update(withdrawalRequests)
+      .set({
+        status: "COMPLETED",
+        processedBy: user.id,
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(withdrawalRequests.id, wr.id));
+
+    await db.insert(tenantBalanceLogs).values({
+      id: crypto.randomUUID(),
+      tenantId: wr.tenantId,
+      withdrawalRequestId: wr.id,
+      type: "WITHDRAWAL_COMPLETED",
+      grossAmount: 0,
+      platformFee: 0,
+      netAmount: 0,
+      balanceAfter: wr.tenant.balance || 0,
+      description: `Pencairan dana ${wr.paymentMethod === "CASH" ? "Tunai Langsung" : "Transfer"} Rp ${wr.amount.toLocaleString("id-ID")} selesai`,
+      createdAt: new Date(),
+    });
+
+    return db.query.withdrawalRequests.findFirst({
+      where: eq(withdrawalRequests.id, wr.id),
+      with: {
+        tenant: true,
+        foodCourt: true,
+        processor: {
+          columns: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
   }
 }
 

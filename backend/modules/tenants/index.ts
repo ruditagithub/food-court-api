@@ -4,7 +4,14 @@ import {
   requireAuth,
   requireRoles,
 } from "../../common/middlewares/auth";
-import { CreateTenantDTO, TenantQueryDTO, UpdateTenantDTO } from "./model";
+import {
+  CreateTenantDTO,
+  ProcessWithdrawalDTO,
+  RejectWithdrawalDTO,
+  RequestWithdrawalDTO,
+  TenantQueryDTO,
+  UpdateTenantDTO,
+} from "./model";
 import { tenantService } from "./service";
 import { menuService } from "../menus/service";
 import { foodCourtService } from "../food-courts/service";
@@ -172,4 +179,172 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
         summary: "Resend activation email to tenant owner (Admin only)",
       },
     },
+  )
+
+  // ==========================================
+  // TENANT WALLET & WITHDRAWAL ROUTES
+  // ==========================================
+  .get(
+    "/wallet",
+    async ({ query, user }) => {
+      requireRoles(user, ["tenant", "admin", "admin-food-court"]);
+      const data = await tenantService.getTenantWalletSummary(user, query.tenantId);
+      return { data };
+    },
+    {
+      query: t.Object({
+        tenantId: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Tenants"],
+        summary: "Get wallet balance and transaction logs for tenant",
+      },
+    },
+  )
+  .get(
+    "/withdrawals",
+    async ({ query, user }) => {
+      requireRoles(user, ["tenant", "admin", "admin-food-court"]);
+      const data = await tenantService.getTenantWithdrawals(user, query.tenantId);
+      return { data };
+    },
+    {
+      query: t.Object({
+        tenantId: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Tenants"],
+        summary: "Get withdrawal history for tenant",
+      },
+    },
+  )
+  .post(
+    "/withdrawals",
+    async ({ query, body, user, set }) => {
+      requireRoles(user, ["tenant", "admin", "admin-food-court"]);
+      const data = await tenantService.createWithdrawalRequest(user, body, query.tenantId);
+      set.status = 201;
+      return {
+        message: "Pengajuan penarikan dana berhasil dibuat",
+        data,
+      };
+    },
+    {
+      query: t.Object({
+        tenantId: t.Optional(t.String()),
+      }),
+      body: RequestWithdrawalDTO,
+      detail: {
+        tags: ["Tenants"],
+        summary: "Request a wallet withdrawal (Cash or Transfer)",
+      },
+    },
+  )
+  .patch(
+    "/withdrawals/:id/confirm",
+    async ({ params: { id }, user }) => {
+      requireRoles(user, ["tenant", "admin", "admin-food-court"]);
+      const data = await tenantService.confirmWithdrawalReceipt(user, id);
+      return {
+        message: "Konfirmasi penerimaan dana berhasil dicatat",
+        data,
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      detail: {
+        tags: ["Tenants"],
+        summary: "Confirm that disbursed withdrawal funds have been received",
+      },
+    },
   );
+
+// ==========================================
+// ADMIN FOOD COURT WITHDRAWAL MANAGEMENT
+// ==========================================
+export const adminWithdrawalsController = new Elysia({
+  prefix: "/api/admin/withdrawals",
+})
+  .use(authPlugin)
+  .get(
+    "/",
+    async ({ query, user }) => {
+      requireRoles(user, ["admin", "admin-food-court"]);
+      const data = await tenantService.listAdminWithdrawals(user, query.status);
+      return { data };
+    },
+    {
+      query: t.Object({
+        status: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Admin Food Court"],
+        summary: "List all withdrawal requests from tenants",
+      },
+    },
+  )
+  .patch(
+    "/:id/process",
+    async ({ params: { id }, body, user }) => {
+      requireRoles(user, ["admin", "admin-food-court"]);
+      const data = await tenantService.processAdminWithdrawal(user, id, body);
+      return {
+        message: "Pengajuan penarikan berhasil diproses",
+        data,
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: ProcessWithdrawalDTO,
+      detail: {
+        tags: ["Admin Food Court"],
+        summary: "Disburse withdrawal with transfer proof or cash receipt",
+      },
+    },
+  )
+  .patch(
+    "/:id/reject",
+    async ({ params: { id }, body, user }) => {
+      requireRoles(user, ["admin", "admin-food-court"]);
+      const data = await tenantService.rejectAdminWithdrawal(user, id, body.reason);
+      return {
+        message: "Pengajuan penarikan ditolak dan saldo dikembalikan ke tenant",
+        data,
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: RejectWithdrawalDTO,
+      detail: {
+        tags: ["Admin Food Court"],
+        summary: "Reject withdrawal and automatically refund held balance to tenant",
+      },
+    },
+  )
+  .patch(
+    "/:id/complete",
+    async ({ params: { id }, user }) => {
+      requireRoles(user, ["admin", "admin-food-court"]);
+      const data = await tenantService.completeAdminWithdrawal(user, id);
+      return {
+        message: "Pencairan tunai diselesaikan",
+        data,
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      detail: {
+        tags: ["Admin Food Court"],
+        summary: "Directly complete cash withdrawal delivered on-site",
+      },
+    },
+  );
+

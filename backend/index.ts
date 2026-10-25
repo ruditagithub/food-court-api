@@ -9,10 +9,11 @@ import { menusController } from "./modules/menus";
 import { ordersController } from "./modules/orders";
 import { paymentsController } from "./modules/payments";
 import { tablesController } from "./modules/tables";
-import { tenantsController } from "./modules/tenants";
+import { adminWithdrawalsController, tenantsController } from "./modules/tenants";
 import { foodCourtsController } from "./modules/food-courts";
 import { foodCourtService } from "./modules/food-courts/service";
 import { uploadController } from "./modules/upload";
+import { discountsController } from "./modules/discounts";
 
 export const app = new Elysia()
   .use(cors())
@@ -119,12 +120,14 @@ export const app = new Elysia()
   // Mount feature controllers
   .use(authController)
   .use(tenantsController)
+  .use(adminWithdrawalsController)
   .use(menusController)
   .use(tablesController)
   .use(ordersController)
   .use(paymentsController)
   .use(foodCourtsController)
   .use(uploadController)
+  .use(discountsController)
   .use(
     new Elysia({ prefix: "/api/food-court" })
       .use(authPlugin)

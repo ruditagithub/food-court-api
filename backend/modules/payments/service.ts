@@ -26,6 +26,7 @@ import {
 } from "../../libs/midtrans";
 import type { CreateSnapPaymentDTOType, ProcessPaymentDTOType } from "./model";
 import { orderService } from "../orders/service";
+import { settleOrderTenantRevenues } from "../tenants/settlement";
 
 const SNAP_EXPIRY_MINUTES = 30;
 
@@ -139,6 +140,7 @@ export class PaymentService {
     });
 
     await orderService.completePayment(group.orderId);
+    await settleOrderTenantRevenues(group.orderId);
   }
 
   /** Manual / cashier payment (marked SUCCESS immediately). */

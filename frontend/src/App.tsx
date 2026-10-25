@@ -27,6 +27,8 @@ import { AdminOrdersPage } from './pages/admin/AdminOrdersPage'
 import { AdminPaymentsPage } from './pages/admin/AdminPaymentsPage'
 import { CategoriesPage } from './pages/categories/CategoriesPage'
 import { CashierDashboardPage } from './pages/cashier/CashierDashboardPage'
+import { TenantWalletPage } from './pages/tenant/TenantWalletPage'
+import { AdminWithdrawalsPage } from './pages/admin/AdminWithdrawalsPage'
 
 function App() {
   const [loadingComplete, setLoadingComplete] = useState(false)
@@ -175,6 +177,24 @@ function App() {
           element={
             <RoleGuard allowedRoles={['cashier', 'admin-food-court', 'admin']}>
               <CashierDashboardPage />
+            </RoleGuard>
+          }
+        />
+
+        {/* Wallet & Withdrawals */}
+        <Route
+          path="/app/tenant/wallet"
+          element={
+            <RoleGuard allowedRoles={['tenant']}>
+              <TenantWalletPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/app/admin/withdrawals"
+          element={
+            <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
+              <AdminWithdrawalsPage />
             </RoleGuard>
           }
         />

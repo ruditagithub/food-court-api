@@ -65,6 +65,8 @@ export const foodCourtsRelations = relations(foodCourts, ({ one, many }) => ({
   kiosks: many(kiosks),
   tenants: many(tenants),
   diningSessions: many(diningSessions),
+  discounts: many(discounts),
+  withdrawalRequests: many(withdrawalRequests),
 }));
 
 // ==========================================
@@ -146,6 +148,10 @@ export const tenants = mysqlTable(
     isOpen: boolean("is_open").notNull().default(false),
     openingTime: varchar("opening_time", { length: 8 }),
     closingTime: varchar("closing_time", { length: 8 }),
+    balance: int("balance").notNull().default(0),
+    bankName: varchar("bank_name", { length: 50 }),
+    bankAccountNumber: varchar("bank_account_number", { length: 50 }),
+    bankAccountHolder: varchar("bank_account_holder", { length: 100 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
   },
@@ -167,6 +173,9 @@ export const tenantsRelations = relations(tenants, ({ one, many }) => ({
   categories: many(menuCategories),
   menus: many(menus),
   tenantOrders: many(tenantOrders),
+  discounts: many(discounts),
+  balanceLogs: many(tenantBalanceLogs),
+  withdrawalRequests: many(withdrawalRequests),
 }));
 
 // ==========================================
@@ -358,6 +367,9 @@ export const orders = mysqlTable("orders", {
   taxAmount: int("tax_amount").notNull().default(0),
   serviceFee: int("service_fee").notNull().default(0),
   discountAmount: int("discount_amount").notNull().default(0),
+  discountId: varchar("discount_id", { length: 36 }).references(() => discounts.id, {
+    onDelete: "set null",
+  }),
   totalAmount: int("total_amount").notNull().default(0),
   paymentStatus: mysqlEnum("payment_status", [
     "PENDING",
@@ -384,6 +396,10 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   session: one(diningSessions, {
     fields: [orders.sessionId],
     references: [diningSessions.id],
+  }),
+  discount: one(discounts, {
+    fields: [orders.discountId],
+    references: [discounts.id],
   }),
   tenantOrders: many(tenantOrders),
   paymentGroups: many(paymentGroups),
@@ -555,6 +571,7 @@ export const paymentGroups = mysqlTable("payment_groups", {
     .references(() => sessionParticipants.id, { onDelete: "cascade" }),
   amountDue: int("amount_due").notNull(),
   amountPaid: int("amount_paid").notNull().default(0),
+  discountAmount: int("discount_amount").notNull().default(0),
   status: mysqlEnum("status", ["PENDING", "PAID", "CANCELLED"])
     .notNull()
     .default("PENDING"),
@@ -654,3 +671,156 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
     references: [paymentGroups.id],
   }),
 }));
+
+// ==========================================
+// 20. Discounts Table
+// ==========================================
+export const discounts = mysqlTable("discounts", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  foodCourtId: varchar("food_court_id", { length: 36 })
+    .notNull()
+    .references(() => foodCourts.id, { onDelete: "cascade" }),
+  tenantId: varchar("tenant_id", { length: 36 }).references(() => tenants.id, {
+    onDelete: "cascade",
+  }),
+  code: varchar("code", { length: 50 }).unique(),
+  name: varchar("name", { length: 150 }).notNull(),
+  description: text("description"),
+  scope: mysqlEnum("scope", ["FOOD_COURT", "TENANT"])
+    .notNull()
+    .default("FOOD_COURT"),
+  type: mysqlEnum("type", ["PERCENTAGE", "FIXED_AMOUNT"])
+    .notNull()
+    .default("PERCENTAGE"),
+  value: int("value").notNull(),
+  maxDiscountAmount: int("max_discount_amount"),
+  minOrderAmount: int("min_order_amount").notNull().default(0),
+  isPublic: boolean("is_public").notNull().default(true),
+  usageLimit: int("usage_limit"),
+  usageCount: int("usage_count").notNull().default(0),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  status: mysqlEnum("status", ["ACTIVE", "INACTIVE", "EXPIRED"])
+    .notNull()
+    .default("ACTIVE"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export const discountsRelations = relations(discounts, ({ one, many }) => ({
+  foodCourt: one(foodCourts, {
+    fields: [discounts.foodCourtId],
+    references: [foodCourts.id],
+  }),
+  tenant: one(tenants, {
+    fields: [discounts.tenantId],
+    references: [tenants.id],
+  }),
+  orders: many(orders),
+}));
+
+// ==========================================
+// 21. Tenant Balance Logs (Ledger Mutasi)
+// ==========================================
+export const tenantBalanceLogs = mysqlTable("tenant_balance_logs", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  tenantId: varchar("tenant_id", { length: 36 })
+    .notNull()
+    .references(() => tenants.id, { onDelete: "cascade" }),
+  tenantOrderId: varchar("tenant_order_id", { length: 36 }).references(
+    () => tenantOrders.id,
+    { onDelete: "set null" },
+  ),
+  withdrawalRequestId: varchar("withdrawal_request_id", {
+    length: 36,
+  }).references(() => withdrawalRequests.id, { onDelete: "set null" }),
+  type: mysqlEnum("type", [
+    "ORDER_REVENUE",
+    "WITHDRAWAL_HOLD",
+    "WITHDRAWAL_REFUND",
+    "WITHDRAWAL_COMPLETED",
+  ]).notNull(),
+  grossAmount: int("gross_amount").notNull().default(0),
+  platformFee: int("platform_fee").notNull().default(0),
+  netAmount: int("net_amount").notNull(),
+  balanceAfter: int("balance_after").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const tenantBalanceLogsRelations = relations(
+  tenantBalanceLogs,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [tenantBalanceLogs.tenantId],
+      references: [tenants.id],
+    }),
+    tenantOrder: one(tenantOrders, {
+      fields: [tenantBalanceLogs.tenantOrderId],
+      references: [tenantOrders.id],
+    }),
+    withdrawalRequest: one(withdrawalRequests, {
+      fields: [tenantBalanceLogs.withdrawalRequestId],
+      references: [withdrawalRequests.id],
+    }),
+  }),
+);
+
+// ==========================================
+// 22. Withdrawal Requests (Penarikan Dana)
+// ==========================================
+export const withdrawalRequests = mysqlTable("withdrawal_requests", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  foodCourtId: varchar("food_court_id", { length: 36 })
+    .notNull()
+    .references(() => foodCourts.id, { onDelete: "cascade" }),
+  tenantId: varchar("tenant_id", { length: 36 })
+    .notNull()
+    .references(() => tenants.id, { onDelete: "cascade" }),
+  amount: int("amount").notNull(),
+  paymentMethod: mysqlEnum("payment_method", ["CASH", "TRANSFER"]).notNull(),
+  bankName: varchar("bank_name", { length: 50 }),
+  bankAccountNumber: varchar("bank_account_number", { length: 50 }),
+  bankAccountHolder: varchar("bank_account_holder", { length: 100 }),
+  status: mysqlEnum("status", [
+    "PENDING",
+    "PROCESSED",
+    "COMPLETED",
+    "REJECTED",
+  ])
+    .notNull()
+    .default("PENDING"),
+  proofReceiptUrl: varchar("proof_receipt_url", { length: 255 }),
+  transferReference: varchar("transfer_reference", { length: 100 }),
+  adminNotes: text("admin_notes"),
+  processedBy: varchar("processed_by", { length: 36 }).references(
+    () => users.id,
+    { onDelete: "set null" },
+  ),
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+  processedAt: timestamp("processed_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export const withdrawalRequestsRelations = relations(
+  withdrawalRequests,
+  ({ one, many }) => ({
+    foodCourt: one(foodCourts, {
+      fields: [withdrawalRequests.foodCourtId],
+      references: [foodCourts.id],
+    }),
+    tenant: one(tenants, {
+      fields: [withdrawalRequests.tenantId],
+      references: [tenants.id],
+    }),
+    processor: one(users, {
+      fields: [withdrawalRequests.processedBy],
+      references: [users.id],
+    }),
+    balanceLogs: many(tenantBalanceLogs),
+  }),
+);
+
+

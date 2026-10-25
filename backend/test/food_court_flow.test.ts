@@ -227,8 +227,10 @@ describe("Food Court End-to-End Workflow", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     orderId = body.data.id;
-    // Calculation: (30,000 * 2) + (7,000 * 1) = 67,000
-    expect(body.data.totalPrice).toBe(67000);
+    // Calculation: Subtotal (30,000 * 2) + (7,000 * 1) = 67,000
+    // Svc fee 3%: 2,010, Tax 10%: 6,700 -> Total: 75,710
+    expect(body.data.subtotal).toBe(67000);
+    expect(body.data.totalPrice).toBe(75710);
     expect(body.data.status).toBe("pending");
     expect(body.data.items.length).toBe(2);
 
@@ -254,7 +256,7 @@ describe("Food Court End-to-End Workflow", () => {
         body: JSON.stringify({
           orderId,
           paymentMethod: "qris",
-          amount: 67000,
+          amount: 75710,
         }),
       }),
     );
@@ -262,7 +264,7 @@ describe("Food Court End-to-End Workflow", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data.paymentStatus).toBe("paid");
-    expect(body.data.amount).toBe(67000);
+    expect(body.data.amount).toBe(75710);
 
     // Order status should automatically update to confirmed
     const orderRes = await app.handle(

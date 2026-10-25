@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import {
   BadRequestError,
   ForbiddenError,
@@ -8,6 +8,7 @@ import type { AuthUser } from "../../common/middlewares/auth";
 import { db } from "../../db";
 import {
   diningSessions,
+  discounts,
   foodCourts,
   kitchenQueues,
   menuOptions,
@@ -23,6 +24,7 @@ import {
   tenantOrders,
   tenants,
 } from "../../db/schema";
+import { discountService } from "../discounts/service";
 import type {
   CreateOrderDTOType,
   SplitBillDTOType,
@@ -150,6 +152,7 @@ export class OrderService {
 
     let sessionId = data.sessionId;
     let tableRecord: typeof tables.$inferSelect | undefined;
+    let targetFoodCourtId = "";
 
     // Resolve or create dining session
     if (sessionId) {
@@ -164,6 +167,7 @@ export class OrderService {
           `Dining session '${sessionId}' is no longer active (status: ${existingSession.status})`,
         );
       }
+      targetFoodCourtId = existingSession.foodCourtId;
     } else if (data.tableId) {
       tableRecord = await db.query.tables.findFirst({
         where: eq(tables.id, data.tableId),
@@ -171,6 +175,7 @@ export class OrderService {
       if (!tableRecord) {
         throw new NotFoundError(`Table '${data.tableId}' not found`);
       }
+      targetFoodCourtId = tableRecord.foodCourtId;
 
       // Check for an existing active session on this table
       const activeSession = await db.query.diningSessions.findFirst({
@@ -216,6 +221,7 @@ export class OrderService {
     } else {
       // Direct takeaway without table
       const defaultCourtId = await this.getOrCreateDefaultFoodCourt();
+      targetFoodCourtId = defaultCourtId;
       sessionId = crypto.randomUUID();
       const sessionCode = `TA-${Date.now().toString().slice(-6)}-${Math.floor(10 + Math.random() * 90)}`;
 
@@ -395,11 +401,49 @@ export class OrderService {
       });
     }
 
-    // 1. Insert Master Order
+    // 1. Discount Validation & Calculation
+    let masterDiscountAmount = 0;
+    let appliedDiscountId: string | null = null;
+    if (data.discountCode || data.discountId) {
+      const discountRes = await discountService.validateDiscount({
+        foodCourtId: targetFoodCourtId,
+        discountCode: data.discountCode,
+        discountId: data.discountId,
+        items: data.items,
+      });
+      masterDiscountAmount = discountRes.discountAmount;
+      appliedDiscountId = discountRes.discount.id;
+    }
+
+    // 2. Enforce voucher quota atomically if discount applied
+    if (appliedDiscountId) {
+      const [updateResult]: any = await db
+        .update(discounts)
+        .set({
+          usageCount: sql`${discounts.usageCount} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(discounts.id, appliedDiscountId),
+            or(
+              isNull(discounts.usageLimit),
+              sql`${discounts.usageCount} < ${discounts.usageLimit}`,
+            ),
+          ),
+        );
+
+      if (updateResult.affectedRows === 0) {
+        throw new BadRequestError("Kuota pemakaian voucher telah habis");
+      }
+    }
+
+    // 3. Insert Master Order
     const masterSubtotal = overallTotal;
-    const masterServiceFee = Math.round(masterSubtotal * 0.03);
-    const masterTaxAmount = Math.round(masterSubtotal * 0.10);
-    const masterTotalAmount = masterSubtotal + masterServiceFee + masterTaxAmount;
+    const discountedSubtotal = Math.max(0, masterSubtotal - masterDiscountAmount);
+    const masterServiceFee = Math.round(discountedSubtotal * 0.03);
+    const masterTaxAmount = Math.round(discountedSubtotal * 0.10);
+    const masterTotalAmount = discountedSubtotal + masterServiceFee + masterTaxAmount;
 
     await db.insert(orders).values({
       id: orderId,
@@ -408,7 +452,8 @@ export class OrderService {
       subtotal: masterSubtotal,
       taxAmount: masterTaxAmount,
       serviceFee: masterServiceFee,
-      discountAmount: 0,
+      discountAmount: masterDiscountAmount,
+      discountId: appliedDiscountId,
       totalAmount: masterTotalAmount,
       paymentStatus: "PENDING",
       orderStatus: "DRAFT",
@@ -479,6 +524,7 @@ export class OrderService {
       participantId: participant.id,
       amountDue: masterTotalAmount,
       amountPaid: 0,
+      discountAmount: masterDiscountAmount,
       status: "PENDING",
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -594,8 +640,10 @@ export class OrderService {
         };
       });
       const groupSubtotal = itemsList.reduce((acc: number, it: any) => acc + (it.allocatedAmount || 0), 0);
-      const groupService = Math.round(groupSubtotal * 0.03);
-      const groupTax = Math.round(groupSubtotal * 0.10);
+      const groupDiscount = pg.discountAmount ?? 0;
+      const groupDiscountedSubtotal = Math.max(0, groupSubtotal - groupDiscount);
+      const groupService = Math.round(groupDiscountedSubtotal * 0.03);
+      const groupTax = Math.round(groupDiscountedSubtotal * 0.10);
 
       return {
         id: pg.id,
@@ -603,6 +651,8 @@ export class OrderService {
         participantId: pg.participantId,
         participantName: pg.participant?.name ?? "Tamu",
         subtotal: groupSubtotal,
+        discountAmount: groupDiscount,
+        discountedSubtotal: groupDiscountedSubtotal,
         serviceFee: groupService,
         taxAmount: groupTax,
         amountDue: pg.amountDue,
@@ -672,6 +722,7 @@ export class OrderService {
       orderStatus: order.orderStatus,
       paymentStatus: order.paymentStatus,
       subtotal: order.subtotal,
+      discountAmount: order.discountAmount,
       serviceFee: order.serviceFee,
       taxAmount: order.taxAmount,
       totalAmount: order.totalAmount,
@@ -683,7 +734,7 @@ export class OrderService {
       tableNumber: order.session?.table?.tableNumber ?? "Takeaway",
       sessionCode: order.session?.sessionCode,
       createdAt: order.createdAt,
-            paymentGroups: order.paymentGroups.map((pg: any) => {
+      paymentGroups: order.paymentGroups.map((pg: any) => {
         const itemsList = (pg.items ?? []).map((pgi: any) => {
           const oi = pgi.orderItem;
           const unitPrice =
@@ -703,8 +754,10 @@ export class OrderService {
           };
         });
         const groupSubtotal = itemsList.reduce((acc: number, it: any) => acc + (it.allocatedAmount || 0), 0);
-        const groupService = Math.round(groupSubtotal * 0.03);
-        const groupTax = Math.round(groupSubtotal * 0.10);
+        const groupDiscount = pg.discountAmount ?? 0;
+        const groupDiscountedSubtotal = Math.max(0, groupSubtotal - groupDiscount);
+        const groupService = Math.round(groupDiscountedSubtotal * 0.03);
+        const groupTax = Math.round(groupDiscountedSubtotal * 0.10);
 
         return {
           id: pg.id,
@@ -712,6 +765,8 @@ export class OrderService {
           participantId: pg.participantId,
           participantName: pg.participant?.name ?? "Tamu",
           subtotal: groupSubtotal,
+          discountAmount: groupDiscount,
+          discountedSubtotal: groupDiscountedSubtotal,
           serviceFee: groupService,
           taxAmount: groupTax,
           amountDue: pg.amountDue,
@@ -900,6 +955,17 @@ export class OrderService {
           await db
             .delete(kitchenQueues)
             .where(inArray(kitchenQueues.tenantOrderId, tOrderIds));
+        }
+
+        // Restore discount quota if order had an applied discount
+        if (existing.discountId) {
+          await db
+            .update(discounts)
+            .set({
+              usageCount: sql`GREATEST(0, ${discounts.usageCount} - 1)`,
+              updatedAt: new Date(),
+            })
+            .where(eq(discounts.id, existing.discountId));
         }
       }
     }
@@ -1202,6 +1268,11 @@ export class OrderService {
 
     const preparedGroups: Array<{
       participantName: string;
+      subtotal: number;
+      discountAmount?: number;
+      discountedSubtotal?: number;
+      serviceFee: number;
+      taxAmount: number;
       amountDue: number;
       allocations: Array<{ orderItemId: string; allocatedAmount: number }>;
     }> = [];
@@ -1248,16 +1319,12 @@ export class OrderService {
         );
       }
 
-      const groupServiceFee = Math.round(groupSubtotal * 0.03);
-      const groupTaxAmount = Math.round(groupSubtotal * 0.10);
-      const groupAmountDue = groupSubtotal + groupServiceFee + groupTaxAmount;
-
       preparedGroups.push({
         participantName: cleanName,
         subtotal: groupSubtotal,
-        serviceFee: groupServiceFee,
-        taxAmount: groupTaxAmount,
-        amountDue: groupAmountDue,
+        serviceFee: 0,
+        taxAmount: 0,
+        amountDue: 0,
         allocations: groupAllocations,
       });
     }
@@ -1270,6 +1337,93 @@ export class OrderService {
           `Item '${oi.menuNameSnapshot}' requires quantity ${oi.quantity} to be allocated, but got ${totalAllocatedQty}`,
         );
       }
+    }
+
+    // Distribute discount across groups using waterfall / spillover
+    const numGroups = preparedGroups.length;
+    const totalOrderDiscount = order.discountAmount ?? 0;
+    const groupDiscounts = new Array(numGroups).fill(0);
+
+    if (totalOrderDiscount > 0 && numGroups > 0) {
+      const baseDiscount = Math.floor(totalOrderDiscount / numGroups);
+      let spilloverPool = totalOrderDiscount - baseDiscount * numGroups;
+
+      // Pass 1: Allocate base discount up to group's subtotal
+      for (let i = 0; i < numGroups; i++) {
+        const sub = preparedGroups[i].subtotal;
+        if (sub <= baseDiscount) {
+          groupDiscounts[i] = sub;
+          spilloverPool += baseDiscount - sub;
+        } else {
+          groupDiscounts[i] = baseDiscount;
+        }
+      }
+
+      // Pass 2: Distribute spilloverPool to participants who still have unpaid subtotal
+      while (spilloverPool > 0) {
+        const eligibleIndices: number[] = [];
+        for (let i = 0; i < numGroups; i++) {
+          if (preparedGroups[i].subtotal > groupDiscounts[i]) {
+            eligibleIndices.push(i);
+          }
+        }
+
+        if (eligibleIndices.length === 0) {
+          break; // All subtotals are completely discounted
+        }
+
+        const share = Math.max(
+          1,
+          Math.floor(spilloverPool / eligibleIndices.length),
+        );
+        let allocatedInThisRound = 0;
+
+        for (const idx of eligibleIndices) {
+          const headroom = preparedGroups[idx].subtotal - groupDiscounts[idx];
+          const take = Math.min(share, headroom, spilloverPool);
+          groupDiscounts[idx] += take;
+          spilloverPool -= take;
+          allocatedInThisRound += take;
+          if (spilloverPool === 0) break;
+        }
+
+        if (allocatedInThisRound === 0) {
+          break;
+        }
+      }
+    }
+
+    // Compute discounted financial numbers for each prepared group
+    let currentSumDue = 0;
+    for (let i = 0; i < numGroups; i++) {
+      const g = preparedGroups[i];
+      const discount = groupDiscounts[i];
+      const discountedSubtotal = Math.max(0, g.subtotal - discount);
+      const serviceFee = Math.round(discountedSubtotal * 0.03);
+      const taxAmount = Math.round(discountedSubtotal * 0.1);
+      const amountDue = discountedSubtotal + serviceFee + taxAmount;
+
+      g.discountAmount = discount;
+      g.discountedSubtotal = discountedSubtotal;
+      g.serviceFee = serviceFee;
+      g.taxAmount = taxAmount;
+      g.amountDue = amountDue;
+      currentSumDue += amountDue;
+    }
+
+    // Ensure sum(amountDue) === order.totalAmount (penny/rupiah rounding adjustment)
+    const discrepancy = order.totalAmount - currentSumDue;
+    if (discrepancy !== 0 && numGroups > 0) {
+      let bestIdx = 0;
+      for (let i = 1; i < numGroups; i++) {
+        if (preparedGroups[i].amountDue > preparedGroups[bestIdx].amountDue) {
+          bestIdx = i;
+        }
+      }
+      preparedGroups[bestIdx].amountDue = Math.max(
+        0,
+        preparedGroups[bestIdx].amountDue + discrepancy,
+      );
     }
 
     // Remove existing unpaid paymentGroups (cascades to paymentGroupItems and pending payments)
@@ -1307,6 +1461,7 @@ export class OrderService {
         participantId: participant.id,
         amountDue: pg.amountDue,
         amountPaid: 0,
+        discountAmount: pg.discountAmount ?? 0,
         status: "PENDING",
         createdAt: new Date(),
         updatedAt: new Date(),

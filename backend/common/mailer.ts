@@ -49,10 +49,10 @@ class MailerService {
 
     const transporter = this.getTransporter();
 
-    // Fallback: If SMTP credentials not provided in .env, log to console for instant local development
-    if (!transporter) {
+    // Fallback: If in test environment or SMTP credentials not provided in .env, log to console
+    if (process.env.NODE_ENV === "test" || !transporter) {
       console.log("\n=======================================================");
-      console.log("[DEV MAILER] Gmail SMTP belum diisi di .env. Gunakan tautan berikut:");
+      console.log("[DEV/TEST MAILER] Gmail SMTP call bypassed. Gunakan tautan berikut:");
       console.log(`Kepada         : ${opts.ownerName} <${opts.to}>`);
       console.log(`Gerai / Stan   : ${opts.tenantName} (Nomor: ${opts.stallNumber})`);
       console.log(`Food Court     : ${fcName}`);

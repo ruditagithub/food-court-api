@@ -17,6 +17,8 @@ export const CreateOrderDTO = t.Object({
   orderType: t.Optional(
     t.Union([t.Literal("DINE_IN"), t.Literal("TAKEAWAY")]),
   ),
+  discountCode: t.Optional(t.String()),
+  discountId: t.Optional(t.String()),
   items: t.Array(OrderItemInput, { minItems: 1 }),
 });
 

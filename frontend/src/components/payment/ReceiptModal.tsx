@@ -89,6 +89,67 @@ export function ReceiptModal({ isOpen, onClose, orderId, orderNumber }: ReceiptM
         </div>
       </DialogHeader>
 
+      <style>{`
+        @media print {
+          @page {
+            margin: 0;
+            size: auto;
+          }
+          *, *::before, *::after {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          html, body {
+            background: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            height: auto !important;
+            min-height: 0 !important;
+          }
+          /* Hide everything in the body by default */
+          body * {
+            visibility: hidden !important;
+          }
+          /* Neutralize modal wrapper and overflow containers so receipt is never clipped */
+          .fixed,
+          .relative,
+          [data-lenis-prevent],
+          .overflow-y-auto {
+            position: static !important;
+            overflow: visible !important;
+            max-height: none !important;
+            height: auto !important;
+            min-height: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          /* Only show the receipt paper and all its children */
+          #printable-receipt, #printable-receipt * {
+            visibility: visible !important;
+          }
+          #printable-receipt {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 480px !important;
+            margin: 0 auto !important;
+            padding: 20px !important;
+            background: #ffffff !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+          /* Hide any buttons, close icons, dialog headers/footers */
+          button, [role="button"], dialog, .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
       {loading ? (
         <div className="py-12 flex flex-col items-center justify-center space-y-3">
           <Icons.Refresh className="w-6 h-6 animate-spin text-[#0a0a0a]" />
@@ -104,11 +165,14 @@ export function ReceiptModal({ isOpen, onClose, orderId, orderNumber }: ReceiptM
       ) : (
         <div className="py-2 overflow-y-auto max-h-[60vh] bg-white text-[#0a0a0a] space-y-4 print:p-0">
           {/* Thermal Receipt Visual Paper */}
-          <div className="p-5 border border-dashed border-[#d4d4d4] rounded-[18px] bg-[#fafafa] space-y-4 font-mono text-xs">
+          <div
+            id="printable-receipt"
+            className="p-5 border border-dashed border-[#d4d4d4] rounded-[18px] bg-[#fafafa] space-y-4 font-mono text-xs"
+          >
             {/* Header */}
             <div className="text-center space-y-1 pb-3 border-b border-dashed border-[#d4d4d4]">
               <h3 className="font-sans font-black text-sm tracking-wider uppercase text-[#0a0a0a]">
-                AMICI FOOD COURT
+                {orderData?.foodCourtName || 'AMICI FOOD COURT'}
               </h3>
               <p className="text-[10px] text-[#737373]">Sentra Kuliner Modern & Digital</p>
               <p className="text-[10px] text-[#737373]">Bukti Pembayaran Transaksi Resmi</p>
@@ -120,7 +184,9 @@ export function ReceiptModal({ isOpen, onClose, orderId, orderNumber }: ReceiptM
               <span className="text-right font-bold text-[#0a0a0a]">{effectiveOrderNumber}</span>
 
               <span className="text-[#737373]">Meja:</span>
-              <span className="text-right font-bold text-[#0a0a0a]">Meja {effectiveTable}</span>
+              <span className="text-right font-bold text-[#0a0a0a]">
+                {effectiveTable === 'Takeaway' ? 'Bawa Pulang (Takeaway)' : `Meja ${effectiveTable}`}
+              </span>
 
               <span className="text-[#737373]">Tanggal:</span>
               <span className="text-right text-[#0a0a0a]">
@@ -152,7 +218,7 @@ export function ReceiptModal({ isOpen, onClose, orderId, orderNumber }: ReceiptM
                     <div className="font-bold text-[#0a0a0a] flex justify-between text-[11px]">
                       <span>{stall.tenantName}</span>
                       <span className="text-[10px] text-[#737373]">
-                        {stall.stallNumber || ''}
+                        {stall.stallNumber ? `Kios ${stall.stallNumber}` : ''}
                       </span>
                     </div>
                     {stall.items?.map((it: any, iIdx: number) => (
@@ -160,6 +226,11 @@ export function ReceiptModal({ isOpen, onClose, orderId, orderNumber }: ReceiptM
                         <span>
                           {it.quantity}x {it.name}
                         </span>
+                        {(it.subtotal !== undefined || it.unitPrice !== undefined) && (
+                          <span>
+                            {formatRupiah(it.subtotal ?? (it.unitPrice || 0) * it.quantity)}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -192,12 +263,20 @@ export function ReceiptModal({ isOpen, onClose, orderId, orderNumber }: ReceiptM
             <div className="space-y-1.5 pb-2">
               <div className="flex justify-between text-[11px] text-[#737373]">
                 <span>Subtotal Pesanan</span>
-                <span>{formatRupiah(effectiveTotal)}</span>
+                <span>{formatRupiah(orderData?.subtotal || effectiveTotal)}</span>
               </div>
-              <div className="flex justify-between text-[11px] text-[#737373]">
-                <span>Biaya Layanan & Pajak</span>
-                <span>Rp 0</span>
-              </div>
+              {orderData?.serviceFee ? (
+                <div className="flex justify-between text-[11px] text-[#737373]">
+                  <span>Biaya Layanan (3%)</span>
+                  <span>{formatRupiah(orderData.serviceFee)}</span>
+                </div>
+              ) : null}
+              {orderData?.taxAmount ? (
+                <div className="flex justify-between text-[11px] text-[#737373]">
+                  <span>Pajak Restoran PB1 (10%)</span>
+                  <span>{formatRupiah(orderData.taxAmount)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between text-xs font-bold text-[#0a0a0a] pt-1 border-t border-[#e5e5e5]">
                 <span>TOTAL PEMBAYARAN</span>
                 <span>{formatRupiah(effectiveTotal)}</span>

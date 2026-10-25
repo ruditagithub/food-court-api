@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 interface FoodCourtCustomerHeaderProps {
   foodCourtName?: string
   foodCourtLogo?: string | null
@@ -13,17 +15,20 @@ export function FoodCourtCustomerHeader({
   tableNumber,
   className = '',
 }: FoodCourtCustomerHeaderProps) {
+  const [logoError, setLogoError] = useState(false)
+
   return (
     <div
       className={`p-4 sm:p-5 rounded-[24px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex items-center justify-between gap-3.5 ${className}`}
     >
       <div className="flex items-center gap-3.5 min-w-0">
         <div className="w-12 h-12 rounded-[18px] bg-[#0a0a0a] text-white flex items-center justify-center font-bold text-lg shrink-0 overflow-hidden border border-[#e5e5e5]">
-          {foodCourtLogo ? (
+          {foodCourtLogo && !logoError ? (
             <img
               src={foodCourtLogo}
               alt={foodCourtName || 'Food Court'}
               className="w-full h-full object-cover"
+              onError={() => setLogoError(true)}
             />
           ) : (
             foodCourtName?.slice(0, 2).toUpperCase() || 'FC'

@@ -4,6 +4,7 @@ export const OrderItemInput = t.Object({
   menuId: t.String(),
   quantity: t.Integer({ minimum: 1, default: 1 }),
   specialNotes: t.Optional(t.String({ maxLength: 200 })),
+  specialInstructions: t.Optional(t.String({ maxLength: 200 })),
   notes: t.Optional(t.String({ maxLength: 200 })),
   optionIds: t.Optional(t.Array(t.String())),
 });
@@ -12,6 +13,7 @@ export const CreateOrderDTO = t.Object({
   tableId: t.Optional(t.String()),
   sessionId: t.Optional(t.String()),
   customerName: t.Optional(t.String({ minLength: 2, maxLength: 50 })),
+  notes: t.Optional(t.String({ maxLength: 500 })),
   orderType: t.Optional(
     t.Union([t.Literal("DINE_IN"), t.Literal("TAKEAWAY")]),
   ),
@@ -64,6 +66,23 @@ export const UpdateOrderItemStatusDTO = t.Object({
   ]),
 });
 
+export const SplitBillDTO = t.Object({
+  groups: t.Array(
+    t.Object({
+      participantName: t.String({ minLength: 1, maxLength: 120 }),
+      items: t.Array(
+        t.Object({
+          orderItemId: t.String(),
+          // Omitted = the whole line quantity
+          quantity: t.Optional(t.Integer({ minimum: 1 })),
+        }),
+        { minItems: 1 },
+      ),
+    }),
+    { minItems: 1 },
+  ),
+});
+
 export const OrderQueryDTO = t.Object({
   status: t.Optional(t.String()),
   tableId: t.Optional(t.String()),
@@ -74,6 +93,7 @@ export const OrderQueryDTO = t.Object({
 export type OrderItemInputType = typeof OrderItemInput.static;
 export type CreateOrderDTOType = typeof CreateOrderDTO.static;
 export type JoinSessionDTOType = typeof JoinSessionDTO.static;
+export type SplitBillDTOType = typeof SplitBillDTO.static;
 export type UpdateOrderStatusDTOType = typeof UpdateOrderStatusDTO.static;
 export type UpdateTenantOrderStatusDTOType =
   typeof UpdateTenantOrderStatusDTO.static;

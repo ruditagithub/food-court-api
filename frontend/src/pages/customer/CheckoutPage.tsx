@@ -10,7 +10,6 @@ import { Label } from '../../components/ui/Label'
 import { Badge } from '../../components/ui/Badge'
 import { Icons } from '../../components/ui/Icons'
 import { formatRupiah } from '../../lib/utils'
-import { PaymentModal } from '../../components/customer/PaymentModal'
 import type { CartItem } from './CustomerMenuPage'
 
 export function CheckoutPage() {
@@ -24,34 +23,171 @@ export function CheckoutPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
 
   const [customerName, setCustomerName] = useState(user?.name || '')
-  const [notes, setNotes] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
-  const [createdOrder, setCreatedOrder] = useState<any>(null)
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
 
   // Load active table and cart
   useEffect(() => {
+    let parsedTable: any = null
     try {
       const storedTable = localStorage.getItem('active_table')
       if (storedTable) {
-        setActiveTable(JSON.parse(storedTable))
+        parsedTable = JSON.parse(storedTable)
+        setActiveTable(parsedTable)
       }
     } catch {
       // ignore
     }
 
     if (qrToken) {
+      if (!parsedTable || parsedTable.qrToken !== qrToken) {
+        apiFetch<{ data: any }>(`/api/tables/scan/${qrToken}`)
+          .then((res) => {
+            if (res.data) {
+              const tbl = {
+                tableId: res.data.id,
+                tableNumber: res.data.tableNumber,
+                foodCourtId: res.data.foodCourtId,
+                qrToken: res.data.qrToken,
+              }
+              setActiveTable(tbl)
+              localStorage.setItem('active_table', JSON.stringify(tbl))
+            }
+          })
+          .catch(() => {})
+      }
+
       try {
         const storedCart = localStorage.getItem(`cart_${qrToken}`)
         if (storedCart) {
-          setCartItems(JSON.parse(storedCart))
+          const parsedCart: CartItem[] = JSON.parse(storedCart)
+          setCartItems(parsedCart)
+
+          // Reconcile live stock for items in cart
+          const uniqueMenuIds = Array.from(new Set(parsedCart.map((c) => c.menuId)))
+          Promise.all(
+            uniqueMenuIds.map(async (mId) => {
+              try {
+                const mRes = await apiFetch<{ data: any }>(`/api/menus/${mId}`)
+                return mRes.data
+              } catch {
+                return null
+              }
+            })
+          ).then((liveMenus) => {
+            const stockMap = new Map<string, number>()
+            liveMenus.forEach((lm) => {
+              if (lm && typeof lm.stock === 'number') {
+                stockMap.set(lm.id, lm.stock)
+              }
+            })
+            if (stockMap.size > 0) {
+              setCartItems((prev) => {
+                const next = prev.map((ci) =>
+                  stockMap.has(ci.menuId) ? { ...ci, stock: stockMap.get(ci.menuId) } : ci
+                )
+                localStorage.setItem(`cart_${qrToken}`, JSON.stringify(next))
+                return next
+              })
+            }
+          })
         }
       } catch {
         // ignore
       }
     }
   }, [qrToken])
+
+  // Sync cart changes to localStorage
+  const updateCart = (newItems: CartItem[]) => {
+    setCartItems(newItems)
+    if (qrToken) {
+      localStorage.setItem(`cart_${qrToken}`, JSON.stringify(newItems))
+    }
+  }
+
+  // Total quantity of a menuId across cart
+  const getTotalMenuQty = (menuId: string) => {
+    return cartItems
+      .filter((ci) => ci.menuId === menuId)
+      .reduce((sum, ci) => sum + ci.quantity, 0)
+  }
+
+  // Adjust item quantity with stock cap
+  const handleQuantityChange = (menuId: string, notesVal: string | undefined, delta: number) => {
+    if (delta > 0) {
+      const target = cartItems.find(
+        (it) => it.menuId === menuId && (it.notes || '') === (notesVal || '')
+      )
+      if (target && typeof target.stock === 'number') {
+        const totalForMenu = getTotalMenuQty(menuId)
+        if (totalForMenu + delta > target.stock) {
+          toastError('Batas Stok Tercapai', `Stok tersisa untuk ${target.name} hanya ${target.stock} porsi.`)
+          return
+        }
+      }
+    }
+
+    const updated = cartItems
+      .map((it) => {
+        if (it.menuId === menuId && (it.notes || '') === (notesVal || '')) {
+          const newQty = it.quantity + delta
+          return newQty > 0 ? { ...it, quantity: newQty } : null
+        }
+        return it
+      })
+      .filter(Boolean) as CartItem[]
+
+    updateCart(updated)
+  }
+
+  // Update note for a specific item in cart
+  const handleItemNoteChange = (menuId: string, oldNote: string | undefined, newNote: string) => {
+    let updatedOnce = false
+    const updated = cartItems.map((it) => {
+      if (!updatedOnce && it.menuId === menuId && (it.notes || '') === (oldNote || '')) {
+        updatedOnce = true
+        return { ...it, notes: newNote }
+      }
+      return it
+    })
+    updateCart(updated)
+  }
+
+  // Split an item with quantity > 1 into individual 1-portion items so each portion can have a distinct note
+  const handleSplitItemPortion = (menuId: string, currentNote: string | undefined) => {
+    const target = cartItems.find(
+      (it) => it.menuId === menuId && (it.notes || '') === (currentNote || '')
+    )
+    if (!target || target.quantity <= 1) return
+
+    const expanded: CartItem[] = []
+    let replaced = false
+    cartItems.forEach((it) => {
+      if (!replaced && it.menuId === menuId && (it.notes || '') === (currentNote || '')) {
+        replaced = true
+        for (let i = 0; i < it.quantity; i++) {
+          expanded.push({
+            ...it,
+            quantity: 1,
+            notes: it.notes || '',
+          })
+        }
+      } else {
+        expanded.push(it)
+      }
+    })
+    updateCart(expanded)
+    toastSuccess('Porsi Dipisah', `${target.name} dipisah menjadi porsi individual untuk catatan berbeda.`)
+  }
+
+  // Remove item
+  const handleRemoveItem = (menuId: string, notesVal: string | undefined) => {
+    const updated = cartItems.filter(
+      (it) => !(it.menuId === menuId && (it.notes || '') === (notesVal || ''))
+    )
+    updateCart(updated)
+  }
 
   const totalAmount = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const totalCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
@@ -75,6 +211,10 @@ export function CheckoutPage() {
       setNameError('Nama pemesan wajib diisi agar pesanan dapat dipanggil')
       return
     }
+    if (customerName.trim().length < 2) {
+      setNameError('Nama pemesan minimal 2 karakter')
+      return
+    }
     if (cartItems.length === 0) {
       toastError('Keranjang Kosong', 'Silakan pilih menu makanan terlebih dahulu.')
       return
@@ -86,12 +226,11 @@ export function CheckoutPage() {
       const payload = {
         tableId: activeTable?.tableId || undefined,
         customerName: customerName.trim(),
-        notes: notes.trim() || undefined,
         items: cartItems.map((ci) => ({
           menuId: ci.menuId,
           quantity: ci.quantity,
-          notes: ci.notes || undefined,
-          specialInstructions: ci.notes || undefined,
+          notes: ci.notes?.trim() || undefined,
+          specialInstructions: ci.notes?.trim() || undefined,
         })),
       }
 
@@ -109,8 +248,8 @@ export function CheckoutPage() {
         localStorage.removeItem(`cart_${qrToken}`)
       }
 
-      setCreatedOrder(orderData)
-      setIsPaymentModalOpen(true)
+      // Navigate directly to tracking page so order is loaded first
+      navigate(`/track/${orderData.orderNumber}`, { replace: true })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal mengirim pesanan'
       toastError('Gagal Checkout', msg)
@@ -122,8 +261,8 @@ export function CheckoutPage() {
   if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center p-4">
-        <Card surface="paper" className="max-w-md w-full text-center p-8 space-y-4">
-          <div className="w-12 h-12 rounded-[18px] bg-[#f5f5f5] text-[#0a0a0a] flex items-center justify-center mx-auto">
+        <Card surface="paper" className="max-w-md w-full text-center p-8 space-y-4 rounded-[24px]">
+          <div className="w-12 h-12 rounded-[18px] bg-[#f5f5f5] text-[#0a0a0a] flex items-center justify-center mx-auto border border-[#e5e5e5]">
             <Icons.ShoppingBag className="w-6 h-6 text-[#737373]" />
           </div>
           <h2 className="text-lg font-bold text-[#0a0a0a]">Keranjang Belanja Kosong</h2>
@@ -136,7 +275,7 @@ export function CheckoutPage() {
               if (qrToken) navigate(`/s/${qrToken}`)
               else navigate('/')
             }}
-            className="w-full"
+            className="w-full rounded-[16px]"
           >
             Pilih Menu Sekarang
           </Button>
@@ -146,19 +285,20 @@ export function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] py-8 px-4 sm:px-6">
+    <div className="min-h-screen bg-[#f5f5f5] py-8 px-4 sm:px-6 text-[#0a0a0a]">
       <div className="max-w-xl mx-auto space-y-6">
         {/* Header navigation */}
         <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={() => navigate(-1)}
-            className="text-xs text-[#737373] hover:text-[#0a0a0a] flex items-center gap-1.5 transition-colors cursor-pointer"
+            onClick={() => (qrToken ? navigate(`/s/${qrToken}`) : navigate(-1))}
+            className="text-xs font-semibold text-[#737373] hover:text-[#0a0a0a] flex items-center gap-1.5 transition-colors cursor-pointer py-1.5 px-3 rounded-[16px] bg-white border border-[#e5e5e5] shadow-xs"
           >
-            Kembali ke Menu
+            <Icons.ArrowLeft className="w-3.5 h-3.5" />
+            <span>Tambah Menu Lain</span>
           </button>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[#737373]">Meja Anda:</span>
+            <span className="text-xs text-[#737373]">Lokasi Meja:</span>
             <Badge variant="solid" className="text-xs font-mono">
               {activeTable?.tableNumber ? `Meja ${activeTable.tableNumber}` : 'Bawa Pulang'}
             </Badge>
@@ -166,24 +306,24 @@ export function CheckoutPage() {
         </div>
 
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#0a0a0a]">
+          <h1 className="text-2xl font-black tracking-tight text-[#0a0a0a]">
             Konfirmasi Pesanan
           </h1>
-          <p className="text-sm text-[#737373] mt-0.5">
-            Periksa rincian sajian kuliner sebelum pesanan diteruskan ke dapur stan
+          <p className="text-xs sm:text-sm text-[#737373] mt-1">
+            Beri catatan khusus pada masing-masing makanan sebelum pesanan diteruskan ke dapur stan
           </p>
         </div>
 
         <form onSubmit={handleSubmitOrder} className="space-y-6">
           {/* Customer Details Card */}
-          <Card surface="paper" className="space-y-4">
+          <Card surface="paper" className="space-y-4 rounded-[24px]">
             <h3 className="text-sm font-bold text-[#0a0a0a] pb-2 border-b border-[#e5e5e5]">
               Identitas Pemesan
             </h3>
 
             <div>
               <Label htmlFor="checkout-name" required>
-                Nama Pemanggil / Pemesan
+                Nama Pemanggil / Pemesan Utama
               </Label>
               <Input
                 id="checkout-name"
@@ -196,32 +336,23 @@ export function CheckoutPage() {
                 error={!!nameError}
                 helperText={nameError || undefined}
                 disabled={isSubmitting}
+                className="rounded-[16px] h-11"
               />
-            </div>
-
-            <div>
-              <Label htmlFor="checkout-notes">Catatan Keseluruhan Pesanan</Label>
-              <textarea
-                id="checkout-notes"
-                rows={2}
-                className="w-full rounded-[18px] bg-[#f5f5f5] text-[#0a0a0a] placeholder-[#737373] text-sm px-3.5 py-2.5 border border-[#e5e5e5] hover:border-[#737373] focus:border-[#0a0a0a] focus:bg-[#ffffff] focus:ring-1 focus:ring-[#0a0a0a] outline-none transition-all disabled:opacity-50"
-                placeholder="Misal: Pesanan makan siang rombongan, tolong sendok ekstra..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                disabled={isSubmitting}
-              />
+              <p className="text-[11px] text-[#737373] mt-1.5">
+                Nama ini akan digunakan untuk identifikasi meja. Jika ingin membagi tagihan per orang (Split Bill), Anda dapat mengaturnya di langkah pembayaran setelah ini.
+              </p>
             </div>
           </Card>
 
           {/* Stalls Breakdown Card */}
-          <Card surface="paper" className="space-y-4">
+          <Card surface="paper" className="space-y-4 rounded-[24px]">
             <div className="flex items-center justify-between pb-2 border-b border-[#e5e5e5]">
               <h3 className="text-sm font-bold text-[#0a0a0a]">
                 Rincian Sajian ({totalCount} Porsi)
               </h3>
-              <span className="text-xs text-[#737373]">
+              <Badge variant="soft" className="text-xs font-semibold">
                 {Object.keys(groupedByTenant).length} Stan Berbeda
-              </span>
+              </Badge>
             </div>
 
             <div className="space-y-4">
@@ -233,45 +364,109 @@ export function CheckoutPage() {
                 return (
                   <div
                     key={tenantName}
-                    className="p-3.5 rounded-[18px] bg-[#fafafa] border border-[#e5e5e5] space-y-2.5 text-xs"
+                    className="p-4 rounded-[20px] bg-[#fafafa] border border-[#e5e5e5] space-y-3 text-xs"
                   >
-                    <div className="flex items-center justify-between pb-1.5 border-b border-[#e5e5e5]">
+                    {/* Tenant Header */}
+                    <div className="flex items-center justify-between pb-2 border-b border-[#e5e5e5]">
                       <div className="flex items-center gap-1.5 font-bold text-[#0a0a0a]">
-                        <Icons.Store className="w-3.5 h-3.5 text-[#737373]" />
-                        <span>{tenantName}</span>
+                        <Icons.Store className="w-4 h-4 text-[#737373]" />
+                        <span className="text-sm">{tenantName}</span>
                       </div>
                       {group.stallNumber && (
-                        <span className="font-mono text-[#737373] text-[10px]">
-                          {group.stallNumber}
-                        </span>
+                        <Badge variant="solid" className="font-mono text-[10px] bg-[#0a0a0a] text-white">
+                          Kios {group.stallNumber}
+                        </Badge>
                       )}
                     </div>
 
-                    <div className="space-y-2">
+                    {/* Items in this tenant */}
+                    <div className="space-y-3">
                       {group.items.map((it, idx) => (
                         <div
                           key={`${it.menuId}-${idx}`}
-                          className="flex items-start justify-between gap-2"
+                          className="bg-white p-3.5 rounded-[18px] border border-[#f0f0f0] space-y-2.5 shadow-2xs"
                         >
-                          <div className="min-w-0">
-                            <p className="font-semibold text-[#0a0a0a]">
-                              {it.quantity}x {it.name}
-                            </p>
-                            {it.notes && (
-                              <p className="text-[11px] text-[#737373] italic">
-                                "{it.notes}"
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-xs sm:text-sm text-[#0a0a0a]">
+                                {it.name}
                               </p>
-                            )}
+                              <p className="font-mono text-xs font-semibold text-[#0a0a0a] mt-0.5">
+                                {formatRupiah(it.price)} <span className="text-[10px] text-[#737373] font-normal">/ porsi</span>
+                              </p>
+                            </div>
+
+                            {/* Stepper & Subtotal */}
+                            <div className="flex flex-col items-end gap-1.5 shrink-0">
+                              <div className="flex items-center gap-1.5 bg-[#f5f5f5] p-1 rounded-[14px] border border-[#e5e5e5]">
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuantityChange(it.menuId, it.notes, -1)}
+                                  className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[#0a0a0a] hover:bg-[#e5e5e5] transition-colors cursor-pointer"
+                                >
+                                  <Icons.Minus className="w-3 h-3" />
+                                </button>
+                                <span className="font-mono font-bold text-xs w-5 text-center">
+                                  {it.quantity}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuantityChange(it.menuId, it.notes, 1)}
+                                  className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[#0a0a0a] hover:bg-[#e5e5e5] transition-colors cursor-pointer"
+                                >
+                                  <Icons.Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs font-bold text-[#0a0a0a]">
+                                  {formatRupiah(it.price * it.quantity)}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveItem(it.menuId, it.notes)}
+                                  className="text-[#dc2626] hover:text-[#991b1b] p-1 cursor-pointer transition-colors"
+                                  title="Hapus sajian"
+                                >
+                                  <Icons.Trash className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                          <span className="font-mono text-[#0a0a0a] shrink-0 font-medium">
-                            {formatRupiah(it.price * it.quantity)}
-                          </span>
+
+                          {/* Per-Item Notes Input */}
+                          <div className="pt-2 border-t border-[#f5f5f5] space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <label className="text-[11px] font-semibold text-[#737373] flex items-center gap-1">
+                                <Icons.Edit className="w-3 h-3 text-[#737373]" />
+                                <span>Catatan Makanan Ini:</span>
+                              </label>
+                              {it.quantity > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSplitItemPortion(it.menuId, it.notes)}
+                                  className="text-[10px] font-semibold text-[#0a0a0a] bg-[#f5f5f5] hover:bg-[#e5e5e5] px-2 py-0.5 rounded-[10px] border border-[#e5e5e5] transition-colors cursor-pointer"
+                                >
+                                  Pisah {it.quantity} Porsi (Beda Catatan)
+                                </button>
+                              )}
+                            </div>
+                            <input
+                              type="text"
+                              value={it.notes || ''}
+                              onChange={(e) => handleItemNoteChange(it.menuId, it.notes, e.target.value)}
+                              placeholder={`Misal: jangan pedas, kuah dipisah, ekstra sambal...`}
+                              disabled={isSubmitting}
+                              className="w-full h-8 rounded-[12px] bg-[#fafafa] text-[#0a0a0a] placeholder-[#a3a3a3] text-xs px-3 border border-[#e5e5e5] focus:border-[#0a0a0a] focus:bg-white outline-none transition-all"
+                            />
+                          </div>
                         </div>
                       ))}
                     </div>
 
-                    <div className="pt-2 border-t border-[#e5e5e5] flex justify-between text-[11px] text-[#737373]">
-                      <span>Subtotal Stan</span>
+                    {/* Tenant Subtotal */}
+                    <div className="pt-2 border-t border-[#e5e5e5] flex justify-between text-xs">
+                      <span className="text-[#737373]">Subtotal Stan Ini:</span>
                       <span className="font-mono font-bold text-[#0a0a0a]">
                         {formatRupiah(subtotal)}
                       </span>
@@ -283,8 +478,15 @@ export function CheckoutPage() {
 
             {/* Total Calculation */}
             <div className="pt-3 border-t border-[#e5e5e5] flex items-center justify-between">
-              <span className="text-base font-bold text-[#0a0a0a]">Total Tagihan</span>
-              <span className="text-xl font-mono font-black text-[#0a0a0a]">
+              <div>
+                <span className="text-sm sm:text-base font-bold text-[#0a0a0a] block">
+                  Total Tagihan Meja
+                </span>
+                <span className="text-[11px] text-[#737373]">
+                  Termasuk seluruh pesanan stan
+                </span>
+              </div>
+              <span className="text-xl sm:text-2xl font-mono font-black text-[#0a0a0a]">
                 {formatRupiah(totalAmount)}
               </span>
             </div>
@@ -295,7 +497,7 @@ export function CheckoutPage() {
             type="submit"
             variant="primary"
             size="lg"
-            className="w-full text-base font-bold py-3 h-12 shadow-md gap-2"
+            className="w-full text-base font-bold py-3.5 h-12 shadow-md gap-2 rounded-[18px]"
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -305,32 +507,13 @@ export function CheckoutPage() {
               </span>
             ) : (
               <>
-                <span>Kirim Pesanan ke Dapur</span>
+                <span>Kirim Pesanan ke Dapur ({totalCount} Item)</span>
                 <Icons.ArrowRight className="w-4 h-4" />
               </>
             )}
           </Button>
         </form>
-
-        {createdOrder && (
-          <PaymentModal
-            isOpen={isPaymentModalOpen}
-            onClose={() => {
-              setIsPaymentModalOpen(false)
-              navigate(`/track/${createdOrder.orderNumber}?fromCheckout=true`, { replace: true })
-            }}
-            orderId={createdOrder.id}
-            orderNumber={createdOrder.orderNumber}
-            totalAmount={createdOrder.totalAmount || totalAmount}
-            tableNumber={activeTable?.tableNumber}
-            onPaymentSuccess={() => {
-              setIsPaymentModalOpen(false)
-              navigate(`/track/${createdOrder.orderNumber}?fromCheckout=true`, { replace: true })
-            }}
-          />
-        )}
       </div>
     </div>
   )
 }
-

@@ -3,7 +3,7 @@
  * Aligned with backend schema
  */
 
-export type Role = 'admin' | 'admin-food-court' | 'tenant' | 'customer'
+export type Role = 'admin' | 'admin-food-court' | 'tenant' | 'customer' | 'cashier'
 
 export interface User {
   id: string

@@ -8,7 +8,9 @@ import { db } from "../../db";
 import {
   orders,
   orderStatusLogs,
+  paymentGroupItems,
   paymentGroups,
+  sessionParticipants,
   payments,
   tenantOrders,
 } from "../../db/schema";
@@ -86,11 +88,33 @@ export class PaymentService {
 
     const allGroups = await db.query.paymentGroups.findMany({
       where: eq(paymentGroups.orderId, group.orderId),
+      with: { participant: true },
     });
+    const currentGroupWithParticipant = allGroups.find((g) => g.id === group.id);
+    const payerName = currentGroupWithParticipant?.participant?.name ?? "Customer";
+
     const allPaid = allGroups.every(
       (g) => g.id === group.id || g.status === "PAID",
     );
-    if (!allPaid) return;
+
+    if (!allPaid) {
+      await db
+        .update(orders)
+        .set({
+          paymentStatus: "PARTIALLY_PAID",
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, group.orderId));
+
+      await db.insert(orderStatusLogs).values({
+        id: crypto.randomUUID(),
+        orderId: group.orderId,
+        status: "PARTIALLY_PAID",
+        description: `Split bill payment completed by ${payerName} (${amountPaid}) via ${method}. Waiting for remaining participants.`,
+        createdAt: new Date(),
+      });
+      return;
+    }
 
     await db
       .update(orders)
@@ -110,7 +134,7 @@ export class PaymentService {
       id: crypto.randomUUID(),
       orderId: group.orderId,
       status: "CONFIRMED",
-      description: `Payment completed via ${method}. Order forwarded to kitchen.`,
+      description: `All bills paid (final payment by ${payerName} via ${method}). Order forwarded to kitchen.`,
       createdAt: new Date(),
     });
 
@@ -193,11 +217,38 @@ export class PaymentService {
     // Midtrans order_id must be unique per attempt; we use paymentReference.
     const paymentReference = `${order?.orderNumber ?? "ORD"}-${Date.now()}`;
 
+    const groupItems = await db.query.paymentGroupItems.findMany({
+      where: eq(paymentGroupItems.paymentGroupId, pGroup.id),
+      with: { orderItem: true },
+    });
+
+    const itemDetails =
+      groupItems.length > 0
+        ? groupItems.map((gi) => {
+            const oi = gi.orderItem;
+            const unitPrice =
+              oi && oi.quantity > 0
+                ? Math.round(oi.subtotal / oi.quantity)
+                : gi.allocatedAmount;
+            const qty =
+              unitPrice > 0 ? Math.max(1, Math.round(gi.allocatedAmount / unitPrice)) : 1;
+            return {
+              id: gi.orderItemId.slice(0, 45),
+              price: unitPrice,
+              quantity: qty,
+              name: (oi?.menuNameSnapshot ?? "Menu Item").slice(0, 50),
+            };
+          })
+        : undefined;
+
+    const itemsSum = itemDetails?.reduce((s, it) => s + it.price * it.quantity, 0) ?? 0;
+
     const transaction = await snap.createTransaction({
       transaction_details: {
         order_id: paymentReference,
         gross_amount: pGroup.amountDue,
       },
+      item_details: itemsSum === pGroup.amountDue ? itemDetails : undefined,
       customer_details: participant ? { first_name: participant.name } : undefined,
       expiry: { unit: "minutes", duration: SNAP_EXPIRY_MINUTES },
     });
@@ -251,7 +302,51 @@ export class PaymentService {
       throw new NotFoundError(`Payment '${paymentReference}' not found`);
     }
 
-    const remote = await snap.transaction.status(paymentReference);
+    let remote: any;
+    try {
+      remote = await snap.transaction.status(paymentReference);
+    } catch (err: any) {
+      const httpStatus = err?.httpStatusCode || err?.ApiResponse?.status_code;
+      if (Number(httpStatus) === 404 || String(err?.message || "").includes("404")) {
+        return {
+          id: payment.id,
+          orderId: payment.paymentGroup.orderId,
+          paymentGroupId: payment.paymentGroupId,
+          paymentReference,
+          paymentMethod: payment.paymentMethod.toLowerCase(),
+          paymentType: undefined,
+          transactionStatus: "waiting_selection",
+          status: payment.status,
+          vaNumbers: [],
+          permataVaNumber: null,
+          billKey: null,
+          billerCode: null,
+          paymentCode: null,
+          actions: [],
+        };
+      }
+      throw err;
+    }
+
+    if (String(remote?.status_code) === "404") {
+      return {
+        id: payment.id,
+        orderId: payment.paymentGroup.orderId,
+        paymentGroupId: payment.paymentGroupId,
+        paymentReference,
+        paymentMethod: payment.paymentMethod.toLowerCase(),
+        paymentType: undefined,
+        transactionStatus: "waiting_selection",
+        status: payment.status,
+        vaNumbers: [],
+        permataVaNumber: null,
+        billKey: null,
+        billerCode: null,
+        paymentCode: null,
+        actions: [],
+      };
+    }
+
     const status = mapTransactionStatus(remote);
     const method = mapPaymentType(remote.payment_type);
 
@@ -284,10 +379,18 @@ export class PaymentService {
     return {
       id: payment.id,
       orderId: payment.paymentGroup.orderId,
+      paymentGroupId: payment.paymentGroupId,
       paymentReference,
       paymentMethod: method.toLowerCase(),
+      paymentType: remote.payment_type,
       transactionStatus: remote.transaction_status,
       status,
+      vaNumbers: remote.va_numbers ?? [],
+      permataVaNumber: remote.permata_va_number ?? null,
+      billKey: remote.bill_key ?? null,
+      billerCode: remote.biller_code ?? null,
+      paymentCode: remote.payment_code ?? null,
+      actions: remote.actions ?? [],
     };
   }
 
@@ -319,6 +422,278 @@ export class PaymentService {
       paymentStatus: latestPayment.status === "SUCCESS" ? "paid" : "pending",
     };
   }
+  /** Cashier: List all unpaid bills pending cash payment */
+  async getPendingCashBills(query?: string) {
+    const activeOrders = await db.query.orders.findMany({
+      where: (ord, { inArray }) => inArray(ord.paymentStatus, ["PENDING", "PARTIALLY_PAID"]),
+      orderBy: [desc(orders.createdAt)],
+      with: {
+        session: {
+          with: { table: true, participants: true },
+        },
+        paymentGroups: {
+          with: {
+            participant: true,
+            items: { with: { orderItem: true } },
+          },
+        },
+      },
+    });
+
+    const pendingBills: any[] = [];
+
+    for (const ord of activeOrders) {
+      for (const pg of ord.paymentGroups) {
+        if (pg.status === "PAID") continue;
+
+        const itemsList = (pg.items ?? []).map((pgi: any) => ({
+          orderItemId: pgi.orderItemId,
+          menuName: pgi.orderItem?.menuNameSnapshot ?? "Menu",
+          quantity: pgi.orderItem?.quantity ?? 1,
+          allocatedAmount: pgi.allocatedAmount,
+          notes: pgi.orderItem?.notes ?? null,
+        }));
+
+        const subtotal = itemsList.reduce((acc, it) => acc + (it.allocatedAmount || 0), 0);
+        const serviceFee = Math.round(subtotal * 0.03);
+        const taxAmount = Math.round(subtotal * 0.10);
+
+        const bill = {
+          paymentGroupId: pg.id,
+          orderId: ord.id,
+          orderNumber: ord.orderNumber,
+          tableNumber: ord.session?.table?.tableNumber ?? "Takeaway",
+          participantName: pg.participant?.name ?? ord.session?.participants?.[0]?.name ?? "Tamu",
+          items: itemsList,
+          subtotal,
+          serviceFee,
+          taxAmount,
+          amountDue: pg.amountDue,
+          createdAt: ord.createdAt,
+        };
+
+        if (query && query.trim()) {
+          const q = query.trim().toLowerCase();
+          const match =
+            bill.orderNumber.toLowerCase().includes(q) ||
+            bill.participantName.toLowerCase().includes(q) ||
+            bill.tableNumber.toLowerCase().includes(q) ||
+            bill.paymentGroupId.toLowerCase().includes(q);
+          if (match) pendingBills.push(bill);
+        } else {
+          pendingBills.push(bill);
+        }
+      }
+    }
+
+    return pendingBills;
+  }
+
+  /** Cashier: Look up a specific bill by orderNumber, paymentGroupId, or custom code */
+  async lookupCashBill(rawQuery: string) {
+    if (!rawQuery || !rawQuery.trim()) {
+      throw new BadRequestError("Query parameter is required");
+    }
+
+    let clean = rawQuery.trim();
+    // Strip prefixes like CSH- if present
+    if (clean.toUpperCase().startsWith("CSH-")) {
+      clean = clean.slice(4);
+    }
+
+    // Try finding by paymentGroup ID first
+    let pg = await db.query.paymentGroups.findFirst({
+      where: eq(paymentGroups.id, clean),
+      with: {
+        order: {
+          with: {
+            session: { with: { table: true, participants: true } },
+          },
+        },
+        participant: true,
+        items: { with: { orderItem: true } },
+      },
+    });
+
+    // If not found, try finding order by orderNumber
+    if (!pg) {
+      const ord = await db.query.orders.findFirst({
+        where: eq(orders.orderNumber, clean),
+        with: {
+          session: { with: { table: true, participants: true } },
+          paymentGroups: {
+            with: {
+              participant: true,
+              items: { with: { orderItem: true } },
+            },
+          },
+        },
+      });
+
+      if (ord) {
+        // Pick first pending payment group
+        pg = ord.paymentGroups.find((g) => g.status !== "PAID") as any;
+        if (pg) {
+          (pg as any).order = ord;
+        }
+      }
+    }
+
+    if (!pg) {
+      throw new NotFoundError(`Tagihan dengan kode atau ID '${rawQuery}' tidak ditemukan`);
+    }
+
+    const ord = pg.order;
+    const itemsList = (pg.items ?? []).map((pgi: any) => ({
+      orderItemId: pgi.orderItemId,
+      menuName: pgi.orderItem?.menuNameSnapshot ?? "Menu",
+      quantity: pgi.orderItem?.quantity ?? 1,
+      allocatedAmount: pgi.allocatedAmount,
+      notes: pgi.orderItem?.notes ?? null,
+    }));
+
+    const subtotal = itemsList.reduce((acc, it) => acc + (it.allocatedAmount || 0), 0);
+    const serviceFee = Math.round(subtotal * 0.03);
+    const taxAmount = Math.round(subtotal * 0.10);
+
+    return {
+      paymentGroupId: pg.id,
+      orderId: ord.id,
+      orderNumber: ord.orderNumber,
+      tableNumber: ord.session?.table?.tableNumber ?? "Takeaway",
+      participantName: pg.participant?.name ?? ord.session?.participants?.[0]?.name ?? "Tamu",
+      items: itemsList,
+      subtotal,
+      serviceFee,
+      taxAmount,
+      amountDue: pg.amountDue,
+      status: pg.status,
+      createdAt: ord.createdAt,
+    };
+  }
+
+  /** Cashier: Confirm cash payment, calculate change, mark as SUCCESS, settle bill */
+  async confirmCashierPayment(
+    data: { orderId?: string; paymentGroupId?: string; cashReceived: number },
+    cashierUser?: { id: string; name: string }
+  ) {
+    const pGroup = await this.resolvePaymentGroup(data);
+
+    if (pGroup.status === "PAID") {
+      throw new BadRequestError("Tagihan ini sudah lunas sebelumnya");
+    }
+
+    const requiredAmount = pGroup.amountDue;
+    const cashReceived = Number(data.cashReceived);
+
+    if (!cashReceived || cashReceived < requiredAmount) {
+      throw new BadRequestError(
+        `Uang tunai yang diterima (Rp ${cashReceived}) kurang dari total tagihan (Rp ${requiredAmount})`
+      );
+    }
+
+    const cashChange = cashReceived - requiredAmount;
+    const paymentReference = `CSH-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+
+    const newPayment = {
+      id: crypto.randomUUID(),
+      paymentGroupId: pGroup.id,
+      paymentReference,
+      paymentMethod: "CASH" as const,
+      provider: "CASHIER_POS",
+      amount: requiredAmount,
+      status: "SUCCESS" as const,
+      paidAt: new Date(),
+      cashierId: cashierUser?.id ?? null,
+      cashReceived,
+      cashChange,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await db.insert(payments).values(newPayment);
+    await this.settlePaymentGroup(pGroup, requiredAmount, "CASH");
+
+    // Fetch order details for receipt
+    const ord = await db.query.orders.findFirst({
+      where: eq(orders.id, pGroup.orderId),
+      with: {
+        session: { with: { table: true } },
+      },
+    });
+
+    const participant = await db.query.sessionParticipants.findFirst({
+      where: eq(sessionParticipants.id, pGroup.participantId),
+    });
+
+    return {
+      paymentReference,
+      orderId: pGroup.orderId,
+      orderNumber: ord?.orderNumber ?? "N/A",
+      tableNumber: ord?.session?.table?.tableNumber ?? "Takeaway",
+      participantName: participant?.name ?? "Tamu",
+      amountDue: requiredAmount,
+      cashReceived,
+      cashChange,
+      paidAt: newPayment.paidAt,
+      cashierName: cashierUser?.name ?? "Kasir",
+    };
+  }
+
+  /** Cashier: View cash transaction history & today's cash totals */
+  async getCashierHistory(cashierId?: string) {
+    const list = await db.query.payments.findMany({
+      where: eq(payments.paymentMethod, "CASH"),
+      orderBy: [desc(payments.createdAt)],
+      limit: 50,
+      with: {
+        paymentGroup: {
+          with: {
+            order: { with: { session: { with: { table: true } } } },
+            participant: true,
+          },
+        },
+      },
+    });
+
+    // Compute today's total
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    let totalCashToday = 0;
+    let countToday = 0;
+
+    const formattedTransactions = list.map((p: any) => {
+      const isToday = new Date(p.createdAt) >= startOfToday;
+      if (isToday && p.status === "SUCCESS") {
+        totalCashToday += p.amount;
+        countToday += 1;
+      }
+
+      return {
+        id: p.id,
+        paymentReference: p.paymentReference,
+        orderId: p.paymentGroup?.orderId,
+        orderNumber: p.paymentGroup?.order?.orderNumber ?? "N/A",
+        tableNumber: p.paymentGroup?.order?.session?.table?.tableNumber ?? "Takeaway",
+        participantName: p.paymentGroup?.participant?.name ?? "Tamu",
+        amount: p.amount,
+        cashReceived: p.cashReceived ?? p.amount,
+        cashChange: p.cashChange ?? 0,
+        status: p.status,
+        paidAt: p.paidAt ?? p.createdAt,
+      };
+    });
+
+    return {
+      summary: {
+        totalCashToday,
+        countToday,
+      },
+      transactions: formattedTransactions,
+    };
+  }
+
 }
 
 export const paymentService = new PaymentService();

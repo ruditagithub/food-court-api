@@ -18,7 +18,7 @@ export const users = mysqlTable("users", {
   name: varchar("name", { length: 100 }).notNull(),
   email: varchar("email", { length: 191 }).notNull().unique(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
-  role: mysqlEnum("role", ["admin", "admin-food-court", "tenant", "customer"])
+  role: mysqlEnum("role", ["admin", "admin-food-court", "tenant", "customer", "cashier"])
     .notNull()
     .default("customer"),
   status: mysqlEnum("status", ["ACTIVE", "PENDING_ACTIVATION", "SUSPENDED"])
@@ -630,6 +630,9 @@ export const payments = mysqlTable("payments", {
     .default("QRIS"),
   provider: varchar("provider", { length: 50 }),
   amount: int("amount").notNull(),
+  cashierId: varchar("cashier_id", { length: 36 }).references(() => users.id, { onDelete: "set null" }),
+  cashReceived: int("cash_received"),
+  cashChange: int("cash_change"),
   status: mysqlEnum("status", [
     "PENDING",
     "SUCCESS",

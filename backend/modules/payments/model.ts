@@ -40,3 +40,11 @@ export const MidtransNotificationDTO = t.Object(
   },
   { additionalProperties: true },
 );
+
+export const ConfirmCashierPaymentDTO = t.Object({
+  orderId: t.Optional(t.String()),
+  paymentGroupId: t.Optional(t.String()),
+  cashReceived: t.Integer({ minimum: 1 }),
+});
+
+export type ConfirmCashierPaymentDTOType = typeof ConfirmCashierPaymentDTO.static;

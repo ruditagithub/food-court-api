@@ -4,6 +4,7 @@ import {
   CreateSnapPaymentDTO,
   MidtransNotificationDTO,
   ProcessPaymentDTO,
+  ConfirmCashierPaymentDTO,
 } from "./model";
 import { paymentService } from "./service";
 
@@ -70,6 +71,66 @@ export const paymentsController = new Elysia({ prefix: "/api/payments" })
       detail: {
         tags: ["Payments"],
         summary: "Re-check Midtrans transaction status (useful without public webhook)",
+      },
+    },
+  )
+  .get(
+    "/cashier/pending",
+    async ({ query }) => {
+      const q = typeof query?.q === "string" ? query.q : undefined;
+      const data = await paymentService.getPendingCashBills(q);
+      return { data };
+    },
+    {
+      query: t.Optional(t.Object({ q: t.Optional(t.String()) })),
+      detail: {
+        tags: ["Cashier POS"],
+        summary: "Get list of unpaid bills pending cashier settlement",
+      },
+    },
+  )
+  .get(
+    "/cashier/lookup/:query",
+    async ({ params: { query } }) => {
+      const data = await paymentService.lookupCashBill(query);
+      return { data };
+    },
+    {
+      params: t.Object({ query: t.String() }),
+      detail: {
+        tags: ["Cashier POS"],
+        summary: "Lookup bill by orderNumber, paymentGroupId, or CSH- code",
+      },
+    },
+  )
+  .post(
+    "/cashier/confirm",
+    async ({ body, user, set }) => {
+      const result = await paymentService.confirmCashierPayment(body, user as any);
+      set.status = 200;
+      return {
+        message: "Cash payment confirmed successfully",
+        data: result,
+      };
+    },
+    {
+      body: ConfirmCashierPaymentDTO,
+      detail: {
+        tags: ["Cashier POS"],
+        summary: "Cashier confirms cash received, computes change, and completes payment",
+      },
+    },
+  )
+  .get(
+    "/cashier/history",
+    async ({ user }) => {
+      const data = await paymentService.getCashierHistory(user?.id);
+      return { data };
+    },
+    {
+      detail: {
+        tags: ["Cashier POS"],
+        summary: "Get cashier transactions history and daily cash totals",
       },
     },
   )

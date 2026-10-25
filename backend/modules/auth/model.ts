@@ -15,6 +15,7 @@ export const RegisterDTO = t.Object({
         t.Literal("admin-food-court"),
         t.Literal("tenant"),
         t.Literal("customer"),
+        t.Literal("cashier"),
       ],
       {
         default: "admin",

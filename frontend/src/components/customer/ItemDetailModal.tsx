@@ -14,39 +14,54 @@ import { formatRupiah } from '../../lib/utils'
 import type { Menu } from '../../types'
 
 interface ItemDetailModalProps {
-  item: (Menu & { tenantName?: string; stallNumber?: string }) | null
+  item: (Menu & { tenantName?: string; stallNumber?: string; tenantIsOpen?: boolean }) | null
   open: boolean
+  inCartQuantity?: number
   onOpenChange: (open: boolean) => void
   onAddToCart: (
-    item: Menu & { tenantName?: string; stallNumber?: string },
+    item: Menu & { tenantName?: string; stallNumber?: string; tenantIsOpen?: boolean },
     quantity: number,
     notes?: string
   ) => void
+  onRemoveFromCart?: (menuId: string) => void
 }
 
 export function ItemDetailModal({
   item,
   open,
+  inCartQuantity = 0,
   onOpenChange,
   onAddToCart,
+  onRemoveFromCart,
 }: ItemDetailModalProps) {
   const [quantity, setQuantity] = useState(1)
   const [notes, setNotes] = useState('')
+  const [imgError, setImgError] = useState(false)
 
   useEffect(() => {
     if (open) {
       setQuantity(1)
       setNotes('')
+      setImgError(false)
     }
   }, [open, item])
 
   if (!item) return null
 
-  const isAvailable = item.isAvailable && (item.stock === undefined || item.stock > 0)
+  const rawStock = typeof item.stock === 'number' ? item.stock : 99
+  const maxStock = Math.max(0, rawStock - inCartQuantity)
+  const isStallOpen = item.tenantIsOpen !== false
+  const isAvailable =
+    isStallOpen &&
+    item.isAvailable &&
+    item.status !== 'OUT_OF_STOCK' &&
+    item.status !== 'HIDDEN' &&
+    maxStock > 0
   const totalPrice = item.price * quantity
 
   const handleAdd = () => {
-    onAddToCart(item, quantity, notes.trim() || undefined)
+    if (!isAvailable) return
+    onAddToCart(item, Math.min(quantity, maxStock), notes.trim() || undefined)
     onOpenChange(false)
   }
 
@@ -56,11 +71,12 @@ export function ItemDetailModal({
 
       {/* Item Image Hero */}
       <div className="w-full h-48 -mt-6 -mx-6 mb-4 bg-[#f5f5f5] overflow-hidden relative border-b border-[#e5e5e5]">
-        {item.imageUrl ? (
+        {item.imageUrl && !imgError ? (
           <img
             src={item.imageUrl}
             alt={item.name}
             className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-[#737373]">
@@ -71,11 +87,18 @@ export function ItemDetailModal({
 
       <DialogHeader>
         {item.tenantName && (
-          <div className="flex items-center gap-1.5 text-xs text-[#737373] mb-1">
-            <span className="font-semibold text-[#0a0a0a]">{item.tenantName}</span>
-            {item.stallNumber && (
-              <span className="font-mono text-[11px] px-1.5 py-0.5 rounded-[12px] bg-[#f5f5f5]">
-                {item.stallNumber}
+          <div className="flex items-center justify-between gap-2 text-xs text-[#737373] mb-1">
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-[#0a0a0a]">{item.tenantName}</span>
+              {item.stallNumber && (
+                <span className="font-mono text-[11px] px-1.5 py-0.5 rounded-[12px] bg-[#f5f5f5]">
+                  {item.stallNumber}
+                </span>
+              )}
+            </div>
+            {typeof item.stock === 'number' && (
+              <span className="font-mono text-[11px] text-[#737373]">
+                Stok: {item.stock} porsi
               </span>
             )}
           </div>
@@ -112,8 +135,8 @@ export function ItemDetailModal({
             </span>
             <button
               type="button"
-              onClick={() => setQuantity((q) => q + 1)}
-              disabled={!isAvailable}
+              onClick={() => setQuantity((q) => Math.min(maxStock, q + 1))}
+              disabled={!isAvailable || quantity >= maxStock}
               className="w-8 h-8 rounded-full bg-[#0a0a0a] hover:bg-[#171717] text-white flex items-center justify-center font-bold text-base transition-colors disabled:opacity-40 cursor-pointer"
               aria-label="Tambah porsi"
             >
@@ -134,6 +157,20 @@ export function ItemDetailModal({
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
+
+        {inCartQuantity > 0 && onRemoveFromCart && (
+          <button
+            type="button"
+            onClick={() => {
+              onRemoveFromCart(item.id)
+              onOpenChange(false)
+            }}
+            className="w-full py-2 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-[14px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <Icons.Trash className="w-3.5 h-3.5" />
+            <span>Hapus {inCartQuantity} dari Keranjang</span>
+          </button>
+        )}
       </div>
 
       <DialogFooter>

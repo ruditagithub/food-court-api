@@ -26,6 +26,7 @@ import { KitchenDisplayPage } from './pages/tenant/KitchenDisplayPage'
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage'
 import { AdminPaymentsPage } from './pages/admin/AdminPaymentsPage'
 import { CategoriesPage } from './pages/categories/CategoriesPage'
+import { CashierDashboardPage } from './pages/cashier/CashierDashboardPage'
 
 function App() {
   const [loadingComplete, setLoadingComplete] = useState(false)
@@ -165,6 +166,15 @@ function App() {
           element={
             <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
               <AdminPaymentsPage />
+            </RoleGuard>
+          }
+        />
+        {/* Cashier POS */}
+        <Route
+          path="/app/cashier"
+          element={
+            <RoleGuard allowedRoles={['cashier', 'admin-food-court', 'admin']}>
+              <CashierDashboardPage />
             </RoleGuard>
           }
         />

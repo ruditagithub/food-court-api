@@ -19,6 +19,7 @@ import {
   Eye,
   EyeOff,
   User,
+  Users,
   LogOut,
   Building2,
   Utensils,
@@ -31,9 +32,15 @@ import {
   Zap,
   Download,
   Mail,
+  ArrowLeft,
+  Share2,
+  Copy,
+  MessageCircle,
+  Lock,
 } from 'lucide-react'
 
 // Standalone icon exports for backwards compatibility
+export const IconArrowLeft = ArrowLeft
 export const IconMail = Mail
 export const IconQrCode = QrCode
 export const IconKitchen = ChefHat
@@ -55,6 +62,7 @@ export const IconTrash = Trash2
 export const IconEye = Eye
 export const IconEyeOff = EyeOff
 export const IconUser = User
+export const IconUsers = Users
 export const IconLogout = LogOut
 export const IconBuilding = Building2
 export const IconUtensils = Utensils
@@ -89,6 +97,7 @@ export const Icons = {
   Eye: IconEye,
   EyeOff: IconEyeOff,
   User: IconUser,
+  Users: IconUsers,
   Logout: IconLogout,
   Building: IconBuilding,
   Utensils: IconUtensils,
@@ -100,4 +109,9 @@ export const Icons = {
   AlertCircle: IconAlertCircle,
   Download: IconDownload,
   Mail: IconMail,
+  ArrowLeft: IconArrowLeft,
+  Share: Share2,
+  Copy: Copy,
+  Message: MessageCircle,
+  Lock: Lock,
 }

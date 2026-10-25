@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { app } from "../src";
+import { app } from "../index";
 
 describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
   let adminToken = "";
@@ -183,6 +183,39 @@ describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
     tehMenuId = tehBody.data.id;
   });
 
+  it("4b. Customer scans QR token and resolves table, public stalls, and stall menus", async () => {
+    const scanRes = await app.handle(
+      new Request(`http://localhost/api/tables/scan/${qrToken}`),
+    );
+    expect(scanRes.status).toBe(200);
+    const scanBody = await scanRes.json();
+    expect(scanBody.data.id).toBe(tableId);
+    const foodCourtId = scanBody.data.foodCourtId;
+    expect(foodCourtId).toBeDefined();
+
+    // Verify singular /api/food-court/:id/tenant/public route
+    const singularStallsRes = await app.handle(
+      new Request(`http://localhost/api/food-court/${foodCourtId}/tenant/public`),
+    );
+    expect(singularStallsRes.status).toBe(200);
+    const singularStallsBody = await singularStallsRes.json();
+    expect(Array.isArray(singularStallsBody.data)).toBe(true);
+
+    // Verify plural /api/food-courts/:id/tenant/public route
+    const pluralStallsRes = await app.handle(
+      new Request(`http://localhost/api/food-courts/${foodCourtId}/tenant/public`),
+    );
+    expect(pluralStallsRes.status).toBe(200);
+
+    // Verify tenant menus route returns both categorized and uncategorized menus
+    const menusRes = await app.handle(
+      new Request(`http://localhost/api/menus/tenant/${tenantId}`),
+    );
+    expect(menusRes.status).toBe(200);
+    const menusBody = await menusRes.json();
+    expect(menusBody.data.length).toBe(2);
+  });
+
   it("5. Customer places order via tableId (multi-item with snapshots)", async () => {
     const orderPayload = {
       tableId,
@@ -217,7 +250,11 @@ describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
     expect(orderNumber).toMatch(/^FC-/);
 
     // Total: (35.000 * 2) + (5.000 * 1) = 75.000
-    expect(body.data.totalPrice).toBe(75000);
+    expect(body.data.subtotal).toBe(75000);
+    expect(body.data.serviceFee).toBe(2250);
+    expect(body.data.taxAmount).toBe(7500);
+    expect(body.data.totalAmount).toBe(84750);
+    expect(body.data.totalPrice).toBe(84750);
     expect(body.data.orderStatus).toBe("DRAFT");
     expect(body.data.paymentStatus).toBe("PENDING");
 
@@ -265,6 +302,56 @@ describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
     expect(joinBody.data.sessionCode).toBeDefined();
   });
 
+  it("6b. Second customer at the same active table places an order with order-level notes and preserves their own customerName", async () => {
+    const secondOrderRes = await app.handle(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tableId,
+          customerName: "Sinta Maharani",
+          notes: "Tolong sendok ekstra",
+          items: [
+            {
+              menuId: tehMenuId,
+              quantity: 1,
+              notes: "Es sedikit",
+            },
+          ],
+        }),
+      }),
+    );
+    expect(secondOrderRes.status).toBe(201);
+    const secondOrderBody = await secondOrderRes.json();
+    expect(secondOrderBody.data.customerName).toBe("Sinta Maharani");
+
+    const secondTrackRes = await app.handle(
+      new Request(`http://localhost/api/orders/track/${secondOrderBody.data.orderNumber}`),
+    );
+    expect(secondTrackRes.status).toBe(200);
+    const secondTrackBody = await secondTrackRes.json();
+    expect(secondTrackBody.data.customerName).toBe("Sinta Maharani");
+    expect(secondTrackBody.data.stalls[0].items[0].notes).toBe(
+      "Es sedikit",
+    );
+
+    // Complete second order's tenantOrder so test 10 can verify full session completion
+    const secondTenantOrderId = secondOrderBody.data.tenantOrders[0].id;
+    await app.handle(
+      new Request(
+        `http://localhost/api/orders/tenant-orders/${secondTenantOrderId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tenantToken}`,
+          },
+          body: JSON.stringify({ status: "COMPLETED" }),
+        },
+      ),
+    );
+  });
+
   it("7. Public tracking: Customer tracks status via orderNumber", async () => {
     const trackRes = await app.handle(
       new Request(`http://localhost/api/orders/track/${orderNumber}`),
@@ -273,11 +360,19 @@ describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
     const trackBody = await trackRes.json();
 
     expect(trackBody.data.orderNumber).toBe(orderNumber);
+    expect(trackBody.data.customerName).toBe("Rudi Hartono");
+    expect(trackBody.data.foodCourtName).toBeDefined();
     expect(trackBody.data.orderStatus).toBe("DRAFT");
     expect(trackBody.data.paymentStatus).toBe("PENDING");
-    expect(trackBody.data.totalAmount).toBe(75000);
+    expect(trackBody.data.subtotal).toBe(75000);
+    expect(trackBody.data.serviceFee).toBe(2250);
+    expect(trackBody.data.taxAmount).toBe(7500);
+    expect(trackBody.data.totalAmount).toBe(84750);
     expect(trackBody.data.stalls.length).toBe(1);
+    expect(trackBody.data.stalls[0].subtotal).toBe(75000);
     expect(trackBody.data.stalls[0].items.length).toBe(2);
+    expect(trackBody.data.stalls[0].items[0].unitPrice).toBeDefined();
+    expect(trackBody.data.stalls[0].items[0].subtotal).toBeDefined();
   });
 
   it("8. Payment: Customer pays order via QRIS", async () => {
@@ -288,7 +383,7 @@ describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
         body: JSON.stringify({
           orderId,
           paymentMethod: "QRIS",
-          amount: 75000,
+          amount: 84750,
         }),
       }),
     );
@@ -305,6 +400,18 @@ describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
     expect(orderBody.data.orderStatus).toBe("CONFIRMED");
     expect(orderBody.data.paymentStatus).toBe("PAID");
     expect(orderBody.data.tenantOrders[0].status).toBe("QUEUED");
+
+    // Verify KDS endpoint (GET /api/orders as tenant) includes customerName
+    const kdsRes = await app.handle(
+      new Request("http://localhost/api/orders", {
+        headers: { Authorization: `Bearer ${tenantToken}` },
+      }),
+    );
+    expect(kdsRes.status).toBe(200);
+    const kdsBody = await kdsRes.json();
+    const rudiTicket = kdsBody.data.find((t: any) => t.id === tenantOrderId);
+    expect(rudiTicket).toBeDefined();
+    expect(rudiTicket.customerName).toBe("Rudi Hartono");
   });
 
   it("9. Kitchen: Tenant updates cooking progress (QUEUED -> PREPARING -> READY)", async () => {
@@ -373,5 +480,321 @@ describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
     );
     const tableBody = await tableRes.json();
     expect(tableBody.data.status).toBe("available");
+  });
+
+  it("11. Edge Cases: Rejects order exceeding stock or targeting a closed stall", async () => {
+    // 1. Requesting 999 quantity when stock is ~98 -> 400 Insufficient stock
+    const overStockRes = await app.handle(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tableId,
+          customerName: "Budi Overstock",
+          items: [{ menuId: rawonMenuId, quantity: 999 }],
+        }),
+      }),
+    );
+    expect(overStockRes.status).toBe(400);
+    const overStockBody = await overStockRes.json();
+    expect(overStockBody.message).toContain("Insufficient stock");
+
+    // 2. Tenant closes stall -> ordering fails with 400
+    const closeStallRes = await app.handle(
+      new Request(`http://localhost/api/tenants/${tenantId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tenantToken}`,
+        },
+        body: JSON.stringify({ isOpen: false }),
+      }),
+    );
+    expect(closeStallRes.status).toBe(200);
+
+    const closedStallRes = await app.handle(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tableId,
+          customerName: "Budi Closed",
+          items: [{ menuId: rawonMenuId, quantity: 1 }],
+        }),
+      }),
+    );
+    expect(closedStallRes.status).toBe(400);
+    const closedStallBody = await closedStallRes.json();
+    expect(closedStallBody.message).toContain("currently closed");
+  });
+
+  it("12. Split Bill Flow: Configure per-menu split bill, partial payment (PARTIALLY_PAID), and full payment", async () => {
+    // 1. Re-open stall
+    await app.handle(
+      new Request(`http://localhost/api/tenants/${tenantId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tenantToken}`,
+        },
+        body: JSON.stringify({ isOpen: true }),
+      }),
+    );
+
+    // 2. Place order with 2x rawon (45k each) and 1x es teh (5k) -> total 95k
+    const placeRes = await app.handle(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tableId,
+          customerName: "Nanda & Friends",
+          items: [
+            { menuId: rawonMenuId, quantity: 2, notes: "1 pedas, 1 tidak pedas" },
+            { menuId: tehMenuId, quantity: 1, notes: "Es manis" },
+          ],
+        }),
+      }),
+    );
+    expect(placeRes.status).toBe(201);
+    const placeBody = await placeRes.json();
+    const splitOrderId = placeBody.data.id;
+    expect(placeBody.data.subtotal).toBe(75000);
+    expect(placeBody.data.serviceFee).toBe(2250);
+    expect(placeBody.data.taxAmount).toBe(7500);
+    expect(placeBody.data.totalAmount).toBe(84750);
+
+    const rawonItemId = placeBody.data.tenantOrders[0].items.find(
+      (it: any) => it.menuId === rawonMenuId,
+    ).id;
+    const tehItemId = placeBody.data.tenantOrders[0].items.find(
+      (it: any) => it.menuId === tehMenuId,
+    ).id;
+
+    // 3. Configure Split Bill:
+    // Nanda: 1x Rawon (45k) + 1x Es Teh (5k) = 50k
+    // Putra: 1x Rawon (45k) = 45k
+    const splitRes = await app.handle(
+      new Request(`http://localhost/api/orders/${splitOrderId}/split-bill`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          groups: [
+            {
+              participantName: "Nanda",
+              items: [
+                { orderItemId: rawonItemId, quantity: 1 },
+                { orderItemId: tehItemId, quantity: 1 },
+              ],
+            },
+            {
+              participantName: "Putra",
+              items: [{ orderItemId: rawonItemId, quantity: 1 }],
+            },
+          ],
+        }),
+      }),
+    );
+    expect(splitRes.status).toBe(200);
+    const splitBody = await splitRes.json();
+    expect(splitBody.data.paymentGroups.length).toBe(2);
+
+    const nandaGroup = splitBody.data.paymentGroups.find(
+      (g: any) => g.participantName === "Nanda",
+    );
+    const putraGroup = splitBody.data.paymentGroups.find(
+      (g: any) => g.participantName === "Putra",
+    );
+    expect(nandaGroup).toBeDefined();
+    expect(putraGroup).toBeDefined();
+    expect(nandaGroup.amountDue).toBe(40000);
+    expect(putraGroup.amountDue).toBe(35000);
+
+    // 4. Pay Nanda's bill (50k) -> Order paymentStatus becomes PARTIALLY_PAID
+    const payNandaRes = await app.handle(
+      new Request("http://localhost/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: splitOrderId,
+          paymentGroupId: nandaGroup.id,
+          paymentMethod: "CASH",
+          amount: 45200,
+        }),
+      }),
+    );
+    expect(payNandaRes.status).toBe(201);
+
+    const trackPartialRes = await app.handle(
+      new Request(`http://localhost/api/orders/track/${placeBody.data.orderNumber}`),
+    );
+    expect(trackPartialRes.status).toBe(200);
+    const trackPartialBody = await trackPartialRes.json();
+    expect(trackPartialBody.data.paymentStatus).toBe("PARTIALLY_PAID");
+    expect(trackPartialBody.data.paymentGroups.find((g: any) => g.id === nandaGroup.id).status).toBe("PAID");
+    expect(trackPartialBody.data.paymentGroups.find((g: any) => g.id === putraGroup.id).status).toBe("PENDING");
+
+    // 4b. Verify that reconfiguring split bill after partial payment is rejected with 400
+    const reconfigRes = await app.handle(
+      new Request(`http://localhost/api/orders/${splitOrderId}/split-bill`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          groups: [
+            {
+              participantName: "Nanda & Putra",
+              items: [{ orderItemId: rawonItemId, quantity: 2 }],
+            },
+          ],
+        }),
+      }),
+    );
+    expect(reconfigRes.status).toBe(400);
+    const reconfigBody = await reconfigRes.json();
+    expect(reconfigBody.message).toContain("already");
+
+    // 5. Pay Putra's bill (45k) -> Order paymentStatus becomes PAID & kitchen status QUEUED
+    const payPutraRes = await app.handle(
+      new Request("http://localhost/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: splitOrderId,
+          paymentGroupId: putraGroup.id,
+          paymentMethod: "CASH",
+          amount: 39550,
+        }),
+      }),
+    );
+    expect(payPutraRes.status).toBe(201);
+
+    const trackFullRes = await app.handle(
+      new Request(`http://localhost/api/orders/track/${placeBody.data.orderNumber}`),
+    );
+    expect(trackFullRes.status).toBe(200);
+    const trackFullBody = await trackFullRes.json();
+    expect(trackFullBody.data.paymentStatus).toBe("PAID");
+    expect(trackFullBody.data.orderStatus).toBe("CONFIRMED");
+    expect(trackFullBody.data.stalls[0].status).toBe("QUEUED");
+
+    // 5b. Verify that reconfiguring split bill after full payment is also rejected with 400
+    const reconfigFullRes = await app.handle(
+      new Request(`http://localhost/api/orders/${splitOrderId}/split-bill`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          groups: [
+            {
+              participantName: "Nanda & Putra",
+              items: [{ orderItemId: rawonItemId, quantity: 2 }],
+            },
+          ],
+        }),
+      }),
+    );
+    expect(reconfigFullRes.status).toBe(400);
+    const reconfigFullBody = await reconfigFullRes.json();
+    expect(reconfigFullBody.message).toContain("already");
+  });
+
+  it("13. Cashier POS: Cashier looks up bill, confirms payment with cash received and change", async () => {
+    const cashierEmail = `kasir-${Date.now()}@foodcourt.com`;
+    // Register or login a cashier user
+    const cashierRes = await app.handle(
+      new Request("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Kasir Food Court",
+          email: cashierEmail,
+          password: "password123",
+          role: "cashier",
+        }),
+      }),
+    );
+    expect([200, 201]).toContain(cashierRes.status);
+
+    const cashierLogin = await app.handle(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: cashierEmail,
+          password: "password123",
+        }),
+      }),
+    );
+    const cashierAuth = await cashierLogin.json();
+    const cashierToken = cashierAuth.data?.token || cashierAuth.token;
+    expect(cashierToken).toBeDefined();
+
+    // Create a new order to test cashier flow
+    const newOrdRes = await app.handle(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tableId,
+          customerName: "Budi Cashier Test",
+          items: [{ menuId: rawonMenuId, quantity: 1 }],
+        }),
+      }),
+    );
+    expect(newOrdRes.status).toBe(201);
+    const newOrdBody = await newOrdRes.json();
+    const testOrderId = newOrdBody.data.id;
+    const testOrderNumber = newOrdBody.data.orderNumber;
+    // Subtotal 35.000, service 3% (1050), tax 10% (3500), total = 39.550
+    expect(newOrdBody.data.totalAmount).toBe(39550);
+
+    // Cashier checks pending bills
+    const pendingRes = await app.handle(
+      new Request("http://localhost/api/payments/cashier/pending", {
+        headers: { Authorization: `Bearer ${cashierToken}` },
+      }),
+    );
+    expect(pendingRes.status).toBe(200);
+    const pendingBody = await pendingRes.json();
+    expect(pendingBody.data.length).toBeGreaterThan(0);
+
+    // Cashier looks up bill by orderNumber
+    const lookupRes = await app.handle(
+      new Request(`http://localhost/api/payments/cashier/lookup/${testOrderNumber}`, {
+        headers: { Authorization: `Bearer ${cashierToken}` },
+      }),
+    );
+    expect(lookupRes.status).toBe(200);
+    const lookupBody = await lookupRes.json();
+    expect(lookupBody.data.amountDue).toBe(39550);
+
+    // Cashier confirms cash payment: Bill is 39.550, customer pays 50.000 -> change 10.450
+    const confirmRes = await app.handle(
+      new Request("http://localhost/api/payments/cashier/confirm", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${cashierToken}`,
+        },
+        body: JSON.stringify({
+          orderId: testOrderId,
+          cashReceived: 50000,
+        }),
+      }),
+    );
+    expect(confirmRes.status).toBe(200);
+    const confirmBody = await confirmRes.json();
+    expect(confirmBody.data.amountDue).toBe(39550);
+    expect(confirmBody.data.cashReceived).toBe(50000);
+    expect(confirmBody.data.cashChange).toBe(10450);
+
+    // Cashier views history
+    const historyRes = await app.handle(
+      new Request("http://localhost/api/payments/cashier/history", {
+        headers: { Authorization: `Bearer ${cashierToken}` },
+      }),
+    );
+    expect(historyRes.status).toBe(200);
+    const historyBody = await historyRes.json();
+    expect(historyBody.data.summary.totalCashToday).toBeGreaterThan(0);
   });
 });

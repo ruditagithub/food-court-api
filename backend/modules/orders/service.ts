@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   BadRequestError,
   ForbiddenError,
@@ -25,6 +25,7 @@ import {
 } from "../../db/schema";
 import type {
   CreateOrderDTOType,
+  SplitBillDTOType,
   JoinSessionDTOType,
   UpdateOrderItemStatusDTOType,
   UpdateOrderStatusDTOType,
@@ -173,10 +174,13 @@ export class OrderService {
 
       // Check for an existing active session on this table
       const activeSession = await db.query.diningSessions.findFirst({
-        where: eq(diningSessions.tableId, data.tableId),
+        where: and(
+          eq(diningSessions.tableId, data.tableId),
+          eq(diningSessions.status, "ACTIVE"),
+        ),
       });
 
-      if (activeSession && activeSession.status === "ACTIVE") {
+      if (activeSession) {
         sessionId = activeSession.id;
       } else {
         // Create new active dining session
@@ -234,9 +238,14 @@ export class OrderService {
       });
     }
 
-    // Fetch participant for bill allocation
+    // Fetch or create participant for bill allocation matching customerName
+    const desiredName =
+      data.customerName?.trim() || (currentUser ? currentUser.name : "Guest");
     let participant = await db.query.sessionParticipants.findFirst({
-      where: eq(sessionParticipants.sessionId, sessionId!),
+      where: and(
+        eq(sessionParticipants.sessionId, sessionId!),
+        eq(sessionParticipants.name, desiredName),
+      ),
     });
 
     if (!participant) {
@@ -245,11 +254,14 @@ export class OrderService {
         id: participantId,
         sessionId: sessionId!,
         userId: currentUser?.id ?? null,
-        name: data.customerName ?? "Guest",
-        isHost: true,
+        name: desiredName,
+        isHost: false,
         joinedAt: new Date(),
       });
-      participant = { id: participantId } as typeof sessionParticipants.$inferSelect;
+      participant = {
+        id: participantId,
+        name: desiredName,
+      } as typeof sessionParticipants.$inferSelect;
     }
 
     // Fetch and validate menus
@@ -359,6 +371,9 @@ export class OrderService {
         const itemSubtotal = unitPrice * item.quantity;
         tenantSubtotal += itemSubtotal;
 
+        const resolvedNote =
+          (item.notes ?? item.specialNotes ?? item.specialInstructions)?.trim() || null;
+
         preparedItems.push({
           id: crypto.randomUUID(),
           menuId: menuItem.id,
@@ -366,7 +381,7 @@ export class OrderService {
           unitPriceSnapshot: menuItem.price,
           quantity: item.quantity,
           subtotal: itemSubtotal,
-          notes: item.notes ?? item.specialNotes ?? null,
+          notes: resolvedNote,
           options: itemOptions,
         });
       }
@@ -381,15 +396,20 @@ export class OrderService {
     }
 
     // 1. Insert Master Order
+    const masterSubtotal = overallTotal;
+    const masterServiceFee = Math.round(masterSubtotal * 0.03);
+    const masterTaxAmount = Math.round(masterSubtotal * 0.10);
+    const masterTotalAmount = masterSubtotal + masterServiceFee + masterTaxAmount;
+
     await db.insert(orders).values({
       id: orderId,
       sessionId: sessionId!,
       orderNumber,
-      subtotal: overallTotal,
-      taxAmount: 0,
-      serviceFee: 0,
+      subtotal: masterSubtotal,
+      taxAmount: masterTaxAmount,
+      serviceFee: masterServiceFee,
       discountAmount: 0,
-      totalAmount: overallTotal,
+      totalAmount: masterTotalAmount,
       paymentStatus: "PENDING",
       orderStatus: "DRAFT",
       createdAt: new Date(),
@@ -457,7 +477,7 @@ export class OrderService {
       id: paymentGroupId,
       orderId,
       participantId: participant.id,
-      amountDue: overallTotal,
+      amountDue: masterTotalAmount,
       amountPaid: 0,
       status: "PENDING",
       createdAt: new Date(),
@@ -480,7 +500,7 @@ export class OrderService {
       id: crypto.randomUUID(),
       orderId,
       status: "DRAFT",
-      description: `Order created by ${data.customerName ?? (currentUser ? currentUser.name : "Guest")}`,
+      description: `Order created by ${desiredName}${data.notes ? ` (Notes: ${data.notes})` : ""}`,
       createdAt: new Date(),
     });
 
@@ -514,6 +534,11 @@ export class OrderService {
           with: {
             payments: true,
             participant: true,
+            items: {
+              with: {
+                orderItem: true,
+              },
+            },
           },
         },
         statusLogs: {
@@ -539,20 +564,65 @@ export class OrderService {
     );
 
     const firstPayment = order.paymentGroups.flatMap((pg) => pg.payments)[0];
+    const resolvedCustomerName =
+      order.paymentGroups?.[0]?.participant?.name ??
+      order.session?.participants?.[0]?.name ??
+      null;
 
     const statusMapped =
       order.orderStatus === "DRAFT"
         ? "pending"
         : order.orderStatus.toLowerCase();
 
+        const formattedPaymentGroups = order.paymentGroups.map((pg: any) => {
+      const itemsList = (pg.items ?? []).map((pgi: any) => {
+        const oi = pgi.orderItem;
+        const unitPrice =
+          oi && oi.quantity > 0
+            ? Math.round(oi.subtotal / oi.quantity)
+            : pgi.allocatedAmount;
+        const allocatedQty =
+          unitPrice > 0 ? Math.max(1, Math.round(pgi.allocatedAmount / unitPrice)) : 1;
+        return {
+          id: pgi.id,
+          orderItemId: pgi.orderItemId,
+          menuName: oi?.menuNameSnapshot ?? "Menu",
+          quantity: allocatedQty,
+          unitPrice,
+          allocatedAmount: pgi.allocatedAmount,
+          notes: oi?.notes ?? null,
+        };
+      });
+      const groupSubtotal = itemsList.reduce((acc: number, it: any) => acc + (it.allocatedAmount || 0), 0);
+      const groupService = Math.round(groupSubtotal * 0.03);
+      const groupTax = Math.round(groupSubtotal * 0.10);
+
+      return {
+        id: pg.id,
+        orderId: pg.orderId,
+        participantId: pg.participantId,
+        participantName: pg.participant?.name ?? "Tamu",
+        subtotal: groupSubtotal,
+        serviceFee: groupService,
+        taxAmount: groupTax,
+        amountDue: pg.amountDue,
+        amountPaid: pg.amountPaid,
+        status: pg.status,
+        items: itemsList,
+        payments: pg.payments ?? [],
+      };
+    });
+
     return {
       ...order,
+      customerName: resolvedCustomerName,
       status: statusMapped,
       totalPrice: order.totalAmount,
       tableId: order.session?.tableId ?? null,
       table: order.session?.table ?? null,
       items: allItems,
       payment: firstPayment ?? null,
+      paymentGroups: formattedPaymentGroups,
     };
   }
 
@@ -564,6 +634,7 @@ export class OrderService {
           with: {
             table: true,
             foodCourt: true,
+            participants: true,
           },
         },
         tenantOrders: {
@@ -580,6 +651,12 @@ export class OrderService {
         paymentGroups: {
           with: {
             payments: true,
+            participant: true,
+            items: {
+              with: {
+                orderItem: true,
+              },
+            },
           },
         },
       },
@@ -590,21 +667,75 @@ export class OrderService {
     }
 
     return {
+      id: order.id,
       orderNumber: order.orderNumber,
       orderStatus: order.orderStatus,
       paymentStatus: order.paymentStatus,
+      subtotal: order.subtotal,
+      serviceFee: order.serviceFee,
+      taxAmount: order.taxAmount,
       totalAmount: order.totalAmount,
+      customerName:
+        order.paymentGroups?.[0]?.participant?.name ??
+        order.session?.participants?.[0]?.name ??
+        null,
+      foodCourtName: order.session?.foodCourt?.name ?? null,
       tableNumber: order.session?.table?.tableNumber ?? "Takeaway",
       sessionCode: order.session?.sessionCode,
       createdAt: order.createdAt,
+            paymentGroups: order.paymentGroups.map((pg: any) => {
+        const itemsList = (pg.items ?? []).map((pgi: any) => {
+          const oi = pgi.orderItem;
+          const unitPrice =
+            oi && oi.quantity > 0
+              ? Math.round(oi.subtotal / oi.quantity)
+              : pgi.allocatedAmount;
+          const allocatedQty =
+            unitPrice > 0 ? Math.max(1, Math.round(pgi.allocatedAmount / unitPrice)) : 1;
+          return {
+            id: pgi.id,
+            orderItemId: pgi.orderItemId,
+            menuName: oi?.menuNameSnapshot ?? "Menu",
+            quantity: allocatedQty,
+            unitPrice,
+            allocatedAmount: pgi.allocatedAmount,
+            notes: oi?.notes ?? null,
+          };
+        });
+        const groupSubtotal = itemsList.reduce((acc: number, it: any) => acc + (it.allocatedAmount || 0), 0);
+        const groupService = Math.round(groupSubtotal * 0.03);
+        const groupTax = Math.round(groupSubtotal * 0.10);
+
+        return {
+          id: pg.id,
+          orderId: pg.orderId,
+          participantId: pg.participantId,
+          participantName: pg.participant?.name ?? "Tamu",
+          subtotal: groupSubtotal,
+          serviceFee: groupService,
+          taxAmount: groupTax,
+          amountDue: pg.amountDue,
+          amountPaid: pg.amountPaid,
+          status: pg.status,
+          items: itemsList,
+          payments: pg.payments ?? [],
+        };
+      }),
       stalls: order.tenantOrders.map((to) => ({
+        id: to.id,
+        tenantId: to.tenantId,
         tenantName: to.tenant.name,
         stallNumber: to.tenant.stallNumber,
+        subtotal: to.subtotal,
         status: to.status,
         queueNumber: to.kitchenQueue?.queueNumber ?? "-",
         items: to.items.map((item) => ({
+          id: item.id,
           name: item.menuNameSnapshot,
+          unitPrice: item.unitPriceSnapshot,
           quantity: item.quantity,
+          subtotal: item.subtotal,
+          notes: item.notes ?? null,
           options: item.options.map((o) => o.optionNameSnapshot),
         })),
       })),
@@ -627,7 +758,10 @@ export class OrderService {
         throw new NotFoundError(`Table with QR token '${data.qrToken}' not found`);
       }
       session = await db.query.diningSessions.findFirst({
-        where: eq(diningSessions.tableId, table.id),
+        where: and(
+          eq(diningSessions.tableId, table.id),
+          eq(diningSessions.status, "ACTIVE"),
+        ),
         with: { table: true, foodCourt: true },
       });
     } else {
@@ -711,24 +845,36 @@ export class OrderService {
       createdAt: new Date(),
     });
 
-    // If completed or cancelled: close dining session & release table
+    // If completed or cancelled: close dining session & release table when all orders in session are done
     if (targetStatus === "COMPLETED" || targetStatus === "CANCELLED") {
       if (targetStatus === "CANCELLED") {
         await this.releaseStock(id);
       }
 
       if (existing.sessionId) {
-        await db
-          .update(diningSessions)
-          .set({ status: targetStatus as any, updatedAt: new Date() })
-          .where(eq(diningSessions.id, existing.sessionId));
-      }
+        const sessionOrders = await db.query.orders.findMany({
+          where: eq(orders.sessionId, existing.sessionId),
+        });
+        const allSessionOrdersDone = sessionOrders.every(
+          (o) =>
+            o.id === id ||
+            o.orderStatus === "COMPLETED" ||
+            o.orderStatus === "CANCELLED",
+        );
 
-      if (existing.tableId) {
-        await db
-          .update(tables)
-          .set({ status: "available", updatedAt: new Date() })
-          .where(eq(tables.id, existing.tableId));
+        if (allSessionOrdersDone) {
+          await db
+            .update(diningSessions)
+            .set({ status: targetStatus as any, updatedAt: new Date() })
+            .where(eq(diningSessions.id, existing.sessionId));
+
+          if (existing.tableId) {
+            await db
+              .update(tables)
+              .set({ status: "available", updatedAt: new Date() })
+              .where(eq(tables.id, existing.tableId));
+          }
+        }
       }
 
       // Mark all tenant orders completed if order is completed
@@ -917,14 +1063,23 @@ export class OrderService {
     currentUser: AuthUser | null,
     filter: { status?: string; tableId?: string; sessionId?: string },
   ) {
-    if (currentUser?.role === "admin") {
-      return db.query.orders.findMany({
+    if (currentUser?.role === "admin" || currentUser?.role === "admin-food-court") {
+      const list = await db.query.orders.findMany({
         orderBy: [desc(orders.createdAt)],
         with: {
-          session: { with: { table: true } },
-          tenantOrders: { with: { tenant: true } },
+          session: { with: { table: true, participants: true } },
+          paymentGroups: { with: { participant: true } },
+          tenantOrders: { with: { tenant: true, items: true } },
         },
       });
+      return list.map((ord) => ({
+        ...ord,
+        customerName:
+          ord.paymentGroups?.[0]?.participant?.name ??
+          ord.session?.participants?.[0]?.name ??
+          null,
+        table: ord.session?.table ?? null,
+      }));
     }
 
     if (currentUser?.role === "tenant") {
@@ -936,10 +1091,12 @@ export class OrderService {
 
       const relevantTenantOrders = await db.query.tenantOrders.findMany({
         where: inArray(tenantOrders.tenantId, tenantIds),
+        orderBy: [desc(tenantOrders.createdAt)],
         with: {
           order: {
             with: {
-              session: { with: { table: true } },
+              session: { with: { table: true, participants: true } },
+              paymentGroups: { with: { participant: true } },
             },
           },
           items: true,
@@ -947,7 +1104,17 @@ export class OrderService {
         },
       });
 
-      return relevantTenantOrders;
+      return relevantTenantOrders.map((to) => {
+        const custName =
+          to.order?.paymentGroups?.[0]?.participant?.name ??
+          to.order?.session?.participants?.[0]?.name ??
+          null;
+        return {
+          ...to,
+          customerName: custName,
+          tableNumber: to.order?.session?.table?.tableNumber ?? null,
+        };
+      });
     }
 
     if (filter.tableId) {
@@ -957,24 +1124,208 @@ export class OrderService {
       const sessionIds = sessions.map((s) => s.id);
       if (sessionIds.length === 0) return [];
 
-      return db.query.orders.findMany({
+      const list = await db.query.orders.findMany({
         where: inArray(orders.sessionId, sessionIds),
         orderBy: [desc(orders.createdAt)],
         with: {
-          session: { with: { table: true } },
+          session: { with: { table: true, participants: true } },
+          paymentGroups: { with: { participant: true } },
           tenantOrders: { with: { tenant: true } },
         },
       });
+      return list.map((ord) => ({
+        ...ord,
+        customerName:
+          ord.paymentGroups?.[0]?.participant?.name ??
+          ord.session?.participants?.[0]?.name ??
+          null,
+        table: ord.session?.table ?? null,
+      }));
     }
 
-    return db.query.orders.findMany({
+    const list = await db.query.orders.findMany({
       limit: 20,
       orderBy: [desc(orders.createdAt)],
       with: {
-        session: { with: { table: true } },
+        session: { with: { table: true, participants: true } },
+        paymentGroups: { with: { participant: true } },
         tenantOrders: { with: { tenant: true } },
       },
     });
+    return list.map((ord) => ({
+      ...ord,
+      customerName:
+        ord.paymentGroups?.[0]?.participant?.name ??
+        ord.session?.participants?.[0]?.name ??
+        null,
+      table: ord.session?.table ?? null,
+    }));
+  }
+
+  async configureSplitBill(orderId: string, data: SplitBillDTOType) {
+    const order = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      with: {
+        session: { with: { participants: true } },
+        tenantOrders: { with: { items: true } },
+        paymentGroups: { with: { payments: true } },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundError(`Order with id '${orderId}' not found`);
+    }
+
+    if (order.paymentStatus === "PAID" || order.paymentStatus === "PARTIALLY_PAID") {
+      throw new BadRequestError(
+        "Cannot reconfigure split bill because payment has already started or been completed",
+      );
+    }
+
+    const hasPaidGroup = (order.paymentGroups || []).some(
+      (pg) =>
+        pg.status === "PAID" ||
+        (pg.amountPaid && Number(pg.amountPaid) > 0) ||
+        (pg.payments && pg.payments.some((p: any) => p.status === "SUCCESS" || p.status === "PAID")),
+    );
+    if (hasPaidGroup) {
+      throw new BadRequestError(
+        "Cannot reconfigure split bill because one or more payment groups have already been paid",
+      );
+    }
+
+    const allOrderItems = order.tenantOrders.flatMap((to) => to.items);
+    const itemMap = new Map(allOrderItems.map((it) => [it.id, it]));
+
+    // Track allocated quantities per orderItemId
+    const allocatedQtyByItemId = new Map<string, number>();
+
+    const preparedGroups: Array<{
+      participantName: string;
+      amountDue: number;
+      allocations: Array<{ orderItemId: string; allocatedAmount: number }>;
+    }> = [];
+
+    for (const group of data.groups) {
+      const cleanName = group.participantName.trim();
+      if (!cleanName) {
+        throw new BadRequestError("Participant name cannot be empty");
+      }
+
+      // Merge duplicate orderItemIds within the same participant group
+      const mergedQtyByItem = new Map<string, number>();
+      for (const allocation of group.items) {
+        const oi = itemMap.get(allocation.orderItemId);
+        if (!oi) {
+          throw new BadRequestError(
+            `Order item '${allocation.orderItemId}' does not belong to this order`,
+          );
+        }
+        const qty = allocation.quantity ?? 1;
+        if (qty <= 0) {
+          throw new BadRequestError("Allocated quantity must be at least 1");
+        }
+        mergedQtyByItem.set(
+          allocation.orderItemId,
+          (mergedQtyByItem.get(allocation.orderItemId) ?? 0) + qty,
+        );
+      }
+
+      let groupAmountDue = 0;
+      const groupAllocations: Array<{ orderItemId: string; allocatedAmount: number }> = [];
+
+      for (const [orderItemId, qty] of mergedQtyByItem.entries()) {
+        const oi = itemMap.get(orderItemId)!;
+        const unitEffectivePrice = Math.round(oi.subtotal / oi.quantity);
+        const allocatedAmount = unitEffectivePrice * qty;
+
+        groupAmountDue += allocatedAmount;
+        groupAllocations.push({ orderItemId, allocatedAmount });
+
+        allocatedQtyByItemId.set(
+          orderItemId,
+          (allocatedQtyByItemId.get(orderItemId) ?? 0) + qty,
+        );
+      }
+
+      preparedGroups.push({
+        participantName: cleanName,
+        amountDue: groupAmountDue,
+        allocations: groupAllocations,
+      });
+    }
+
+    // Verify every order item is completely and accurately allocated
+    for (const oi of allOrderItems) {
+      const totalAllocatedQty = allocatedQtyByItemId.get(oi.id) ?? 0;
+      if (totalAllocatedQty !== oi.quantity) {
+        throw new BadRequestError(
+          `Item '${oi.menuNameSnapshot}' requires quantity ${oi.quantity} to be allocated, but got ${totalAllocatedQty}`,
+        );
+      }
+    }
+
+    // Remove existing unpaid paymentGroups (cascades to paymentGroupItems and pending payments)
+    await db.delete(paymentGroups).where(eq(paymentGroups.orderId, orderId));
+
+    // Create participants & insert new paymentGroups + paymentGroupItems
+    for (const pg of preparedGroups) {
+      let participant = await db.query.sessionParticipants.findFirst({
+        where: and(
+          eq(sessionParticipants.sessionId, order.sessionId),
+          eq(sessionParticipants.name, pg.participantName),
+        ),
+      });
+
+      if (!participant) {
+        const newParticipantId = crypto.randomUUID();
+        await db.insert(sessionParticipants).values({
+          id: newParticipantId,
+          sessionId: order.sessionId,
+          userId: null,
+          name: pg.participantName,
+          isHost: false,
+          joinedAt: new Date(),
+        });
+        participant = {
+          id: newParticipantId,
+          name: pg.participantName,
+        } as typeof sessionParticipants.$inferSelect;
+      }
+
+      const newGroupId = crypto.randomUUID();
+      await db.insert(paymentGroups).values({
+        id: newGroupId,
+        orderId,
+        participantId: participant.id,
+        amountDue: pg.amountDue,
+        amountPaid: 0,
+        status: "PENDING",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      for (const alloc of pg.allocations) {
+        await db.insert(paymentGroupItems).values({
+          id: crypto.randomUUID(),
+          paymentGroupId: newGroupId,
+          orderItemId: alloc.orderItemId,
+          allocatedAmount: alloc.allocatedAmount,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    await db.insert(orderStatusLogs).values({
+      id: crypto.randomUUID(),
+      orderId,
+      status: order.orderStatus,
+      description: `Split bill configured for ${preparedGroups.length} participant(s): ${preparedGroups.map((g) => `${g.participantName} (${g.amountDue})`).join(", ")}`,
+      createdAt: new Date(),
+    });
+
+    return this.getById(orderId);
   }
 }
 

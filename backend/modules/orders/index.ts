@@ -4,6 +4,7 @@ import {
   CreateOrderDTO,
   JoinSessionDTO,
   OrderQueryDTO,
+  SplitBillDTO,
   UpdateOrderItemStatusDTO,
   UpdateOrderStatusDTO,
   UpdateTenantOrderStatusDTO,
@@ -96,6 +97,26 @@ export const ordersController = new Elysia({ prefix: "/api/orders" })
       detail: {
         tags: ["Orders"],
         summary: "Get full order details with tenant sub-orders and bills",
+      },
+    },
+  )
+  .post(
+    "/:id/split-bill",
+    async ({ params: { id }, body }) => {
+      const updated = await orderService.configureSplitBill(id, body);
+      return {
+        message: "Split bill configured successfully",
+        data: updated,
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: SplitBillDTO,
+      detail: {
+        tags: ["Orders"],
+        summary: "Configure or reset split bill allocations per menu and participant",
       },
     },
   )

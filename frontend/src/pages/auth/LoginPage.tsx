@@ -64,6 +64,8 @@ export function LoginPage() {
 
       if (user.role === 'tenant') {
         navigate('/app/tenant/kds', { replace: true })
+      } else if (user.role === 'cashier') {
+        navigate('/app/cashier', { replace: true })
       } else if (user.role === 'admin-food-court' || user.role === 'admin') {
         navigate('/app/dashboard', { replace: true })
       } else {

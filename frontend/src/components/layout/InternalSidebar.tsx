@@ -29,6 +29,7 @@ export function InternalSidebar({ onClose }: InternalSidebarProps) {
     if (user.role === 'admin-food-court') {
       return [
         { to: '/app/dashboard', label: 'Dashboard Utama', icon: Icons.Building },
+        { to: '/app/cashier', label: 'Kasir POS', icon: Icons.CreditCard },
         { to: '/app/admin/food-court', label: 'Profil Cabang', icon: Icons.Building },
         { to: '/app/admin/tenants', label: 'Stan Tenant', icon: Icons.Store },
         { to: '/app/super-admin/menus', label: 'Katalog Menu Cabang', icon: Icons.Utensils },
@@ -36,6 +37,13 @@ export function InternalSidebar({ onClose }: InternalSidebarProps) {
         { to: '/app/admin/tables', label: 'Manajemen Meja', icon: Icons.QrCode },
         { to: '/app/admin/orders', label: 'Monitoring Pesanan', icon: Icons.ShoppingBag },
         { to: '/app/admin/payments', label: 'Log Transaksi', icon: Icons.CreditCard },
+        { to: '/app/profile', label: 'Profil Akun', icon: Icons.User },
+      ]
+    }
+
+    if (user.role === 'cashier') {
+      return [
+        { to: '/app/cashier', label: 'Kasir POS & Transaksi', icon: Icons.CreditCard },
         { to: '/app/profile', label: 'Profil Akun', icon: Icons.User },
       ]
     }

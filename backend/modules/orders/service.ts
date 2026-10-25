@@ -1231,7 +1231,7 @@ export class OrderService {
         );
       }
 
-      let groupAmountDue = 0;
+      let groupSubtotal = 0;
       const groupAllocations: Array<{ orderItemId: string; allocatedAmount: number }> = [];
 
       for (const [orderItemId, qty] of mergedQtyByItem.entries()) {
@@ -1239,7 +1239,7 @@ export class OrderService {
         const unitEffectivePrice = Math.round(oi.subtotal / oi.quantity);
         const allocatedAmount = unitEffectivePrice * qty;
 
-        groupAmountDue += allocatedAmount;
+        groupSubtotal += allocatedAmount;
         groupAllocations.push({ orderItemId, allocatedAmount });
 
         allocatedQtyByItemId.set(
@@ -1248,8 +1248,15 @@ export class OrderService {
         );
       }
 
+      const groupServiceFee = Math.round(groupSubtotal * 0.03);
+      const groupTaxAmount = Math.round(groupSubtotal * 0.10);
+      const groupAmountDue = groupSubtotal + groupServiceFee + groupTaxAmount;
+
       preparedGroups.push({
         participantName: cleanName,
+        subtotal: groupSubtotal,
+        serviceFee: groupServiceFee,
+        taxAmount: groupTaxAmount,
         amountDue: groupAmountDue,
         allocations: groupAllocations,
       });

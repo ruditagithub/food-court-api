@@ -37,6 +37,8 @@ import {
   Copy,
   MessageCircle,
   Lock,
+  Camera,
+  SwitchCamera,
 } from 'lucide-react'
 
 // Standalone icon exports for backwards compatibility
@@ -114,4 +116,6 @@ export const Icons = {
   Copy: Copy,
   Message: MessageCircle,
   Lock: Lock,
+  Camera: Camera,
+  SwitchCamera: SwitchCamera,
 }

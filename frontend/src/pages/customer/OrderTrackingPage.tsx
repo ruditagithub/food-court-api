@@ -542,6 +542,34 @@ export function OrderTrackingPage() {
                       ))}
                     </div>
 
+                    {/* Financial Breakdown (Subtotal, Layanan 3%, PB1 10%, Total) */}
+                    {(() => {
+                      const sub = pg.subtotal ?? (pg.items || []).reduce((acc: number, it: any) => acc + (it.allocatedAmount || 0), 0)
+                      const svc = pg.serviceFee ?? Math.round(sub * 0.03)
+                      const tax = pg.taxAmount ?? Math.round(sub * 0.10)
+                      const due = pg.amountDue ?? (sub + svc + tax)
+                      return (
+                        <div className="pt-2 border-t border-[#f0f0f0] space-y-1 text-xs">
+                          <div className="flex justify-between text-[#737373]">
+                            <span>Subtotal Menu:</span>
+                            <span className="font-mono text-[#0a0a0a]">{formatRupiah(sub)}</span>
+                          </div>
+                          <div className="flex justify-between text-[#737373]">
+                            <span>Biaya Layanan (3%):</span>
+                            <span className="font-mono text-[#0a0a0a]">{formatRupiah(svc)}</span>
+                          </div>
+                          <div className="flex justify-between text-[#737373]">
+                            <span>Pajak Restoran PB1 (10%):</span>
+                            <span className="font-mono text-[#0a0a0a]">{formatRupiah(tax)}</span>
+                          </div>
+                          <div className="flex justify-between font-bold text-[#0a0a0a] pt-1 border-t border-[#e5e5e5]">
+                            <span>Total Tagihan:</span>
+                            <span className="font-mono">{formatRupiah(due)}</span>
+                          </div>
+                        </div>
+                      )
+                    })()}
+
                     {/* Actions for this participant if not yet paid */}
                     {!isGroupPaid && (
                       <div className="pt-2 border-t border-[#f5f5f5] space-y-2">

@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/Input'
 import { Icons } from '../../components/ui/Icons'
 import { useToast } from '../../components/ui/Toast'
 import { Dialog, DialogHeader, DialogTitle, DialogClose } from '../../components/ui/Dialog'
+import { CashierQRScannerModal } from '../../components/cashier/CashierQRScannerModal'
 import { formatRupiah, formatDate } from '../../lib/utils'
 
 interface CashBillItem {
@@ -41,6 +42,9 @@ export function CashierDashboardPage() {
   const [pendingBills, setPendingBills] = useState<PendingCashBill[]>([])
   const [isLoadingBills, setIsLoadingBills] = useState(false)
   const [selectedBill, setSelectedBill] = useState<PendingCashBill | null>(null)
+
+  // QR Scanner modal state
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
 
   // Calculator state
   const [cashReceivedInput, setCashReceivedInput] = useState<string>('')
@@ -104,6 +108,63 @@ export function CashierDashboardPage() {
     setCashReceivedInput(bill.amountDue.toString())
   }
 
+  // Handle QR code scanner output
+  const handleScanSuccess = async (decodedText: string) => {
+    let cleanQuery = decodedText.trim()
+    let parsedGroupId: string | undefined
+    let parsedOrderNum: string | undefined
+
+    try {
+      const parsed = JSON.parse(decodedText)
+      parsedGroupId = parsed.paymentGroupId
+      parsedOrderNum = parsed.orderNumber
+      cleanQuery = parsed.paymentGroupId || parsed.orderNumber || parsed.code || cleanQuery
+    } catch {
+      // plain string
+    }
+
+    const stripped = cleanQuery.toUpperCase().startsWith('CSH-') ? cleanQuery.slice(4) : cleanQuery
+    const qLower = cleanQuery.toLowerCase()
+    const strippedLower = stripped.toLowerCase()
+
+    // 1. Check local pendingBills first
+    const matched = pendingBills.find(
+      (b) =>
+        (parsedGroupId && b.paymentGroupId.toLowerCase() === parsedGroupId.toLowerCase()) ||
+        (parsedOrderNum && b.orderNumber.toLowerCase() === parsedOrderNum.toLowerCase()) ||
+        b.orderNumber.toLowerCase() === qLower ||
+        b.orderNumber.toLowerCase() === strippedLower ||
+        b.paymentGroupId.toLowerCase() === qLower ||
+        b.paymentGroupId.toLowerCase() === strippedLower ||
+        b.orderNumber.toLowerCase().includes(strippedLower) ||
+        strippedLower.includes(b.orderNumber.toLowerCase())
+    )
+
+    if (matched) {
+      handleSelectBill(matched)
+      toastSuccess('Tagihan Ditemukan', `Tagihan ${matched.orderNumber} (${matched.participantName}) berhasil dimuat.`)
+      return
+    }
+
+    // 2. Query lookup endpoint
+    try {
+      const res = await apiFetch<{ data: PendingCashBill }>(
+        `/api/payments/cashier/lookup/${encodeURIComponent(cleanQuery)}`
+      )
+      if (res.data) {
+        handleSelectBill(res.data)
+        toastSuccess('Tagihan Ditemukan', `Tagihan ${res.data.orderNumber} (${res.data.participantName}) berhasil dimuat.`)
+        fetchPendingBills()
+        return
+      }
+    } catch {
+      // 3. Fallback to search query filter
+      setSearchQuery(cleanQuery)
+      fetchPendingBills(cleanQuery)
+      toastError('Tidak Ditemukan', `Tagihan "${cleanQuery}" tidak ditemukan atau sudah lunas.`)
+    }
+  }
+
   // Quick cash buttons
   const handleQuickCash = (amount: number) => {
     setCashReceivedInput(amount.toString())
@@ -152,6 +213,40 @@ export function CashierDashboardPage() {
       toastError('Gagal Bayar', msg)
     } finally {
       setIsSubmittingPayment(false)
+    }
+  }
+
+  // Reprint historical receipt
+  const handleReprintReceipt = async (tx: any) => {
+    try {
+      const res = await apiFetch<{ data: any }>(
+        `/api/payments/cashier/lookup/${encodeURIComponent(tx.paymentReference || tx.orderNumber)}`
+      )
+      if (res.data) {
+        setConfirmedReceipt({
+          ...res.data,
+          cashReceived: tx.cashReceived || res.data.cashReceived || res.data.amountDue,
+          cashChange: tx.cashChange || res.data.cashChange || 0,
+          paymentReference: tx.paymentReference || res.data.paymentReference,
+        })
+        setIsReceiptOpen(true)
+      }
+    } catch {
+      setConfirmedReceipt({
+        paymentReference: tx.paymentReference,
+        orderNumber: tx.orderNumber,
+        tableNumber: tx.tableNumber,
+        participantName: tx.participantName,
+        amountDue: tx.amount,
+        cashReceived: tx.cashReceived,
+        cashChange: tx.cashChange,
+        paidAt: tx.paidAt,
+        items: [],
+        subtotal: tx.amount,
+        serviceFee: 0,
+        taxAmount: 0,
+      })
+      setIsReceiptOpen(true)
     }
   }
 
@@ -242,25 +337,39 @@ export function CashierDashboardPage() {
                   </Button>
                 </div>
 
-                {/* Search Input */}
-                <div className="relative">
-                  <Icons.Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#a3a3a3]" />
-                  <Input
-                    type="text"
-                    placeholder="Cari No. Pesanan / Meja / Nama Tamu..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9 text-xs rounded-[14px]"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#a3a3a3] hover:text-[#0a0a0a]"
-                    >
-                      <Icons.Close className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                {/* Search Input & QR Camera Scanner Trigger */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Icons.Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#a3a3a3]" />
+                    <Input
+                      type="text"
+                      placeholder="Cari No. Pesanan / Meja / Nama Tamu..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 h-9 text-xs rounded-[14px]"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#a3a3a3] hover:text-[#0a0a0a]"
+                      >
+                        <Icons.Close className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setIsScannerOpen(true)}
+                    className="h-9 px-3 text-xs font-bold shrink-0 rounded-[14px] flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    title="Scan QR Kamera"
+                  >
+                    <Icons.QrCode className="w-4 h-4" />
+                    <span className="hidden sm:inline">Scan QR Kamera</span>
+                    <span className="sm:hidden">Scan QR</span>
+                  </Button>
                 </div>
               </Card>
 
@@ -559,18 +668,19 @@ export function CashierDashboardPage() {
                       <th className="py-3 px-4 text-right">Uang Diterima</th>
                       <th className="py-3 px-4 text-right">Kembalian</th>
                       <th className="py-3 px-4 text-center">Status</th>
+                      <th className="py-3 px-4 text-center">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#f5f5f5]">
                     {isLoadingHistory ? (
                       <tr>
-                        <td colSpan={9} className="py-8 text-center text-xs text-[#737373]">
+                        <td colSpan={10} className="py-8 text-center text-xs text-[#737373]">
                           Memuat riwayat...
                         </td>
                       </tr>
                     ) : historyData.transactions.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="py-8 text-center text-xs text-[#737373]">
+                        <td colSpan={10} className="py-8 text-center text-xs text-[#737373]">
                           Belum ada transaksi kasir yang tercatat hari ini.
                         </td>
                       </tr>
@@ -602,6 +712,17 @@ export function CashierDashboardPage() {
                               LUNAS
                             </Badge>
                           </td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleReprintReceipt(tx)}
+                              className="px-2.5 py-1 rounded-[10px] bg-[#f5f5f5] hover:bg-[#0a0a0a] hover:text-white transition-colors text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer border border-[#e5e5e5]"
+                              title="Cetak Ulang Struk Thermal"
+                            >
+                              <Icons.Printer className="w-3 h-3" />
+                              <span>Struk</span>
+                            </button>
+                          </td>
                         </tr>
                       ))
                     )}
@@ -616,101 +737,211 @@ export function CashierDashboardPage() {
       {/* Cash Receipt Confirmation Modal */}
       {confirmedReceipt && (
         <Dialog open={isReceiptOpen} onOpenChange={(val) => !val && setIsReceiptOpen(false)} size="md">
+          <style>{`
+            @media print {
+              @page {
+                margin: 0;
+                size: auto;
+              }
+              *, *::before, *::after {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              html, body {
+                background: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                height: auto !important;
+                min-height: 0 !important;
+              }
+              body * {
+                visibility: hidden !important;
+              }
+              .fixed,
+              .relative,
+              [data-lenis-prevent],
+              .overflow-y-auto,
+              [role="dialog"] {
+                position: static !important;
+                overflow: visible !important;
+                max-height: none !important;
+                height: auto !important;
+                min-height: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+                margin: 0 !important;
+              }
+              #cashier-printable-receipt,
+              #cashier-printable-receipt * {
+                visibility: visible !important;
+              }
+              #cashier-printable-receipt {
+                position: absolute !important;
+                left: 0 !important;
+                right: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                max-width: 480px !important;
+                margin: 0 auto !important;
+                padding: 24px !important;
+                background: #ffffff !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+              button, [role="button"], dialog, .no-print {
+                display: none !important;
+              }
+            }
+          `}</style>
+
           <div className="relative">
-            <DialogClose onClick={() => setIsReceiptOpen(false)} />
-            <DialogHeader className="text-center pb-2">
+            <DialogClose onClick={() => setIsReceiptOpen(false)} className="no-print" />
+            <DialogHeader className="text-center pb-2 no-print">
               <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-2">
                 <Icons.Check className="w-6 h-6" />
               </div>
               <DialogTitle className="text-base font-bold text-[#0a0a0a]">
-                Struk Pembayaran Tunai Kasir
+                Pembayaran Berhasil!
               </DialogTitle>
               <p className="text-xs text-[#737373]">
-                Bukti pembayaran sah kasir Food Court
+                Tagihan telah lunas. Anda dapat mencetak struk thermal kasir di bawah ini.
               </p>
             </DialogHeader>
 
-            <div className="p-4 rounded-[18px] bg-[#fafafa] border border-[#e5e5e5] space-y-3 text-xs my-2">
-              <div className="flex justify-between items-center text-[#737373]">
-                <span>No. Referensi:</span>
-                <span className="font-mono font-bold text-[#0a0a0a]">{confirmedReceipt.paymentReference}</span>
-              </div>
-              <div className="flex justify-between items-center text-[#737373]">
-                <span>No. Pesanan:</span>
-                <span className="font-mono font-bold text-[#0a0a0a]">{confirmedReceipt.orderNumber}</span>
-              </div>
-              <div className="flex justify-between items-center text-[#737373]">
-                <span>Meja / Tamu:</span>
-                <span className="font-bold text-[#0a0a0a]">
-                  {confirmedReceipt.tableNumber ? `Meja ${confirmedReceipt.tableNumber}` : ''} • {confirmedReceipt.participantName}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-[#737373]">
-                <span>Kasir:</span>
-                <span className="font-semibold text-[#0a0a0a]">{confirmedReceipt.cashierName}</span>
+            {/* Thermal Printable Receipt Paper */}
+            <div
+              id="cashier-printable-receipt"
+              className="p-5 rounded-[20px] bg-white border border-[#e5e5e5] shadow-sm font-mono text-xs space-y-3 my-2"
+            >
+              {/* Header */}
+              <div className="text-center space-y-1 pb-3 border-b border-dashed border-[#0a0a0a]">
+                <h3 className="text-base font-black tracking-tight text-[#0a0a0a]">
+                  FOOD COURT UTAMA
+                </h3>
+                <p className="text-[11px] text-[#737373]">
+                  Sistem Kasir Digital Terpadu
+                </p>
+                <p className="text-[10px] text-[#737373]">
+                  {formatDate(confirmedReceipt.paidAt || new Date().toISOString())}
+                </p>
               </div>
 
-              {/* Items breakdown */}
-              {confirmedReceipt.items && (
-                <div className="pt-2 border-t border-dashed border-[#e5e5e5] space-y-1">
-                  {confirmedReceipt.items.map((it: any, idx: number) => (
-                    <div key={idx} className="flex justify-between text-[11px]">
-                      <span>{it.quantity}x {it.menuName}</span>
-                      <span className="font-mono">{formatRupiah(it.allocatedAmount)}</span>
+              {/* Order & Cashier Info */}
+              <div className="space-y-1 text-[11px]">
+                <div className="flex justify-between">
+                  <span className="text-[#737373]">No. Ref:</span>
+                  <span className="font-bold text-[#0a0a0a]">{confirmedReceipt.paymentReference}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#737373]">No. Pesanan:</span>
+                  <span className="font-bold text-[#0a0a0a]">{confirmedReceipt.orderNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#737373]">Meja:</span>
+                  <span className="font-bold text-[#0a0a0a]">
+                    {confirmedReceipt.tableNumber ? `Meja ${confirmedReceipt.tableNumber}` : 'Bawa Pulang (Takeaway)'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#737373]">Pelanggan:</span>
+                  <span className="font-bold text-[#0a0a0a]">{confirmedReceipt.participantName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#737373]">Kasir:</span>
+                  <span className="font-semibold text-[#0a0a0a]">{confirmedReceipt.cashierName || user?.name || 'Kasir'}</span>
+                </div>
+              </div>
+
+              {/* Items Breakdown */}
+              <div className="pt-2 border-t border-dashed border-[#0a0a0a] space-y-1.5">
+                <div className="text-[10px] uppercase font-bold text-[#737373] tracking-wider">
+                  Rincian Pesanan
+                </div>
+                {(confirmedReceipt.items || []).map((it: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-start text-[11px] gap-2">
+                    <div className="min-w-0">
+                      <span className="text-[#0a0a0a] font-medium block">
+                        {it.quantity}x {it.menuName}
+                      </span>
+                      {it.notes && (
+                        <span className="text-[10px] text-[#737373] block italic">
+                          ({it.notes})
+                        </span>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
+                    <span className="font-bold text-[#0a0a0a] shrink-0">
+                      {formatRupiah(it.allocatedAmount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
 
-              {/* Financials */}
-              <div className="pt-2 border-t border-[#e5e5e5] space-y-1">
+              {/* Financial Totals */}
+              <div className="pt-2 border-t border-dashed border-[#0a0a0a] space-y-1 text-[11px]">
                 <div className="flex justify-between text-[#737373]">
-                  <span>Subtotal:</span>
-                  <span className="font-mono">{formatRupiah(confirmedReceipt.subtotal || 0)}</span>
-                </div>
-                <div className="flex justify-between text-[#737373]">
-                  <span>Layanan (3%):</span>
-                  <span className="font-mono">{formatRupiah(confirmedReceipt.serviceFee || 0)}</span>
+                  <span>Subtotal Menu:</span>
+                  <span className="text-[#0a0a0a]">{formatRupiah(confirmedReceipt.subtotal || 0)}</span>
                 </div>
                 <div className="flex justify-between text-[#737373]">
-                  <span>Pajak PB1 (10%):</span>
-                  <span className="font-mono">{formatRupiah(confirmedReceipt.taxAmount || 0)}</span>
+                  <span>Biaya Layanan (3%):</span>
+                  <span className="text-[#0a0a0a]">{formatRupiah(confirmedReceipt.serviceFee || 0)}</span>
                 </div>
-                <div className="pt-2 border-t border-[#e5e5e5] flex justify-between font-bold text-sm text-[#0a0a0a]">
-                  <span>Total Tagihan:</span>
-                  <span className="font-mono">{formatRupiah(confirmedReceipt.amountDue)}</span>
+                <div className="flex justify-between text-[#737373]">
+                  <span>Pajak Restoran PB1 (10%):</span>
+                  <span className="text-[#0a0a0a]">{formatRupiah(confirmedReceipt.taxAmount || 0)}</span>
                 </div>
-                <div className="flex justify-between text-xs text-[#737373]">
-                  <span>Uang Diterima:</span>
-                  <span className="font-mono font-bold text-[#0a0a0a]">{formatRupiah(confirmedReceipt.cashReceived)}</span>
+                <div className="pt-1.5 border-t border-[#0a0a0a] flex justify-between font-bold text-sm text-[#0a0a0a]">
+                  <span>TOTAL TAGIHAN:</span>
+                  <span>{formatRupiah(confirmedReceipt.amountDue)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-sm text-emerald-600">
+                <div className="flex justify-between text-[#737373] pt-1">
+                  <span>Tunai Diterima:</span>
+                  <span className="font-bold text-[#0a0a0a]">{formatRupiah(confirmedReceipt.cashReceived)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-xs text-emerald-600">
                   <span>Kembalian:</span>
-                  <span className="font-mono">{formatRupiah(confirmedReceipt.cashChange)}</span>
+                  <span>{formatRupiah(confirmedReceipt.cashChange)}</span>
                 </div>
+              </div>
+
+              {/* Receipt Footer */}
+              <div className="pt-3 border-t border-dashed border-[#0a0a0a] text-center space-y-1 text-[10px] text-[#737373]">
+                <p className="font-semibold text-[#0a0a0a]">Terima Kasih Atas Kunjungan Anda!</p>
+                <p>Simpan struk ini sebagai bukti pembayaran yang sah.</p>
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            {/* Action Buttons */}
+            <div className="flex gap-2 pt-3 no-print">
               <Button
                 variant="outline"
                 onClick={() => window.print()}
-                className="flex-1 h-9 text-xs rounded-[12px] gap-1.5"
+                className="flex-1 h-10 text-xs font-bold rounded-[14px] gap-1.5 border-[#0a0a0a]"
               >
-                <Icons.Printer className="w-3.5 h-3.5" />
-                <span>Cetak Struk</span>
+                <Icons.Printer className="w-4 h-4" />
+                <span>Cetak Struk Thermal</span>
               </Button>
               <Button
                 variant="primary"
                 onClick={() => setIsReceiptOpen(false)}
-                className="flex-1 h-9 text-xs rounded-[12px]"
+                className="flex-1 h-10 text-xs font-bold rounded-[14px]"
               >
-                Selesai
+                Selesai (Kasir Siap)
               </Button>
             </div>
           </div>
         </Dialog>
       )}
+
+      {/* Cashier Camera QR Scanner Modal */}
+      <CashierQRScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={handleScanSuccess}
+      />
     </div>
   )
 }

@@ -607,8 +607,34 @@ describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
     );
     expect(nandaGroup).toBeDefined();
     expect(putraGroup).toBeDefined();
-    expect(nandaGroup.amountDue).toBe(40000);
-    expect(putraGroup.amountDue).toBe(35000);
+    expect(nandaGroup.subtotal).toBe(40000);
+    expect(nandaGroup.serviceFee).toBe(1200);
+    expect(nandaGroup.taxAmount).toBe(4000);
+    expect(nandaGroup.amountDue).toBe(45200);
+
+    expect(putraGroup.subtotal).toBe(35000);
+    expect(putraGroup.serviceFee).toBe(1050);
+    expect(putraGroup.taxAmount).toBe(3500);
+    expect(putraGroup.amountDue).toBe(39550);
+
+    // 3b. Cashier looks up Nanda and Putra's bills by pass code (CSH-<orderNumber>-<participant>)
+    const lookupNandaPass = await app.handle(
+      new Request(`http://localhost/api/payments/cashier/lookup/CSH-${placeBody.data.orderNumber}-NANDA`),
+    );
+    expect(lookupNandaPass.status).toBe(200);
+    const nandaPassBody = await lookupNandaPass.json();
+    expect(nandaPassBody.data.paymentGroupId).toBe(nandaGroup.id);
+    expect(nandaPassBody.data.participantName).toBe("Nanda");
+    expect(nandaPassBody.data.amountDue).toBe(45200);
+
+    const lookupPutraPass = await app.handle(
+      new Request(`http://localhost/api/payments/cashier/lookup/CSH-${placeBody.data.orderNumber}-PUTRA`),
+    );
+    expect(lookupPutraPass.status).toBe(200);
+    const putraPassBody = await lookupPutraPass.json();
+    expect(putraPassBody.data.paymentGroupId).toBe(putraGroup.id);
+    expect(putraPassBody.data.participantName).toBe("Putra");
+    expect(putraPassBody.data.amountDue).toBe(39550);
 
     // 4. Pay Nanda's bill (50k) -> Order paymentStatus becomes PARTIALLY_PAID
     const payNandaRes = await app.handle(
@@ -747,25 +773,29 @@ describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
     // Subtotal 35.000, service 3% (1050), tax 10% (3500), total = 39.550
     expect(newOrdBody.data.totalAmount).toBe(39550);
 
-    // Cashier checks pending bills
+    // Cashier checks pending bills with CSH- prefix filter
     const pendingRes = await app.handle(
-      new Request("http://localhost/api/payments/cashier/pending", {
+      new Request(`http://localhost/api/payments/cashier/pending?q=CSH-${testOrderNumber}`, {
         headers: { Authorization: `Bearer ${cashierToken}` },
       }),
     );
     expect(pendingRes.status).toBe(200);
     const pendingBody = await pendingRes.json();
-    expect(pendingBody.data.length).toBeGreaterThan(0);
+    expect(pendingBody.data.length).toBe(1);
+    expect(pendingBody.data[0].orderNumber).toBe(testOrderNumber);
 
-    // Cashier looks up bill by orderNumber
+    // Cashier looks up bill by CSH- code
     const lookupRes = await app.handle(
-      new Request(`http://localhost/api/payments/cashier/lookup/${testOrderNumber}`, {
+      new Request(`http://localhost/api/payments/cashier/lookup/CSH-${testOrderNumber}`, {
         headers: { Authorization: `Bearer ${cashierToken}` },
       }),
     );
     expect(lookupRes.status).toBe(200);
     const lookupBody = await lookupRes.json();
     expect(lookupBody.data.amountDue).toBe(39550);
+    expect(lookupBody.data.subtotal).toBe(35000);
+    expect(lookupBody.data.serviceFee).toBe(1050);
+    expect(lookupBody.data.taxAmount).toBe(3500);
 
     // Cashier confirms cash payment: Bill is 39.550, customer pays 50.000 -> change 10.450
     const confirmRes = await app.handle(
@@ -786,6 +816,22 @@ describe("Customer & Table Ordering Flow (Alur 1 E2E)", () => {
     expect(confirmBody.data.amountDue).toBe(39550);
     expect(confirmBody.data.cashReceived).toBe(50000);
     expect(confirmBody.data.cashChange).toBe(10450);
+    expect(confirmBody.data.subtotal).toBe(35000);
+    expect(confirmBody.data.serviceFee).toBe(1050);
+    expect(confirmBody.data.taxAmount).toBe(3500);
+    expect(confirmBody.data.items.length).toBe(1);
+    expect(confirmBody.data.paymentReference).toBeDefined();
+
+    // Cashier looks up completed receipt by payment reference (reprint flow)
+    const reprintRes = await app.handle(
+      new Request(`http://localhost/api/payments/cashier/lookup/${confirmBody.data.paymentReference}`, {
+        headers: { Authorization: `Bearer ${cashierToken}` },
+      }),
+    );
+    expect(reprintRes.status).toBe(200);
+    const reprintBody = await reprintRes.json();
+    expect(reprintBody.data.amountDue).toBe(39550);
+    expect(reprintBody.data.items.length).toBe(1);
 
     // Cashier views history
     const historyRes = await app.handle(

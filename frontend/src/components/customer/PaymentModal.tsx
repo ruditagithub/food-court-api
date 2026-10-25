@@ -223,9 +223,19 @@ export function PaymentModal({
 
   // Calculate live split totals per participant
   const splitCalculations = useMemo(() => {
-    const map = new Map<string, { count: number; subtotal: number; items: PortionAllocation[] }>()
+    const map = new Map<
+      string,
+      {
+        count: number
+        subtotal: number
+        serviceFee: number
+        taxAmount: number
+        totalDue: number
+        items: PortionAllocation[]
+      }
+    >()
     participantNames.forEach((name) => {
-      map.set(name, { count: 0, subtotal: 0, items: [] })
+      map.set(name, { count: 0, subtotal: 0, serviceFee: 0, taxAmount: 0, totalDue: 0, items: [] })
     })
 
     allocations.forEach((portion) => {
@@ -235,6 +245,13 @@ export function PaymentModal({
         entry.subtotal += portion.unitPrice
         entry.items.push(portion)
       }
+    })
+
+    // Compute service fee (3%) and tax (10% PB1)
+    map.forEach((val) => {
+      val.serviceFee = Math.round(val.subtotal * 0.03)
+      val.taxAmount = Math.round(val.subtotal * 0.10)
+      val.totalDue = val.subtotal + val.serviceFee + val.taxAmount
     })
 
     return map
@@ -664,7 +681,7 @@ export function PaymentModal({
                       >
                         <span className="font-bold">{name}</span>
                         <span className="text-[10px] text-[#737373]">
-                          ({stats?.count || 0} menu • {formatRupiah(stats?.subtotal || 0)})
+                          ({stats?.count || 0} menu • {formatRupiah(stats?.totalDue || 0)})
                         </span>
                         {participantNames.length > 1 && (
                           <button
@@ -737,6 +754,36 @@ export function PaymentModal({
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Live Financial Breakdown Summary */}
+              <div className="p-3.5 rounded-[18px] bg-[#f5f5f5] border border-[#e5e5e5] space-y-2 text-xs">
+                <span className="font-bold text-[#0a0a0a] text-xs block">
+                  Ringkasan Tagihan per Orang (Termasuk Pajak & Layanan):
+                </span>
+                <div className="space-y-1.5">
+                  {participantNames.map((name) => {
+                    const stats = splitCalculations.get(name)
+                    if (!stats) return null
+                    return (
+                      <div key={name} className="p-2.5 rounded-[12px] bg-white border border-[#e5e5e5] flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-[#0a0a0a]">{name}</span>
+                          <div className="text-[10px] text-[#737373] space-x-1">
+                            <span>Subtotal: {formatRupiah(stats.subtotal)}</span>
+                            <span>•</span>
+                            <span>Layanan (3%): {formatRupiah(stats.serviceFee)}</span>
+                            <span>•</span>
+                            <span>PB1 (10%): {formatRupiah(stats.taxAmount)}</span>
+                          </div>
+                        </div>
+                        <span className="font-mono font-bold text-sm text-[#0a0a0a]">
+                          {formatRupiah(stats.totalDue)}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
 
@@ -862,6 +909,34 @@ export function PaymentModal({
                           </div>
                         ))}
                       </div>
+
+                      {/* Breakdown: Subtotal, Service Fee (3%), PB1 Tax (10%), Total */}
+                      {(() => {
+                        const sub = group.subtotal ?? (group.items || []).reduce((acc: number, it: any) => acc + (it.allocatedAmount || 0), 0)
+                        const svc = group.serviceFee ?? Math.round(sub * 0.03)
+                        const tax = group.taxAmount ?? Math.round(sub * 0.10)
+                        const due = group.amountDue ?? (sub + svc + tax)
+                        return (
+                          <div className="pt-2 border-t border-[#f0f0f0] space-y-1 text-xs">
+                            <div className="flex justify-between text-[#737373]">
+                              <span>Subtotal Menu:</span>
+                              <span className="font-mono text-[#0a0a0a]">{formatRupiah(sub)}</span>
+                            </div>
+                            <div className="flex justify-between text-[#737373]">
+                              <span>Biaya Layanan (3%):</span>
+                              <span className="font-mono text-[#0a0a0a]">{formatRupiah(svc)}</span>
+                            </div>
+                            <div className="flex justify-between text-[#737373]">
+                              <span>Pajak Restoran PB1 (10%):</span>
+                              <span className="font-mono text-[#0a0a0a]">{formatRupiah(tax)}</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-[#0a0a0a] pt-1 border-t border-[#e5e5e5]">
+                              <span>Total Tagihan:</span>
+                              <span className="font-mono">{formatRupiah(due)}</span>
+                            </div>
+                          </div>
+                        )
+                      })()}
 
                       {/* Action buttons if unpaid */}
                       {!isPaid && (

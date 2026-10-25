@@ -232,23 +232,37 @@ export class PaymentService {
                 : gi.allocatedAmount;
             const qty =
               unitPrice > 0 ? Math.max(1, Math.round(gi.allocatedAmount / unitPrice)) : 1;
+            const effectivePrice = unitPrice * qty === gi.allocatedAmount ? unitPrice : gi.allocatedAmount;
+            const effectiveQty = unitPrice * qty === gi.allocatedAmount ? qty : 1;
             return {
               id: gi.orderItemId.slice(0, 45),
-              price: unitPrice,
-              quantity: qty,
+              price: effectivePrice,
+              quantity: effectiveQty,
               name: (oi?.menuNameSnapshot ?? "Menu Item").slice(0, 50),
             };
           })
         : undefined;
 
-    const itemsSum = itemDetails?.reduce((s, it) => s + it.price * it.quantity, 0) ?? 0;
+    const subtotal = groupItems.reduce((acc, gi) => acc + (gi.allocatedAmount || 0), 0);
+    const serviceFee = Math.round(subtotal * 0.03);
+    const taxAmount = Math.round(subtotal * 0.10);
+
+    const fullItemDetails = itemDetails
+      ? [
+          ...itemDetails,
+          ...(serviceFee > 0 ? [{ id: "FEE-SERVICE", price: serviceFee, quantity: 1, name: "Biaya Layanan (3%)" }] : []),
+          ...(taxAmount > 0 ? [{ id: "TAX-PB1", price: taxAmount, quantity: 1, name: "Pajak Restoran PB1 (10%)" }] : []),
+        ]
+      : undefined;
+
+    const fullItemsSum = fullItemDetails?.reduce((s, it) => s + it.price * it.quantity, 0) ?? 0;
 
     const transaction = await snap.createTransaction({
       transaction_details: {
         order_id: paymentReference,
         gross_amount: pGroup.amountDue,
       },
-      item_details: itemsSum === pGroup.amountDue ? itemDetails : undefined,
+      item_details: fullItemsSum === pGroup.amountDue ? fullItemDetails : undefined,
       customer_details: participant ? { first_name: participant.name } : undefined,
       expiry: { unit: "minutes", duration: SNAP_EXPIRY_MINUTES },
     });
@@ -473,12 +487,22 @@ export class PaymentService {
         };
 
         if (query && query.trim()) {
-          const q = query.trim().toLowerCase();
+          let q = query.trim().toLowerCase();
+          if (q.startsWith("csh-")) {
+            q = q.slice(4).trim();
+          }
+          const orderNumLower = bill.orderNumber.toLowerCase();
+          const partNameLower = bill.participantName.toLowerCase();
+          const tableNumLower = bill.tableNumber.toLowerCase();
+          const pgIdLower = bill.paymentGroupId.toLowerCase();
+
           const match =
-            bill.orderNumber.toLowerCase().includes(q) ||
-            bill.participantName.toLowerCase().includes(q) ||
-            bill.tableNumber.toLowerCase().includes(q) ||
-            bill.paymentGroupId.toLowerCase().includes(q);
+            orderNumLower.includes(q) ||
+            q.includes(orderNumLower) ||
+            partNameLower.includes(q) ||
+            q.includes(partNameLower) ||
+            tableNumLower.includes(q) ||
+            pgIdLower === q;
           if (match) pendingBills.push(bill);
         } else {
           pendingBills.push(bill);
@@ -489,19 +513,19 @@ export class PaymentService {
     return pendingBills;
   }
 
-  /** Cashier: Look up a specific bill by orderNumber, paymentGroupId, or custom code */
+  /** Cashier: Look up a specific bill by orderNumber, paymentGroupId, CSH- code, or payment reference */
   async lookupCashBill(rawQuery: string) {
     if (!rawQuery || !rawQuery.trim()) {
       throw new BadRequestError("Query parameter is required");
     }
 
-    let clean = rawQuery.trim();
-    // Strip prefixes like CSH- if present
+    const trimmedQuery = rawQuery.trim();
+    let clean = trimmedQuery;
     if (clean.toUpperCase().startsWith("CSH-")) {
-      clean = clean.slice(4);
+      clean = clean.slice(4).trim();
     }
 
-    // Try finding by paymentGroup ID first
+    // 1. Try finding by exact paymentGroup ID first
     let pg = await db.query.paymentGroups.findFirst({
       where: eq(paymentGroups.id, clean),
       with: {
@@ -515,7 +539,29 @@ export class PaymentService {
       },
     });
 
-    // If not found, try finding order by orderNumber
+    // 2. Try finding by payment reference (e.g. CSH-XXXXXX-XXX) in payments table
+    if (!pg) {
+      const existingPayment = await db.query.payments.findFirst({
+        where: eq(payments.paymentReference, trimmedQuery),
+        with: {
+          paymentGroup: {
+            with: {
+              order: {
+                with: { session: { with: { table: true, participants: true } } },
+              },
+              participant: true,
+              items: { with: { orderItem: true } },
+            },
+          },
+        },
+      });
+
+      if (existingPayment?.paymentGroup) {
+        pg = existingPayment.paymentGroup as any;
+      }
+    }
+
+    // 3. Try finding order by exact orderNumber
     if (!pg) {
       const ord = await db.query.orders.findFirst({
         where: eq(orders.orderNumber, clean),
@@ -531,10 +577,48 @@ export class PaymentService {
       });
 
       if (ord) {
-        // Pick first pending payment group
-        pg = ord.paymentGroups.find((g) => g.status !== "PAID") as any;
-        if (pg) {
+        // Pick first pending payment group, or first group if all paid
+        const candidate = ord.paymentGroups.find((g) => g.status !== "PAID") ?? ord.paymentGroups[0];
+        if (candidate) {
+          pg = candidate as any;
           (pg as any).order = ord;
+        }
+      }
+    }
+
+    // 4. Try matching split pass format: <orderNumber>-<participantPrefix>
+    // e.g. "ORD-20261025-001-NANDA"
+    if (!pg && clean.includes("-")) {
+      const lastDash = clean.lastIndexOf("-");
+      const candidateOrderNum = clean.slice(0, lastDash).trim();
+      const participantSuffix = clean.slice(lastDash + 1).trim().toLowerCase();
+
+      const matchedOrd = await db.query.orders.findFirst({
+        where: eq(orders.orderNumber, candidateOrderNum),
+        with: {
+          session: { with: { table: true, participants: true } },
+          paymentGroups: {
+            with: {
+              participant: true,
+              items: { with: { orderItem: true } },
+            },
+          },
+        },
+      });
+
+      if (matchedOrd) {
+        const candidate =
+          matchedOrd.paymentGroups.find(
+            (g) =>
+              g.participant?.name?.toLowerCase().startsWith(participantSuffix) ||
+              participantSuffix.startsWith(g.participant?.name?.slice(0, 5).toLowerCase() ?? "")
+          ) ??
+          matchedOrd.paymentGroups.find((g) => g.status !== "PAID") ??
+          matchedOrd.paymentGroups[0];
+
+        if (candidate) {
+          pg = candidate as any;
+          (pg as any).order = matchedOrd;
         }
       }
     }
@@ -614,7 +698,7 @@ export class PaymentService {
     await db.insert(payments).values(newPayment);
     await this.settlePaymentGroup(pGroup, requiredAmount, "CASH");
 
-    // Fetch order details for receipt
+    // Fetch order details & items for receipt
     const ord = await db.query.orders.findFirst({
       where: eq(orders.id, pGroup.orderId),
       with: {
@@ -626,12 +710,33 @@ export class PaymentService {
       where: eq(sessionParticipants.id, pGroup.participantId),
     });
 
+    const groupItems = await db.query.paymentGroupItems.findMany({
+      where: eq(paymentGroupItems.paymentGroupId, pGroup.id),
+      with: { orderItem: true },
+    });
+
+    const itemsList = (groupItems ?? []).map((pgi: any) => ({
+      orderItemId: pgi.orderItemId,
+      menuName: pgi.orderItem?.menuNameSnapshot ?? "Menu",
+      quantity: pgi.orderItem?.quantity ?? 1,
+      allocatedAmount: pgi.allocatedAmount,
+      notes: pgi.orderItem?.notes ?? null,
+    }));
+
+    const subtotal = itemsList.reduce((acc, it) => acc + (it.allocatedAmount || 0), 0);
+    const serviceFee = Math.round(subtotal * 0.03);
+    const taxAmount = Math.round(subtotal * 0.10);
+
     return {
       paymentReference,
       orderId: pGroup.orderId,
       orderNumber: ord?.orderNumber ?? "N/A",
       tableNumber: ord?.session?.table?.tableNumber ?? "Takeaway",
       participantName: participant?.name ?? "Tamu",
+      items: itemsList,
+      subtotal,
+      serviceFee,
+      taxAmount,
       amountDue: requiredAmount,
       cashReceived,
       cashChange,

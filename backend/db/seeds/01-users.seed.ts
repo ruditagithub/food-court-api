@@ -4,6 +4,7 @@ import { chunkedInsert } from './helpers/batch-inserter'
 
 export interface SeedUsersResult {
   superAdmin: typeof users.$inferInsert
+  cashier: typeof users.$inferInsert
   managers: typeof users.$inferInsert[]
   tenantOwners: typeof users.$inferInsert[]
   customers: typeof users.$inferInsert[]
@@ -26,6 +27,15 @@ export async function seedUsers(): Promise<SeedUsersResult> {
     email: 'admin@foodcourt.com',
     passwordHash,
     role: 'admin',
+  }
+
+  // 2b. Akun Kasir Pengujian
+  const cashier: typeof users.$inferInsert = {
+    id: 'usr-cashier-001',
+    name: 'Kasir Amici',
+    email: 'cashier@foodcourt.com',
+    passwordHash,
+    role: 'cashier',
   }
 
   // 3. 5 Akun Manajer Food Court (1 default + 4 regional)
@@ -85,6 +95,7 @@ export async function seedUsers(): Promise<SeedUsersResult> {
 
   const allUsers: typeof users.$inferInsert[] = [
     superAdmin,
+    cashier,
     ...managers,
     ...tenantOwners,
     ...customers,
@@ -96,6 +107,7 @@ export async function seedUsers(): Promise<SeedUsersResult> {
 
   return {
     superAdmin,
+    cashier,
     managers,
     tenantOwners,
     customers,

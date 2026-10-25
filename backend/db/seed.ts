@@ -16,7 +16,7 @@ async function runMasterSeed() {
     // 1. Reset Bersih Database (Truncate dengan FK checks = 0)
     await cleanDatabase()
 
-    // 2. Akun Pengguna (Admin, Manajer, 105 Pemilik Kios, 200 Pelanggan)
+    // 2. Akun Pengguna (Admin, Kasir, Manajer, 105 Pemilik Kios, 200 Pelanggan)
     const usersData = await seedUsers()
 
     // 3. 5 Cabang Food Court di Indonesia
@@ -58,6 +58,7 @@ async function runMasterSeed() {
     console.log('--------------------------------------------------------------------')
     console.log('Akun Login Pengujian (Password: "password123"):')
     console.log('  - Super Admin   : admin@foodcourt.com')
+    console.log('  - Kasir         : cashier@foodcourt.com (Kasir Amici)')
     console.log('  - Manajer FC    : manager@foodcourt.com (Grand City Surabaya)')
     console.log('  - Mitra Tenant  : tenant@foodcourt.com (Warung Rawon Bu Siti)')
     console.log('  - Customer      : customer@foodcourt.com (Rizky Ramadhan)')

@@ -145,6 +145,10 @@ export class OrderService {
     }
   }
 
+  async createOrder(data: CreateOrderDTOType, currentUser: AuthUser | null = null) {
+    return this.create(data, currentUser);
+  }
+
   async create(data: CreateOrderDTOType, currentUser: AuthUser | null) {
     if (!data.items || data.items.length === 0) {
       throw new BadRequestError("Order must contain at least one item");
@@ -363,14 +367,17 @@ export class OrderService {
         if (item.optionIds && item.optionIds.length > 0) {
           for (const optId of item.optionIds) {
             const opt = optionMap.get(optId);
-            if (opt && opt.menuId === menuItem.id) {
-              unitPrice += opt.priceAdjustment;
-              itemOptions.push({
-                id: crypto.randomUUID(),
-                name: opt.name,
-                priceAdjustment: opt.priceAdjustment,
-              });
+            if (!opt || opt.menuId !== menuItem.id) {
+              throw new BadRequestError(
+                `Option with id '${optId}' is invalid for menu '${menuItem.name}'`,
+              );
             }
+            unitPrice += opt.priceAdjustment;
+            itemOptions.push({
+              id: crypto.randomUUID(),
+              name: opt.name,
+              priceAdjustment: opt.priceAdjustment,
+            });
           }
         }
 
@@ -384,7 +391,7 @@ export class OrderService {
           id: crypto.randomUUID(),
           menuId: menuItem.id,
           menuNameSnapshot: menuItem.name,
-          unitPriceSnapshot: menuItem.price,
+          unitPriceSnapshot: unitPrice,
           quantity: item.quantity,
           subtotal: itemSubtotal,
           notes: resolvedNote,
@@ -1135,7 +1142,16 @@ export class OrderService {
         with: {
           session: { with: { table: true, participants: true } },
           paymentGroups: { with: { participant: true } },
-          tenantOrders: { with: { tenant: true, items: true } },
+          tenantOrders: {
+            with: {
+              tenant: true,
+              items: {
+                with: {
+                  options: true,
+                },
+              },
+            },
+          },
         },
       });
       return list.map((ord) => ({
@@ -1165,7 +1181,11 @@ export class OrderService {
               paymentGroups: { with: { participant: true } },
             },
           },
-          items: true,
+          items: {
+            with: {
+              options: true,
+            },
+          },
           kitchenQueue: true,
         },
       });

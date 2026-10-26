@@ -2,7 +2,7 @@ import { and, eq, inArray, like, or } from "drizzle-orm";
 import { ForbiddenError, NotFoundError } from "../../common/errors";
 import type { AuthUser } from "../../common/middlewares/auth";
 import { db } from "../../db";
-import { categories, foodCourts, menus, tenants } from "../../db/schema";
+import { categories, foodCourts, menuOptions, menus, tenants } from "../../db/schema";
 import type {
   CreateCategoryDTOType,
   CreateMenuDTOType,
@@ -136,6 +136,7 @@ export class MenuService {
       where: whereClause,
       with: {
         category: true,
+        options: true,
       },
     });
   }
@@ -146,6 +147,7 @@ export class MenuService {
       with: {
         category: true,
         tenant: true,
+        options: true,
       },
     });
 
@@ -194,6 +196,23 @@ export class MenuService {
     };
 
     await db.insert(menus).values(newMenu);
+
+    if (data.options && data.options.length > 0) {
+      for (const opt of data.options) {
+        await db.insert(menuOptions).values({
+          id: crypto.randomUUID(),
+          menuId: id,
+          name: opt.name.trim(),
+          priceAdjustment:
+            opt.priceAdjustment !== undefined
+              ? Number(opt.priceAdjustment)
+              : 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
     return this.getById(id);
   }
 
@@ -223,8 +242,9 @@ export class MenuService {
       }
     }
 
+    const { options, ...restData } = data;
     const updateData: Partial<typeof menus.$inferInsert> = {
-      ...data,
+      ...restData,
       ...(categoryId !== undefined ? { categoryId } : {}),
       ...(data.price !== undefined ? { price: Number(data.price) } : {}),
       ...(data.stock !== undefined
@@ -247,6 +267,54 @@ export class MenuService {
     };
 
     await db.update(menus).set(updateData).where(eq(menus.id, id));
+
+    if (options !== undefined) {
+      const existingOptions = await db.query.menuOptions.findMany({
+        where: eq(menuOptions.menuId, id),
+      });
+
+      const existingMap = new Map(existingOptions.map((o) => [o.id, o]));
+      const keepingIds: string[] = [];
+
+      for (const opt of options) {
+        if (opt.id && existingMap.has(opt.id)) {
+          keepingIds.push(opt.id);
+          await db
+            .update(menuOptions)
+            .set({
+              name: opt.name.trim(),
+              priceAdjustment:
+                opt.priceAdjustment !== undefined
+                  ? Number(opt.priceAdjustment)
+                  : 0,
+              updatedAt: new Date(),
+            })
+            .where(eq(menuOptions.id, opt.id));
+        } else {
+          const newOptId = crypto.randomUUID();
+          keepingIds.push(newOptId);
+          await db.insert(menuOptions).values({
+            id: newOptId,
+            menuId: id,
+            name: opt.name.trim(),
+            priceAdjustment:
+              opt.priceAdjustment !== undefined
+                ? Number(opt.priceAdjustment)
+                : 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
+      }
+
+      const toDelete = existingOptions.filter((o) => !keepingIds.includes(o.id));
+      if (toDelete.length > 0) {
+        await db
+          .delete(menuOptions)
+          .where(inArray(menuOptions.id, toDelete.map((o) => o.id)));
+      }
+    }
+
     return this.getById(id);
   }
 
@@ -491,6 +559,7 @@ export class MenuService {
       where: and(...conditions),
       with: {
         category: true,
+        options: true,
       },
     });
   }

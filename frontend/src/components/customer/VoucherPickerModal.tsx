@@ -77,7 +77,7 @@ export function VoucherPickerModal({
         items: cartItems.map((ci) => ({
           menuId: ci.menuId,
           quantity: ci.quantity,
-          optionIds: ci.selectedOptions?.map((o: any) => o.id) || undefined,
+          optionIds: ci.selectedOptions?.map((o: any) => o.id) || ci.optionIds || undefined,
         })),
       }
 

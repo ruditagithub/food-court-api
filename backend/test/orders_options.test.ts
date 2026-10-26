@@ -260,4 +260,57 @@ describe("Order Creation with Menu Options", () => {
     expect(snapshotsInDb[0].optionNameSnapshot).toBe("Temp Topping");
     expect(snapshotsInDb[0].priceAdjustmentSnapshot).toBe(3000);
   });
+
+  it("should expose options snapshots on split bill payment group items in tracking and getById", async () => {
+    const order = await orderService.createOrder({
+      orderType: "TAKEAWAY",
+      customerName: "Split Opt User",
+      items: [
+        {
+          menuId: menuAId,
+          quantity: 2,
+          optionIds: [optA1Id, optA2Id],
+        },
+      ],
+    });
+
+    const orderItemId = order.items[0].id;
+
+    // Configure split bill for 2 participants
+    const splitResult = await orderService.configureSplitBill(order.id, {
+      groups: [
+        {
+          participantName: "Alice",
+          items: [
+            {
+              orderItemId,
+              quantity: 1,
+            },
+          ],
+        },
+        {
+          participantName: "Bob",
+          items: [
+            {
+              orderItemId,
+              quantity: 1,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(splitResult.paymentGroups.length).toBe(2);
+
+    // Verify trackByOrderNumber returns options on payment group items
+    const tracked = await orderService.trackByOrderNumber(order.orderNumber);
+    expect(tracked.paymentGroups.length).toBe(2);
+    expect(tracked.paymentGroups[0].items[0].options).toContain("Level Pedas 2");
+    expect(tracked.paymentGroups[0].items[0].options).toContain("Extra Telur Mata Sapi");
+
+    // Verify getById returns options on payment group items
+    const fetched = await orderService.getById(order.id);
+    expect(fetched.paymentGroups[0].items[0].options).toContain("Level Pedas 2");
+    expect(fetched.paymentGroups[0].items[0].options).toContain("Extra Telur Mata Sapi");
+  });
 });

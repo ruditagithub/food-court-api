@@ -106,7 +106,24 @@ export function CartDrawer({
                           <p className="font-semibold text-[#0a0a0a] leading-snug">
                             {item.name}
                           </p>
-                          <p className="font-mono text-[#737373] text-[11px] mt-0.5">
+                          {item.selectedOptions && item.selectedOptions.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {item.selectedOptions.map((opt, oIdx) => (
+                                <span
+                                  key={opt.id || oIdx}
+                                  className="text-[10px] font-medium bg-[#f5f5f5] text-[#0a0a0a] px-1.5 py-0.5 rounded-[8px] border border-[#e5e5e5]"
+                                >
+                                  {opt.name}
+                                  {opt.priceAdjustment > 0 && (
+                                    <span className="text-[#737373] ml-1">
+                                      (+{formatRupiah(opt.priceAdjustment)})
+                                    </span>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <p className="font-mono text-[#737373] text-[11px] mt-1">
                             {formatRupiah(item.price)}
                           </p>
                           {item.notes && (

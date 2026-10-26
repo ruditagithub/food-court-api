@@ -602,7 +602,11 @@ export class OrderService {
             participant: true,
             items: {
               with: {
-                orderItem: true,
+                orderItem: {
+                  with: {
+                    options: true,
+                  },
+                },
               },
             },
           },
@@ -657,6 +661,7 @@ export class OrderService {
           unitPrice,
           allocatedAmount: pgi.allocatedAmount,
           notes: oi?.notes ?? null,
+          options: (oi?.options ?? []).map((o: any) => o.optionNameSnapshot ?? o.name),
         };
       });
       const groupSubtotal = itemsList.reduce((acc: number, it: any) => acc + (it.allocatedAmount || 0), 0);
@@ -724,7 +729,11 @@ export class OrderService {
             participant: true,
             items: {
               with: {
-                orderItem: true,
+                orderItem: {
+                  with: {
+                    options: true,
+                  },
+                },
               },
             },
           },
@@ -771,6 +780,7 @@ export class OrderService {
             unitPrice,
             allocatedAmount: pgi.allocatedAmount,
             notes: oi?.notes ?? null,
+            options: (oi?.options ?? []).map((o: any) => o.optionNameSnapshot ?? o.name),
           };
         });
         const groupSubtotal = itemsList.reduce((acc: number, it: any) => acc + (it.allocatedAmount || 0), 0);

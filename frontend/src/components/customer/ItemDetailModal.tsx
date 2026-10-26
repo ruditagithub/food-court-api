@@ -21,7 +21,8 @@ interface ItemDetailModalProps {
   onAddToCart: (
     item: Menu & { tenantName?: string; stallNumber?: string; tenantIsOpen?: boolean },
     quantity: number,
-    notes?: string
+    notes?: string,
+    selectedOptions?: Array<{ id: string; name: string; priceAdjustment: number }>
   ) => void
   onRemoveFromCart?: (menuId: string) => void
 }
@@ -36,12 +37,14 @@ export function ItemDetailModal({
 }: ItemDetailModalProps) {
   const [quantity, setQuantity] = useState(1)
   const [notes, setNotes] = useState('')
+  const [selectedOptionIds, setSelectedOptionIds] = useState<Set<string>>(new Set())
   const [imgError, setImgError] = useState(false)
 
   useEffect(() => {
     if (open) {
       setQuantity(1)
       setNotes('')
+      setSelectedOptionIds(new Set())
       setImgError(false)
     }
   }, [open, item])
@@ -57,11 +60,42 @@ export function ItemDetailModal({
     item.status !== 'OUT_OF_STOCK' &&
     item.status !== 'HIDDEN' &&
     maxStock > 0
-  const totalPrice = item.price * quantity
+
+  const optionsAdjustment = (item.options || [])
+    .filter((opt) => selectedOptionIds.has(opt.id))
+    .reduce((sum, opt) => sum + (opt.priceAdjustment || 0), 0)
+
+  const effectiveUnitPrice = item.price + optionsAdjustment
+  const totalPrice = effectiveUnitPrice * quantity
+
+  const handleToggleOption = (optionId: string) => {
+    setSelectedOptionIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(optionId)) {
+        next.delete(optionId)
+      } else {
+        next.add(optionId)
+      }
+      return next
+    })
+  }
 
   const handleAdd = () => {
     if (!isAvailable) return
-    onAddToCart(item, Math.min(quantity, maxStock), notes.trim() || undefined)
+    const chosenOptions = (item.options || [])
+      .filter((opt) => selectedOptionIds.has(opt.id))
+      .map((opt) => ({
+        id: opt.id,
+        name: opt.name,
+        priceAdjustment: opt.priceAdjustment || 0,
+      }))
+
+    onAddToCart(
+      item,
+      Math.min(quantity, maxStock),
+      notes.trim() || undefined,
+      chosenOptions.length > 0 ? chosenOptions : undefined
+    )
     onOpenChange(false)
   }
 
@@ -105,9 +139,16 @@ export function ItemDetailModal({
         )}
         <div className="flex items-start justify-between gap-3">
           <DialogTitle className="text-xl">{item.name}</DialogTitle>
-          <span className="font-mono text-lg font-bold text-[#0a0a0a] shrink-0">
-            {formatRupiah(item.price)}
-          </span>
+          <div className="text-right shrink-0">
+            <span className="font-mono text-lg font-bold text-[#0a0a0a] block">
+              {formatRupiah(effectiveUnitPrice)}
+            </span>
+            {optionsAdjustment > 0 && (
+              <span className="font-mono text-[10px] text-[#737373] block">
+                Dasar {formatRupiah(item.price)} + {formatRupiah(optionsAdjustment)}
+              </span>
+            )}
+          </div>
         </div>
         {item.description && (
           <DialogDescription className="mt-1 leading-relaxed">
@@ -117,6 +158,62 @@ export function ItemDetailModal({
       </DialogHeader>
 
       <div className="space-y-4 my-2">
+        {/* Pilihan Varian & Tambahan */}
+        {item.options && item.options.length > 0 && (
+          <div className="space-y-2.5 p-3.5 rounded-[18px] bg-[#fafafa] border border-[#e5e5e5]">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-[#0a0a0a]">
+                Pilihan Varian & Tambahan
+              </span>
+              <span className="text-[11px] text-[#737373]">
+                {selectedOptionIds.size > 0
+                  ? `${selectedOptionIds.size} dipilih`
+                  : 'Opsional'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {item.options.map((opt) => {
+                const isSelected = selectedOptionIds.has(opt.id)
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleToggleOption(opt.id)}
+                    className={`flex items-center justify-between p-2.5 rounded-[14px] text-xs font-medium border transition-all cursor-pointer text-left ${
+                      isSelected
+                        ? 'bg-[#0a0a0a] text-white border-[#0a0a0a] shadow-xs'
+                        : 'bg-white text-[#0a0a0a] border-[#e5e5e5] hover:border-[#737373]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className={`w-4 h-4 rounded-[6px] border flex items-center justify-center transition-colors shrink-0 ${
+                          isSelected
+                            ? 'bg-white border-white text-[#0a0a0a]'
+                            : 'border-[#d4d4d4] bg-[#fafafa]'
+                        }`}
+                      >
+                        {isSelected && <Icons.Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                      <span className="truncate">{opt.name}</span>
+                    </div>
+                    <span
+                      className={`font-mono text-[11px] ml-2 shrink-0 ${
+                        isSelected ? 'text-white/90' : 'text-[#737373]'
+                      }`}
+                    >
+                      {opt.priceAdjustment > 0
+                        ? `+${formatRupiah(opt.priceAdjustment)}`
+                        : 'Gratis'}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Quantity selector */}
         <div className="flex items-center justify-between p-3.5 rounded-[18px] bg-[#fafafa] border border-[#e5e5e5]">
           <span className="text-sm font-semibold text-[#0a0a0a]">Jumlah Pesanan</span>

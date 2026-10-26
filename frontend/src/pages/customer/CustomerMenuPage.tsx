@@ -13,22 +13,9 @@ import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Icons } from '../../components/ui/Icons'
 import { formatRupiah } from '../../lib/utils'
-import type { Menu, Table } from '../../types'
+import type { Menu, Table, CartItem } from '../../types'
 
-export interface CartItem {
-  menuId: string
-  name: string
-  price: number
-  quantity: number
-  stock?: number
-  notes?: string
-  tenantId: string
-  tenantName: string
-  stallNumber?: string
-  imageUrl?: string | null
-  selectedOptions?: Array<{ id: string; name: string; priceAdjustment: number }>
-  optionIds?: string[]
-}
+export type { CartItem }
 
 export function CustomerMenuPage() {
   const { qrToken } = useParams<{ qrToken: string }>()
@@ -210,7 +197,8 @@ export function CustomerMenuPage() {
   const handleAddToCart = (
     item: Menu & { tenantName?: string; stallNumber?: string; tenantIsOpen?: boolean },
     quantity: number,
-    notes?: string
+    notes?: string,
+    selectedOptions?: Array<{ id: string; name: string; priceAdjustment: number }>
   ) => {
     if (item.tenantIsOpen === false) return
     if (!item.isAvailable || item.status === 'OUT_OF_STOCK' || item.status === 'HIDDEN') return
@@ -223,15 +211,48 @@ export function CustomerMenuPage() {
       const allowedToAdd = Math.max(0, Math.min(quantity, maxStock - alreadyInCart))
       if (allowedToAdd <= 0) return prev
 
-      const existingIndex = prev.findIndex(
-        (ci) => ci.menuId === item.id && (ci.notes || '') === (notes || '')
+      const sortedOptionIds = (selectedOptions || [])
+        .map((o) => o.id)
+        .sort()
+        .join(',')
+
+      const existingIndex = prev.findIndex((ci) => {
+        const ciOptionIds = (
+          ci.selectedOptions ||
+          ci.optionIds?.map((id) => ({ id })) ||
+          []
+        )
+          .map((o: any) => o.id || o)
+          .sort()
+          .join(',')
+        return (
+          ci.menuId === item.id &&
+          (ci.notes || '') === (notes || '') &&
+          ciOptionIds === sortedOptionIds
+        )
+      })
+
+      const optionsAdjustment = (selectedOptions || []).reduce(
+        (sum, opt) => sum + (opt.priceAdjustment || 0),
+        0
       )
+      const effectivePrice = item.price + optionsAdjustment
+
       if (existingIndex > -1) {
         const updated = [...prev]
         updated[existingIndex] = {
           ...updated[existingIndex],
           quantity: updated[existingIndex].quantity + allowedToAdd,
           stock: typeof item.stock === 'number' ? item.stock : updated[existingIndex].stock,
+          price: effectivePrice,
+          selectedOptions:
+            selectedOptions && selectedOptions.length > 0
+              ? selectedOptions
+              : updated[existingIndex].selectedOptions,
+          optionIds:
+            selectedOptions && selectedOptions.length > 0
+              ? selectedOptions.map((o) => o.id)
+              : updated[existingIndex].optionIds,
         }
         return updated
       } else {
@@ -240,7 +261,7 @@ export function CustomerMenuPage() {
           {
             menuId: item.id,
             name: item.name,
-            price: item.price,
+            price: effectivePrice,
             quantity: allowedToAdd,
             stock: typeof item.stock === 'number' ? item.stock : undefined,
             notes,
@@ -248,14 +269,27 @@ export function CustomerMenuPage() {
             tenantName: item.tenantName || 'Tenant Kios',
             stallNumber: item.stallNumber,
             imageUrl: item.imageUrl,
+            selectedOptions:
+              selectedOptions && selectedOptions.length > 0 ? selectedOptions : undefined,
+            optionIds:
+              selectedOptions && selectedOptions.length > 0
+                ? selectedOptions.map((o) => o.id)
+                : undefined,
           },
         ]
       }
     })
   }
 
-  // Quick add (1 qty)
-  const handleQuickAdd = (item: Menu & { tenantName?: string; stallNumber?: string; tenantIsOpen?: boolean }) => {
+  // Quick add (1 qty) - intercept if menu has options
+  const handleQuickAdd = (
+    item: Menu & { tenantName?: string; stallNumber?: string; tenantIsOpen?: boolean }
+  ) => {
+    if (item.options && item.options.length > 0) {
+      setSelectedItem(item)
+      setDetailModalOpen(true)
+      return
+    }
     handleAddToCart(item, 1)
   }
 

@@ -120,23 +120,11 @@ export function CheckoutPage() {
       .reduce((sum, ci) => sum + ci.quantity, 0)
   }
 
-  const getOptKey = (item: CartItem) => {
-    return (item.selectedOptions || item.optionIds?.map((id) => ({ id })) || [])
-      .map((o: any) => o.id || o)
-      .sort()
-      .join(',')
-  }
+  // Adjust item quantity with stock cap by array index
+  const handleQuantityChange = (originalIndex: number, delta: number) => {
+    const targetItem = cartItems[originalIndex]
+    if (!targetItem) return
 
-  const isSameItem = (a: CartItem, b: CartItem) => {
-    return (
-      a.menuId === b.menuId &&
-      (a.notes || '') === (b.notes || '') &&
-      getOptKey(a) === getOptKey(b)
-    )
-  }
-
-  // Adjust item quantity with stock cap
-  const handleQuantityChange = (targetItem: CartItem, delta: number) => {
     if (delta > 0) {
       if (typeof targetItem.stock === 'number') {
         const totalForMenu = getTotalMenuQty(targetItem.menuId)
@@ -147,41 +135,32 @@ export function CheckoutPage() {
       }
     }
 
-    const updated = cartItems
-      .map((it) => {
-        if (isSameItem(it, targetItem)) {
-          const newQty = it.quantity + delta
-          return newQty > 0 ? { ...it, quantity: newQty } : null
-        }
-        return it
-      })
-      .filter(Boolean) as CartItem[]
-
-    updateCart(updated)
+    const newQty = targetItem.quantity + delta
+    if (newQty <= 0) {
+      updateCart(cartItems.filter((_, idx) => idx !== originalIndex))
+    } else {
+      const updated = [...cartItems]
+      updated[originalIndex] = { ...targetItem, quantity: newQty }
+      updateCart(updated)
+    }
   }
 
-  // Update note for a specific item in cart
-  const handleItemNoteChange = (targetItem: CartItem, newNote: string) => {
-    let updatedOnce = false
-    const updated = cartItems.map((it) => {
-      if (!updatedOnce && isSameItem(it, targetItem)) {
-        updatedOnce = true
-        return { ...it, notes: newNote }
-      }
-      return it
-    })
+  // Update note for a specific item in cart by array index
+  const handleItemNoteChange = (originalIndex: number, newNote: string) => {
+    if (originalIndex < 0 || originalIndex >= cartItems.length) return
+    const updated = [...cartItems]
+    updated[originalIndex] = { ...updated[originalIndex], notes: newNote }
     updateCart(updated)
   }
 
   // Split an item with quantity > 1 into individual 1-portion items so each portion can have a distinct note
-  const handleSplitItemPortion = (targetItem: CartItem) => {
-    if (targetItem.quantity <= 1) return
+  const handleSplitItemPortion = (originalIndex: number) => {
+    const targetItem = cartItems[originalIndex]
+    if (!targetItem || targetItem.quantity <= 1) return
 
     const expanded: CartItem[] = []
-    let replaced = false
-    cartItems.forEach((it) => {
-      if (!replaced && isSameItem(it, targetItem)) {
-        replaced = true
+    cartItems.forEach((it, idx) => {
+      if (idx === originalIndex) {
         for (let i = 0; i < it.quantity; i++) {
           expanded.push({
             ...it,
@@ -197,10 +176,9 @@ export function CheckoutPage() {
     toastSuccess('Porsi Dipisah', `${targetItem.name} dipisah menjadi porsi individual untuk catatan berbeda.`)
   }
 
-  // Remove item
-  const handleRemoveItem = (targetItem: CartItem) => {
-    const updated = cartItems.filter((it) => !isSameItem(it, targetItem))
-    updateCart(updated)
+  // Remove item by array index
+  const handleRemoveItem = (originalIndex: number) => {
+    updateCart(cartItems.filter((_, idx) => idx !== originalIndex))
   }
 
   // Re-validate applied discount when cart items change
@@ -237,8 +215,8 @@ export function CheckoutPage() {
   const totalAmount = Math.max(0, subtotalAmount - discountAmount)
   const totalCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
 
-  // Group by tenant
-  const groupedByTenant = cartItems.reduce((acc, item) => {
+  // Group by tenant preserving originalIndex
+  const groupedByTenant = cartItems.reduce((acc, item, originalIndex) => {
     const key = item.tenantName || 'Tenant Kios'
     if (!acc[key]) {
       acc[key] = {
@@ -246,9 +224,9 @@ export function CheckoutPage() {
         items: [],
       }
     }
-    acc[key].items.push(item)
+    acc[key].items.push({ ...item, originalIndex })
     return acc
-  }, {} as Record<string, { stallNumber?: string; items: CartItem[] }>)
+  }, {} as Record<string, { stallNumber?: string; items: (CartItem & { originalIndex: number })[] }>)
 
   const handleSubmitOrder = async (e: FormEvent) => {
     e.preventDefault()
@@ -408,9 +386,9 @@ export function CheckoutPage() {
 
                         {/* Items in this tenant */}
                         <div className="space-y-3">
-                          {group.items.map((it, idx) => (
+                          {group.items.map((it) => (
                             <div
-                              key={`${it.menuId}-${idx}`}
+                              key={`${it.menuId}-${it.originalIndex}`}
                               className="bg-white p-3.5 rounded-[18px] border border-[#f0f0f0] space-y-2.5 shadow-2xs"
                             >
                               <div className="flex items-start justify-between gap-3">
@@ -446,7 +424,7 @@ export function CheckoutPage() {
                                   <div className="flex items-center gap-1.5 bg-[#f5f5f5] p-1 rounded-[14px] border border-[#e5e5e5]">
                                     <button
                                       type="button"
-                                      onClick={() => handleQuantityChange(it, -1)}
+                                      onClick={() => handleQuantityChange(it.originalIndex, -1)}
                                       className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[#0a0a0a] hover:bg-[#e5e5e5] transition-colors cursor-pointer"
                                     >
                                       <Icons.Minus className="w-3 h-3" />
@@ -456,7 +434,7 @@ export function CheckoutPage() {
                                     </span>
                                     <button
                                       type="button"
-                                      onClick={() => handleQuantityChange(it, 1)}
+                                      onClick={() => handleQuantityChange(it.originalIndex, 1)}
                                       className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[#0a0a0a] hover:bg-[#e5e5e5] transition-colors cursor-pointer"
                                     >
                                       <Icons.Plus className="w-3 h-3" />
@@ -469,7 +447,7 @@ export function CheckoutPage() {
                                     </span>
                                     <button
                                       type="button"
-                                      onClick={() => handleRemoveItem(it)}
+                                      onClick={() => handleRemoveItem(it.originalIndex)}
                                       className="text-[#dc2626] hover:text-[#991b1b] p-1 cursor-pointer transition-colors"
                                       title="Hapus sajian"
                                     >
@@ -489,7 +467,7 @@ export function CheckoutPage() {
                                   {it.quantity > 1 && (
                                     <button
                                       type="button"
-                                      onClick={() => handleSplitItemPortion(it)}
+                                      onClick={() => handleSplitItemPortion(it.originalIndex)}
                                       className="text-[10px] font-semibold text-[#0a0a0a] bg-[#f5f5f5] hover:bg-[#e5e5e5] px-2 py-0.5 rounded-[10px] border border-[#e5e5e5] transition-colors cursor-pointer"
                                     >
                                       Pisah {it.quantity} Porsi (Beda Catatan)
@@ -499,7 +477,7 @@ export function CheckoutPage() {
                                 <input
                                   type="text"
                                   value={it.notes || ''}
-                                  onChange={(e) => handleItemNoteChange(it, e.target.value)}
+                                  onChange={(e) => handleItemNoteChange(it.originalIndex, e.target.value)}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') e.preventDefault()
                                   }}

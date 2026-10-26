@@ -43,6 +43,9 @@ export function MenuFormDialog({
   const [description, setDescription] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [isAvailable, setIsAvailable] = useState(true)
+  const [options, setOptions] = useState<
+    Array<{ id?: string; name: string; priceAdjustment: string | number }>
+  >([])
 
   const [categories, setCategories] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -73,6 +76,13 @@ export function MenuFormDialog({
       setDescription(initialData.description || '')
       setImageUrl(initialData.imageUrl || '')
       setIsAvailable(initialData.isAvailable ?? true)
+      setOptions(
+        (initialData.options || []).map((opt) => ({
+          id: opt.id,
+          name: opt.name,
+          priceAdjustment: opt.priceAdjustment !== undefined ? String(opt.priceAdjustment) : '0',
+        }))
+      )
     } else {
       setName('')
       setCategoryId('')
@@ -81,9 +91,38 @@ export function MenuFormDialog({
       setDescription('')
       setImageUrl('')
       setIsAvailable(true)
+      setOptions([])
     }
     setErrors({})
   }, [initialData, open])
+
+  const handleAddOptionRow = () => {
+    setOptions((prev) => [...prev, { name: '', priceAdjustment: '0' }])
+  }
+
+  const handleRemoveOptionRow = (index: number) => {
+    setOptions((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleOptionChange = (
+    index: number,
+    field: 'name' | 'priceAdjustment',
+    value: string
+  ) => {
+    setOptions((prev) => {
+      const updated = [...prev]
+      updated[index] = { ...updated[index], [field]: value }
+      return updated
+    })
+    // Clear error for this field if exists
+    if (errors[`option_${index}_${field}`]) {
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next[`option_${index}_${field}`]
+        return next
+      })
+    }
+  }
 
   const validate = () => {
     const errs: Record<string, string> = {}
@@ -96,6 +135,17 @@ export function MenuFormDialog({
     if (isNaN(numStock) || numStock < 0) {
       errs.stock = 'Stok tidak boleh minus'
     }
+
+    // Validate options
+    options.forEach((opt, idx) => {
+      if (!opt.name.trim()) {
+        errs[`option_${idx}_name`] = 'Nama varian tidak boleh kosong'
+      }
+      const adj = Number(opt.priceAdjustment)
+      if (isNaN(adj) || adj < 0) {
+        errs[`option_${idx}_price`] = 'Harga tidak boleh negatif'
+      }
+    })
 
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -112,6 +162,13 @@ export function MenuFormDialog({
 
       const parsedPrice = Math.round(Number(price))
       const parsedStock = Math.round(Number(stock))
+      const sanitizedOptions = options
+        .map((opt) => ({
+          ...(opt.id ? { id: opt.id } : {}),
+          name: opt.name.trim(),
+          priceAdjustment: Math.max(0, Math.round(Number(opt.priceAdjustment) || 0)),
+        }))
+        .filter((opt) => opt.name.length > 0)
 
       if (isEdit && initialData) {
         await apiFetch(`/api/menus/${initialData.id}`, {
@@ -125,6 +182,7 @@ export function MenuFormDialog({
             description: description.trim() || null,
             imageUrl: imageUrl.trim() || null,
             isAvailable,
+            options: sanitizedOptions,
           },
         })
         toastSuccess('Menu Diperbarui', `Menu "${name}" berhasil diperbarui.`)
@@ -141,6 +199,7 @@ export function MenuFormDialog({
             description: description.trim() || undefined,
             imageUrl: imageUrl.trim() || undefined,
             isAvailable,
+            options: sanitizedOptions.length > 0 ? sanitizedOptions : undefined,
           },
         })
         toastSuccess('Menu Dibuat', `Menu "${name}" berhasil ditambahkan ke katalog.`)
@@ -277,6 +336,86 @@ export function MenuFormDialog({
             description="Jika dimatikan, menu akan ditandai 'Habis' pada aplikasi pemesanan meja"
             disabled={isLoading}
           />
+        </div>
+
+        {/* Varian / Opsi Menu Tambahan */}
+        <div className="space-y-3 p-4 rounded-[18px] bg-[#fafafa] border border-[#e5e5e5]">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="font-bold text-sm text-[#0a0a0a]">
+                Varian / Opsi Menu Tambahan
+              </Label>
+              <p className="text-xs text-[#737373] mt-0.5">
+                Pilihan seperti tingkat kepedasan, ekstra telur/topping, atau porsi
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAddOptionRow}
+              disabled={isLoading}
+              className="gap-1.5 text-xs font-semibold rounded-[12px] h-8 px-3"
+            >
+              <Icons.Plus className="w-3.5 h-3.5" />
+              <span>Tambah Varian</span>
+            </Button>
+          </div>
+
+          {options.length === 0 ? (
+            <div className="p-3 text-center rounded-[14px] bg-white border border-dashed border-[#d4d4d4] text-xs text-[#737373]">
+              Belum ada varian atau opsi tambahan untuk sajian ini.
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {options.map((opt, idx) => (
+                <div
+                  key={opt.id || idx}
+                  className="flex items-start gap-2.5 bg-white p-2.5 rounded-[14px] border border-[#e5e5e5]"
+                >
+                  <div className="flex-1 min-w-0">
+                    <Input
+                      placeholder="Nama Varian (misal: Level 2 / Ekstra Telur)"
+                      value={opt.name}
+                      onChange={(e) => handleOptionChange(idx, 'name', e.target.value)}
+                      error={!!errors[`option_${idx}_name`]}
+                      helperText={errors[`option_${idx}_name`]}
+                      disabled={isLoading}
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                  <div className="w-36 sm:w-44 shrink-0">
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-2 text-xs font-mono text-[#737373] pointer-events-none">
+                        +Rp
+                      </span>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        min="0"
+                        step="500"
+                        value={opt.priceAdjustment}
+                        onChange={(e) => handleOptionChange(idx, 'priceAdjustment', e.target.value)}
+                        error={!!errors[`option_${idx}_price`]}
+                        helperText={errors[`option_${idx}_price`]}
+                        disabled={isLoading}
+                        className="pl-9 h-9 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveOptionRow(idx)}
+                    disabled={isLoading}
+                    className="p-2 text-[#737373] hover:text-red-600 hover:bg-red-50 rounded-[10px] transition-colors cursor-pointer shrink-0 mt-0.5"
+                    title="Hapus varian"
+                  >
+                    <Icons.Trash className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <DialogFooter>

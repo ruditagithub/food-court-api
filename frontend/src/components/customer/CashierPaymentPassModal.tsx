@@ -14,7 +14,7 @@ export interface CashierPaymentPassModalProps {
   paymentGroupId?: string
   tableNumber?: string
   participantName?: string
-  items?: Array<{ name: string; quantity: number; amount: number; notes?: string | null }>
+  items?: Array<{ name: string; quantity: number; amount: number; notes?: string | null; options?: string[] }>
   subtotal: number
   serviceFee: number
   taxAmount: number
@@ -171,13 +171,20 @@ export function CashierPaymentPassModal({
 
                 {/* Items preview */}
                 {items.length > 0 && (
-                  <div className="pt-2 border-t border-dashed border-[#e5e5e5] space-y-1">
+                  <div className="pt-2 border-t border-dashed border-[#e5e5e5] space-y-1.5">
                     {items.map((it, idx) => (
-                      <div key={idx} className="flex justify-between text-[11px]">
-                        <span className="text-[#0a0a0a]">
-                          {it.quantity}x {it.name}
-                        </span>
-                        <span className="font-mono text-[#737373]">{formatRupiah(it.amount)}</span>
+                      <div key={idx} className="space-y-0.5 text-[11px]">
+                        <div className="flex justify-between">
+                          <span className="text-[#0a0a0a]">
+                            {it.quantity}x {it.name}
+                          </span>
+                          <span className="font-mono text-[#737373]">{formatRupiah(it.amount)}</span>
+                        </div>
+                        {it.options && it.options.length > 0 && (
+                          <div className="text-[10px] text-[#737373] pl-2 italic">
+                            + {it.options.join(', ')}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

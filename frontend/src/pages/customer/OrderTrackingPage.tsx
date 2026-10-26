@@ -90,7 +90,13 @@ export function OrderTrackingPage() {
   const handleShareParticipantWA = (pg: any) => {
     const shareUrl = window.location.href.split('?')[0]
     const itemsSummary = (pg.items || [])
-      .map((it: any) => `${it.quantity}x ${it.menuName || it.menuNameSnapshot}`)
+      .map((it: any) => {
+        const itemOptions = it.options || it.orderItemOptions || []
+        const optText = itemOptions.length > 0
+          ? ` (+${itemOptions.map((o: any) => typeof o === 'string' ? o : (o.optionNameSnapshot || o.name)).join(', ')})`
+          : ''
+        return `${it.quantity}x ${it.menuName || it.menuNameSnapshot}${optText}`
+      })
       .join(', ')
     const msg = `Hai ${pg.participantName}! Total bagian pesananmu di Food Court adalah ${formatRupiah(pg.amountDue)} (${itemsSummary}). Silakan buka link ini untuk bayar bagianmu:\n${shareUrl}`
     handleShareWhatsApp(msg)
@@ -99,7 +105,13 @@ export function OrderTrackingPage() {
   const handleCopyParticipantBill = (pg: any) => {
     const shareUrl = window.location.href.split('?')[0]
     const itemsSummary = (pg.items || [])
-      .map((it: any) => `${it.quantity}x ${it.menuName || it.menuNameSnapshot}`)
+      .map((it: any) => {
+        const itemOptions = it.options || it.orderItemOptions || []
+        const optText = itemOptions.length > 0
+          ? ` (+${itemOptions.map((o: any) => typeof o === 'string' ? o : (o.optionNameSnapshot || o.name)).join(', ')})`
+          : ''
+        return `${it.quantity}x ${it.menuName || it.menuNameSnapshot}${optText}`
+      })
       .join(', ')
     const msg = `Hai ${pg.participantName}! Total bagian pesananmu di Food Court adalah ${formatRupiah(pg.amountDue)} (${itemsSummary}). Silakan bayar bagianmu:\n${shareUrl}`
     handleCopyOrderLink(msg)
@@ -108,12 +120,16 @@ export function OrderTrackingPage() {
   
   // Cashier Pass ticket handlers
   const handleOpenParticipantCashPass = (pg: any) => {
-    const itemsList = (pg.items || []).map((it: any) => ({
-      name: it.menuName || it.menuNameSnapshot || 'Item',
-      quantity: it.quantity || 1,
-      amount: it.allocatedAmount || it.subtotal || 0,
-      notes: it.notes || null,
-    }))
+    const itemsList = (pg.items || []).map((it: any) => {
+      const itemOptions = it.options || it.orderItemOptions || []
+      return {
+        name: it.menuName || it.menuNameSnapshot || 'Item',
+        quantity: it.quantity || 1,
+        amount: it.allocatedAmount || it.subtotal || 0,
+        notes: it.notes || null,
+        options: itemOptions.map((o: any) => typeof o === 'string' ? o : (o.optionNameSnapshot || o.name)),
+      }
+    })
 
     const sub = pg.subtotal || itemsList.reduce((acc: number, it: any) => acc + it.amount, 0)
     const svc = pg.serviceFee || Math.round(sub * 0.03)
@@ -135,12 +151,16 @@ export function OrderTrackingPage() {
   }
 
   const handleOpenDirectCashPass = () => {
-    const allItems = (order.stalls || []).flatMap((s: any) => s.items || []).map((it: any) => ({
-      name: it.name || it.menuNameSnapshot || 'Item',
-      quantity: it.quantity || 1,
-      amount: it.subtotal || 0,
-      notes: it.notes || null,
-    }))
+    const allItems = (order.stalls || []).flatMap((s: any) => s.items || []).map((it: any) => {
+      const itemOptions = it.options || it.orderItemOptions || []
+      return {
+        name: it.name || it.menuNameSnapshot || 'Item',
+        quantity: it.quantity || 1,
+        amount: it.subtotal || 0,
+        notes: it.notes || null,
+        options: itemOptions.map((o: any) => typeof o === 'string' ? o : (o.optionNameSnapshot || o.name)),
+      }
+    })
 
     const sub = order.subtotal || allItems.reduce((acc: number, it: any) => acc + it.amount, 0)
     const svc = order.serviceFee || Math.round(sub * 0.03)
@@ -701,24 +721,42 @@ export function OrderTrackingPage() {
                         </div>
 
                         {/* Allocated Items List */}
-                        <div className="p-2.5 rounded-[12px] bg-[#fafafa] border border-[#f0f0f0] space-y-1 text-xs">
-                          {(pg.items || []).map((it: any, itemIdx: number) => (
-                            <div key={it.id || itemIdx} className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <span className="text-[#0a0a0a] font-medium">
-                                  {it.quantity}x {it.menuName || it.menuNameSnapshot || 'Item'}
-                                </span>
+                        <div className="p-2.5 rounded-[12px] bg-[#fafafa] border border-[#f0f0f0] space-y-2 text-xs">
+                          {(pg.items || []).map((it: any, itemIdx: number) => {
+                            const itemOptions = it.options || it.orderItemOptions || []
+                            return (
+                              <div key={it.id || itemIdx} className="space-y-0.5">
+                                <div className="flex items-start justify-between gap-2">
+                                  <span className="text-[#0a0a0a] font-medium">
+                                    {it.quantity}x {it.menuName || it.menuNameSnapshot || 'Item'}
+                                  </span>
+                                  <span className="font-mono text-[#737373] shrink-0 text-[11px]">
+                                    {formatRupiah(it.allocatedAmount || it.subtotal || 0)}
+                                  </span>
+                                </div>
+                                {itemOptions.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 pl-3">
+                                    {itemOptions.map((opt: any, oIdx: number) => {
+                                      const optName = typeof opt === 'string' ? opt : (opt.optionNameSnapshot || opt.name)
+                                      return (
+                                        <span
+                                          key={oIdx}
+                                          className="inline-block text-[10px] font-medium bg-[#f5f5f5] text-[#0a0a0a] px-1.5 py-0.5 rounded-[6px] border border-[#e5e5e5]"
+                                        >
+                                          {optName}
+                                        </span>
+                                      )
+                                    })}
+                                  </div>
+                                )}
                                 {it.notes && (
-                                  <span className="text-[11px] text-[#737373] block italic">
+                                  <span className="text-[11px] text-[#737373] block italic pl-3">
                                     Catatan: &quot;{it.notes}&quot;
                                   </span>
                                 )}
                               </div>
-                              <span className="font-mono text-[#737373] shrink-0 text-[11px]">
-                                {formatRupiah(it.allocatedAmount || it.subtotal || 0)}
-                              </span>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
 
                         {/* Financial Breakdown (Subtotal, Layanan 3%, PB1 10%, Total) */}

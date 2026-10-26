@@ -62,6 +62,15 @@ export interface MenuCategory {
 
 export type MenuStatus = 'AVAILABLE' | 'OUT_OF_STOCK' | 'HIDDEN'
 
+export interface MenuOption {
+  id: string
+  menuId: string
+  name: string
+  priceAdjustment: number
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface Menu {
   id: string
   tenantId: string
@@ -78,6 +87,22 @@ export interface Menu {
   updatedAt: string
   category?: MenuCategory
   tenant?: Tenant
+  options?: MenuOption[]
+}
+
+export interface CartItem {
+  menuId: string
+  name: string
+  price: number
+  quantity: number
+  stock?: number
+  notes?: string
+  tenantId: string
+  tenantName: string
+  stallNumber?: string
+  imageUrl?: string | null
+  selectedOptions?: Array<{ id: string; name: string; priceAdjustment: number }>
+  optionIds?: string[]
 }
 
 export interface MenuCategoryWithMenus extends MenuCategory {

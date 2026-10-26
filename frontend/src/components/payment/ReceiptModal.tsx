@@ -221,18 +221,33 @@ export function ReceiptModal({ isOpen, onClose, orderId, orderNumber }: ReceiptM
                         {stall.stallNumber ? `Kios ${stall.stallNumber}` : ''}
                       </span>
                     </div>
-                    {stall.items?.map((it: any, iIdx: number) => (
-                      <div key={iIdx} className="flex justify-between pl-2 text-[11px] text-[#404040]">
-                        <span>
-                          {it.quantity}x {it.name}
-                        </span>
-                        {(it.subtotal !== undefined || it.unitPrice !== undefined) && (
-                          <span>
-                            {formatRupiah(it.subtotal ?? (it.unitPrice || 0) * it.quantity)}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                    {stall.items?.map((it: any, iIdx: number) => {
+                      const itemOptions = it.options || it.orderItemOptions || []
+                      return (
+                        <div key={iIdx} className="space-y-0.5 pl-2 text-[11px] text-[#404040]">
+                          <div className="flex justify-between">
+                            <span>
+                              {it.quantity}x {it.name || it.menuNameSnapshot}
+                            </span>
+                            {(it.subtotal !== undefined || it.unitPrice !== undefined) && (
+                              <span>
+                                {formatRupiah(it.subtotal ?? (it.unitPrice || 0) * it.quantity)}
+                              </span>
+                            )}
+                          </div>
+                          {itemOptions.length > 0 && (
+                            <div className="text-[10px] text-[#737373] pl-3 italic">
+                              + {itemOptions.map((opt: any) => typeof opt === 'string' ? opt : (opt.optionNameSnapshot || opt.name)).join(', ')}
+                            </div>
+                          )}
+                          {it.notes && (
+                            <div className="text-[10px] text-[#737373] pl-3 italic">
+                              Catatan: &quot;{it.notes}&quot;
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 ))
               ) : orderData?.tenantOrders ? (
@@ -244,14 +259,29 @@ export function ReceiptModal({ isOpen, onClose, orderId, orderNumber }: ReceiptM
                         {to.tenant?.stallNumber || ''}
                       </span>
                     </div>
-                    {to.items?.map((it: any, iIdx: number) => (
-                      <div key={iIdx} className="flex justify-between pl-2 text-[11px] text-[#404040]">
-                        <span>
-                          {it.quantity}x {it.menuNameSnapshot || it.name}
-                        </span>
-                        <span>{formatRupiah(it.subtotal || it.unitPriceSnapshot * it.quantity)}</span>
-                      </div>
-                    ))}
+                    {to.items?.map((it: any, iIdx: number) => {
+                      const itemOptions = it.options || it.orderItemOptions || []
+                      return (
+                        <div key={iIdx} className="space-y-0.5 pl-2 text-[11px] text-[#404040]">
+                          <div className="flex justify-between">
+                            <span>
+                              {it.quantity}x {it.menuNameSnapshot || it.name}
+                            </span>
+                            <span>{formatRupiah(it.subtotal || it.unitPriceSnapshot * it.quantity)}</span>
+                          </div>
+                          {itemOptions.length > 0 && (
+                            <div className="text-[10px] text-[#737373] pl-3 italic">
+                              + {itemOptions.map((opt: any) => typeof opt === 'string' ? opt : (opt.optionNameSnapshot || opt.name)).join(', ')}
+                            </div>
+                          )}
+                          {it.notes && (
+                            <div className="text-[10px] text-[#737373] pl-3 italic">
+                              Catatan: &quot;{it.notes}&quot;
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 ))
               ) : (

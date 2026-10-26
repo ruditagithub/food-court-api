@@ -44,7 +44,14 @@ export function VoucherPickerModal({
     setErrorMsg(null)
     setIsLoading(true)
 
-    apiFetch<{ data: Discount[] }>(`/api/discounts/public?foodCourtId=${foodCourtId}`)
+    const tenantIds = Array.from(
+      new Set(cartItems.map((ci) => ci.tenantId).filter(Boolean))
+    )
+    const tenantQuery = tenantIds.length > 0 ? `&tenantId=${encodeURIComponent(tenantIds.join(','))}` : ''
+
+    apiFetch<{ data: Discount[] }>(
+      `/api/discounts/public?foodCourtId=${encodeURIComponent(foodCourtId)}${tenantQuery}`
+    )
       .then((res) => {
         setPublicVouchers(res.data || [])
       })
@@ -55,7 +62,7 @@ export function VoucherPickerModal({
       .finally(() => {
         setIsLoading(false)
       })
-  }, [isOpen, foodCourtId])
+  }, [isOpen, foodCourtId, cartItems])
 
   // Execute validation
   const executeValidate = async (params: { discountCode?: string; discountId?: string }) => {

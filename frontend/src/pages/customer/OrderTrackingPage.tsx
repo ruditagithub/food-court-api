@@ -425,25 +425,45 @@ export function OrderTrackingPage() {
                     {/* Stall Items */}
                     {stall.items && stall.items.length > 0 && (
                       <div className="pt-2 border-t border-[#e5e5e5] space-y-2 text-xs">
-                        {stall.items.map((it: any, iIdx: number) => (
-                          <div key={iIdx} className="space-y-0.5">
-                            <div className="flex justify-between text-xs">
-                              <span className="text-[#0a0a0a] font-medium">
-                                {it.quantity}x {it.name || it.menuNameSnapshot}
-                              </span>
-                              {it.options && it.options.length > 0 && (
-                                <span className="text-[#737373] text-[11px]">
-                                  ({it.options.join(', ')})
+                        {stall.items.map((it: any, iIdx: number) => {
+                          const itemOptions = it.options || it.orderItemOptions || []
+                          return (
+                            <div key={iIdx} className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-[#0a0a0a] font-medium">
+                                  {it.quantity}x {it.name || it.menuNameSnapshot}
                                 </span>
+                                {(it.unitPrice || it.subtotal) && (
+                                  <span className="font-mono text-[#737373] text-[11px]">
+                                    {formatRupiah(it.subtotal || it.unitPrice * it.quantity)}
+                                  </span>
+                                )}
+                              </div>
+                              {itemOptions.length > 0 && (
+                                <div className="flex flex-wrap gap-1 pl-4">
+                                  {itemOptions.map((opt: any, oIdx: number) => {
+                                    const optName = typeof opt === 'string' ? opt : (opt.optionNameSnapshot || opt.name)
+                                    const optAdj = typeof opt === 'object' ? (opt.priceAdjustmentSnapshot || opt.priceAdjustment) : undefined
+                                    return (
+                                      <span
+                                        key={oIdx}
+                                        className="inline-block text-[10px] font-medium bg-[#f5f5f5] text-[#0a0a0a] px-1.5 py-0.5 rounded-[6px] border border-[#e5e5e5]"
+                                      >
+                                        {optName}
+                                        {optAdj && optAdj > 0 ? ` (+${formatRupiah(optAdj)})` : ''}
+                                      </span>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                              {it.notes && (
+                                <p className="text-[11px] text-[#737373] italic pl-4">
+                                  Catatan: &quot;{it.notes}&quot;
+                                </p>
                               )}
                             </div>
-                            {it.notes && (
-                              <p className="text-[11px] text-[#737373] italic pl-4">
-                                Catatan: &quot;{it.notes}&quot;
-                              </p>
-                            )}
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     )}
                   </Card>

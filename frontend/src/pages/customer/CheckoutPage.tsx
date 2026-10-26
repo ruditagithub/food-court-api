@@ -120,16 +120,28 @@ export function CheckoutPage() {
       .reduce((sum, ci) => sum + ci.quantity, 0)
   }
 
+  const getOptKey = (item: CartItem) => {
+    return (item.selectedOptions || item.optionIds?.map((id) => ({ id })) || [])
+      .map((o: any) => o.id || o)
+      .sort()
+      .join(',')
+  }
+
+  const isSameItem = (a: CartItem, b: CartItem) => {
+    return (
+      a.menuId === b.menuId &&
+      (a.notes || '') === (b.notes || '') &&
+      getOptKey(a) === getOptKey(b)
+    )
+  }
+
   // Adjust item quantity with stock cap
-  const handleQuantityChange = (menuId: string, notesVal: string | undefined, delta: number) => {
+  const handleQuantityChange = (targetItem: CartItem, delta: number) => {
     if (delta > 0) {
-      const target = cartItems.find(
-        (it) => it.menuId === menuId && (it.notes || '') === (notesVal || '')
-      )
-      if (target && typeof target.stock === 'number') {
-        const totalForMenu = getTotalMenuQty(menuId)
-        if (totalForMenu + delta > target.stock) {
-          toastError('Batas Stok Tercapai', `Stok tersisa untuk ${target.name} hanya ${target.stock} porsi.`)
+      if (typeof targetItem.stock === 'number') {
+        const totalForMenu = getTotalMenuQty(targetItem.menuId)
+        if (totalForMenu + delta > targetItem.stock) {
+          toastError('Batas Stok Tercapai', `Stok tersisa untuk ${targetItem.name} hanya ${targetItem.stock} porsi.`)
           return
         }
       }
@@ -137,7 +149,7 @@ export function CheckoutPage() {
 
     const updated = cartItems
       .map((it) => {
-        if (it.menuId === menuId && (it.notes || '') === (notesVal || '')) {
+        if (isSameItem(it, targetItem)) {
           const newQty = it.quantity + delta
           return newQty > 0 ? { ...it, quantity: newQty } : null
         }
@@ -149,10 +161,10 @@ export function CheckoutPage() {
   }
 
   // Update note for a specific item in cart
-  const handleItemNoteChange = (menuId: string, oldNote: string | undefined, newNote: string) => {
+  const handleItemNoteChange = (targetItem: CartItem, newNote: string) => {
     let updatedOnce = false
     const updated = cartItems.map((it) => {
-      if (!updatedOnce && it.menuId === menuId && (it.notes || '') === (oldNote || '')) {
+      if (!updatedOnce && isSameItem(it, targetItem)) {
         updatedOnce = true
         return { ...it, notes: newNote }
       }
@@ -162,16 +174,13 @@ export function CheckoutPage() {
   }
 
   // Split an item with quantity > 1 into individual 1-portion items so each portion can have a distinct note
-  const handleSplitItemPortion = (menuId: string, currentNote: string | undefined) => {
-    const target = cartItems.find(
-      (it) => it.menuId === menuId && (it.notes || '') === (currentNote || '')
-    )
-    if (!target || target.quantity <= 1) return
+  const handleSplitItemPortion = (targetItem: CartItem) => {
+    if (targetItem.quantity <= 1) return
 
     const expanded: CartItem[] = []
     let replaced = false
     cartItems.forEach((it) => {
-      if (!replaced && it.menuId === menuId && (it.notes || '') === (currentNote || '')) {
+      if (!replaced && isSameItem(it, targetItem)) {
         replaced = true
         for (let i = 0; i < it.quantity; i++) {
           expanded.push({
@@ -185,14 +194,12 @@ export function CheckoutPage() {
       }
     })
     updateCart(expanded)
-    toastSuccess('Porsi Dipisah', `${target.name} dipisah menjadi porsi individual untuk catatan berbeda.`)
+    toastSuccess('Porsi Dipisah', `${targetItem.name} dipisah menjadi porsi individual untuk catatan berbeda.`)
   }
 
   // Remove item
-  const handleRemoveItem = (menuId: string, notesVal: string | undefined) => {
-    const updated = cartItems.filter(
-      (it) => !(it.menuId === menuId && (it.notes || '') === (notesVal || ''))
-    )
+  const handleRemoveItem = (targetItem: CartItem) => {
+    const updated = cartItems.filter((it) => !isSameItem(it, targetItem))
     updateCart(updated)
   }
 
@@ -210,7 +217,7 @@ export function CheckoutPage() {
         items: cartItems.map((ci) => ({
           menuId: ci.menuId,
           quantity: ci.quantity,
-          optionIds: ci.selectedOptions?.map((o: any) => o.id) || undefined,
+          optionIds: ci.selectedOptions?.map((o: any) => o.id) || ci.optionIds || undefined,
         })),
       },
     })
@@ -271,6 +278,7 @@ export function CheckoutPage() {
           quantity: ci.quantity,
           notes: ci.notes?.trim() || undefined,
           specialInstructions: ci.notes?.trim() || undefined,
+          optionIds: ci.selectedOptions?.map((o) => o.id) || ci.optionIds || undefined,
         })),
       }
 
@@ -410,6 +418,23 @@ export function CheckoutPage() {
                                   <p className="font-bold text-xs sm:text-sm text-[#0a0a0a]">
                                     {it.name}
                                   </p>
+                                  {it.selectedOptions && it.selectedOptions.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1 mb-0.5">
+                                      {it.selectedOptions.map((opt, oIdx) => (
+                                        <span
+                                          key={opt.id || oIdx}
+                                          className="text-[10px] font-medium bg-[#f5f5f5] text-[#0a0a0a] px-1.5 py-0.5 rounded-[8px] border border-[#e5e5e5]"
+                                        >
+                                          {opt.name}
+                                          {opt.priceAdjustment > 0 && (
+                                            <span className="text-[#737373] ml-1">
+                                              (+{formatRupiah(opt.priceAdjustment)})
+                                            </span>
+                                          )}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
                                   <p className="font-mono text-xs font-semibold text-[#0a0a0a] mt-0.5">
                                     {formatRupiah(it.price)}{' '}
                                     <span className="text-[10px] text-[#737373] font-normal">/ porsi</span>
@@ -421,7 +446,7 @@ export function CheckoutPage() {
                                   <div className="flex items-center gap-1.5 bg-[#f5f5f5] p-1 rounded-[14px] border border-[#e5e5e5]">
                                     <button
                                       type="button"
-                                      onClick={() => handleQuantityChange(it.menuId, it.notes, -1)}
+                                      onClick={() => handleQuantityChange(it, -1)}
                                       className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[#0a0a0a] hover:bg-[#e5e5e5] transition-colors cursor-pointer"
                                     >
                                       <Icons.Minus className="w-3 h-3" />
@@ -431,7 +456,7 @@ export function CheckoutPage() {
                                     </span>
                                     <button
                                       type="button"
-                                      onClick={() => handleQuantityChange(it.menuId, it.notes, 1)}
+                                      onClick={() => handleQuantityChange(it, 1)}
                                       className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[#0a0a0a] hover:bg-[#e5e5e5] transition-colors cursor-pointer"
                                     >
                                       <Icons.Plus className="w-3 h-3" />
@@ -444,7 +469,7 @@ export function CheckoutPage() {
                                     </span>
                                     <button
                                       type="button"
-                                      onClick={() => handleRemoveItem(it.menuId, it.notes)}
+                                      onClick={() => handleRemoveItem(it)}
                                       className="text-[#dc2626] hover:text-[#991b1b] p-1 cursor-pointer transition-colors"
                                       title="Hapus sajian"
                                     >
@@ -464,7 +489,7 @@ export function CheckoutPage() {
                                   {it.quantity > 1 && (
                                     <button
                                       type="button"
-                                      onClick={() => handleSplitItemPortion(it.menuId, it.notes)}
+                                      onClick={() => handleSplitItemPortion(it)}
                                       className="text-[10px] font-semibold text-[#0a0a0a] bg-[#f5f5f5] hover:bg-[#e5e5e5] px-2 py-0.5 rounded-[10px] border border-[#e5e5e5] transition-colors cursor-pointer"
                                     >
                                       Pisah {it.quantity} Porsi (Beda Catatan)
@@ -474,7 +499,7 @@ export function CheckoutPage() {
                                 <input
                                   type="text"
                                   value={it.notes || ''}
-                                  onChange={(e) => handleItemNoteChange(it.menuId, it.notes, e.target.value)}
+                                  onChange={(e) => handleItemNoteChange(it, e.target.value)}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') e.preventDefault()
                                   }}

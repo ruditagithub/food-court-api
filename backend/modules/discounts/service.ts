@@ -197,17 +197,30 @@ export class DiscountService {
     ];
 
     if (tenantId) {
-      conditions.push(
-        or(isNull(discounts.tenantId), eq(discounts.tenantId, tenantId))!,
-      );
-    } else {
-      conditions.push(isNull(discounts.tenantId));
+      const tenantIds = tenantId
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+
+      if (tenantIds.length === 1) {
+        conditions.push(
+          or(isNull(discounts.tenantId), eq(discounts.tenantId, tenantIds[0]))!,
+        );
+      } else if (tenantIds.length > 1) {
+        conditions.push(
+          or(isNull(discounts.tenantId), inArray(discounts.tenantId, tenantIds))!,
+        );
+      }
     }
 
-    return await db.query.discounts.findMany({
+    return (await db.query.discounts.findMany({
       where: and(...conditions),
+      with: {
+        tenant: true,
+        foodCourt: true,
+      },
       orderBy: [desc(discounts.createdAt)],
-    });
+    })) as unknown as Discount[];
   }
 
   /**
@@ -360,10 +373,14 @@ export class DiscountService {
       conditions.push(sql`LOWER(${discounts.name}) LIKE LOWER(${`%${query.search}%`})`);
     }
 
-    return await db.query.discounts.findMany({
+    return (await db.query.discounts.findMany({
       where: conditions.length > 0 ? and(...conditions) : undefined,
+      with: {
+        tenant: true,
+        foodCourt: true,
+      },
       orderBy: [desc(discounts.createdAt)],
-    });
+    })) as unknown as Discount[];
   }
 
   /**
@@ -372,11 +389,15 @@ export class DiscountService {
   async getDiscountById(id: string): Promise<Discount> {
     const discount = await db.query.discounts.findFirst({
       where: eq(discounts.id, id),
+      with: {
+        tenant: true,
+        foodCourt: true,
+      },
     });
     if (!discount) {
       throw new NotFoundError("Voucher promo tidak ditemukan");
     }
-    return discount;
+    return discount as unknown as Discount;
   }
 
   /**

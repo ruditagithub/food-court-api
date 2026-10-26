@@ -12,6 +12,8 @@ import {
   Settings,
   HelpCircle,
   LogOut,
+  Wallet,
+  Sparkles,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
@@ -57,6 +59,18 @@ export function SuperAdminRailAside() {
           isActive:
             location.pathname.startsWith('/app/admin/orders') ||
             location.pathname.startsWith('/app/tenant/orders'),
+        },
+        {
+          to: '/app/tenant/wallet',
+          label: 'Dompet & Saldo Stan',
+          icon: Wallet,
+          isActive: location.pathname.startsWith('/app/tenant/wallet'),
+        },
+        {
+          to: '/app/tenant/discounts',
+          label: 'Promo & Diskon Stan',
+          icon: Sparkles,
+          isActive: location.pathname.startsWith('/app/tenant/discounts'),
         },
         {
           to: '/app/tenant/profile',
@@ -119,6 +133,18 @@ export function SuperAdminRailAside() {
           isActive: location.pathname.startsWith('/app/admin/payments'),
         },
         {
+          to: '/app/admin/withdrawals',
+          label: 'Pencairan Dana Tenant',
+          icon: Wallet,
+          isActive: location.pathname.startsWith('/app/admin/withdrawals'),
+        },
+        {
+          to: '/app/admin/discounts',
+          label: 'Promo & Diskon Cabang',
+          icon: Sparkles,
+          isActive: location.pathname.startsWith('/app/admin/discounts'),
+        },
+        {
           to: '/app/admin/tables',
           label: 'Manajemen Meja QR Cabang',
           icon: Layers,
@@ -176,6 +202,18 @@ export function SuperAdminRailAside() {
           label: 'Rekap Pembayaran & Gateway',
           icon: FileText,
           isActive: location.pathname.startsWith('/app/admin/payments'),
+        },
+        {
+          to: '/app/admin/withdrawals',
+          label: 'Pencairan Dana Tenant',
+          icon: Wallet,
+          isActive: location.pathname.startsWith('/app/admin/withdrawals'),
+        },
+        {
+          to: '/app/super-admin/discounts',
+          label: 'Promo & Diskon Global',
+          icon: Sparkles,
+          isActive: location.pathname.startsWith('/app/super-admin/discounts'),
         },
         {
           to: '/app/admin/tables',

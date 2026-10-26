@@ -8,8 +8,10 @@ import {
   CreateCategoryDTO,
   UpdateCategoryDTO,
   CreateMenuDTO,
+  CreateMenuOptionDTO,
   MenuQueryDTO,
   UpdateMenuDTO,
+  UpdateMenuOptionDTO,
 } from "./model";
 import { menuService } from "./service";
 
@@ -171,6 +173,122 @@ export const menusController = new Elysia({ prefix: "/api/menus" })
       detail: {
         tags: ["Menus"],
         summary: "Delete a menu category by id (Tenant owner or Admin)",
+      },
+    },
+  )
+  .get(
+    "/:id/options",
+    async ({ params: { id } }) => {
+      const data = await menuService.getOptionsByMenu(id);
+      return { data };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      detail: {
+        tags: ["Menus"],
+        summary: "Get all options for a specific menu item",
+      },
+    },
+  )
+  .post(
+    "/:id/options",
+    async ({ params: { id }, body, user, set }) => {
+      requireRoles(user, ["admin", "tenant", "admin-food-court"]);
+      const option = await menuService.addOption(id, body, user);
+      set.status = 201;
+      return {
+        message: "Menu option created successfully",
+        data: option,
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: CreateMenuOptionDTO,
+      detail: {
+        tags: ["Menus"],
+        summary: "Add a new option to a menu item (Tenant owner or Admin)",
+      },
+    },
+  )
+  .put(
+    "/options/:id",
+    async ({ params: { id }, body, user }) => {
+      requireRoles(user, ["admin", "tenant", "admin-food-court"]);
+      const updated = await menuService.updateOption(id, body, user);
+      return {
+        message: "Menu option updated successfully",
+        data: updated,
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: UpdateMenuOptionDTO,
+      detail: {
+        tags: ["Menus"],
+        summary: "Update a menu option by option ID (Tenant owner or Admin)",
+      },
+    },
+  )
+  .put(
+    "/:id/options/:optionId",
+    async ({ params: { optionId }, body, user }) => {
+      requireRoles(user, ["admin", "tenant", "admin-food-court"]);
+      const updated = await menuService.updateOption(optionId, body, user);
+      return {
+        message: "Menu option updated successfully",
+        data: updated,
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+        optionId: t.String(),
+      }),
+      body: UpdateMenuOptionDTO,
+      detail: {
+        tags: ["Menus"],
+        summary: "Update a menu option by menuId and option ID",
+      },
+    },
+  )
+  .delete(
+    "/options/:id",
+    async ({ params: { id }, user }) => {
+      requireRoles(user, ["admin", "tenant", "admin-food-court"]);
+      const result = await menuService.deleteOption(id, user);
+      return result;
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      detail: {
+        tags: ["Menus"],
+        summary: "Delete a menu option by option ID (Tenant owner or Admin)",
+      },
+    },
+  )
+  .delete(
+    "/:id/options/:optionId",
+    async ({ params: { optionId }, user }) => {
+      requireRoles(user, ["admin", "tenant", "admin-food-court"]);
+      const result = await menuService.deleteOption(optionId, user);
+      return result;
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+        optionId: t.String(),
+      }),
+      detail: {
+        tags: ["Menus"],
+        summary: "Delete a menu option by menuId and option ID",
       },
     },
   )

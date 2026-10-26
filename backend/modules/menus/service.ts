@@ -6,8 +6,10 @@ import { categories, foodCourts, menuOptions, menus, tenants } from "../../db/sc
 import type {
   CreateCategoryDTOType,
   CreateMenuDTOType,
+  CreateMenuOptionDTOType,
   UpdateCategoryDTOType,
   UpdateMenuDTOType,
+  UpdateMenuOptionDTOType,
 } from "./model";
 
 export class MenuService {
@@ -562,6 +564,108 @@ export class MenuService {
         options: true,
       },
     });
+  }
+
+  // Sub-resource Menu Options management
+  async getOptionsByMenu(menuId: string) {
+    const menu = await db.query.menus.findFirst({
+      where: eq(menus.id, menuId),
+    });
+
+    if (!menu) {
+      throw new NotFoundError(`Menu item with id '${menuId}' not found`);
+    }
+
+    return db.query.menuOptions.findMany({
+      where: eq(menuOptions.menuId, menuId),
+    });
+  }
+
+  async addOption(
+    menuId: string,
+    data: CreateMenuOptionDTOType,
+    user: AuthUser,
+  ) {
+    const menu = await db.query.menus.findFirst({
+      where: eq(menus.id, menuId),
+    });
+
+    if (!menu) {
+      throw new NotFoundError(`Menu item with id '${menuId}' not found`);
+    }
+
+    await this.checkTenantOwnership(menu.tenantId, user);
+
+    const id = crypto.randomUUID();
+    const newOption = {
+      id,
+      menuId,
+      name: data.name.trim(),
+      priceAdjustment:
+        data.priceAdjustment !== undefined ? Number(data.priceAdjustment) : 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await db.insert(menuOptions).values(newOption);
+    return newOption;
+  }
+
+  async updateOption(
+    optionId: string,
+    data: UpdateMenuOptionDTOType,
+    user: AuthUser,
+  ) {
+    const existing = await db.query.menuOptions.findFirst({
+      where: eq(menuOptions.id, optionId),
+      with: {
+        menu: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundError(`Menu option with id '${optionId}' not found`);
+    }
+
+    await this.checkTenantOwnership(existing.menu.tenantId, user);
+
+    const updateData: Partial<typeof menuOptions.$inferInsert> = {
+      ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+      ...(data.priceAdjustment !== undefined
+        ? { priceAdjustment: Number(data.priceAdjustment) }
+        : {}),
+      updatedAt: new Date(),
+    };
+
+    await db
+      .update(menuOptions)
+      .set(updateData)
+      .where(eq(menuOptions.id, optionId));
+
+    return db.query.menuOptions.findFirst({
+      where: eq(menuOptions.id, optionId),
+    });
+  }
+
+  async deleteOption(optionId: string, user: AuthUser) {
+    const existing = await db.query.menuOptions.findFirst({
+      where: eq(menuOptions.id, optionId),
+      with: {
+        menu: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundError(`Menu option with id '${optionId}' not found`);
+    }
+
+    await this.checkTenantOwnership(existing.menu.tenantId, user);
+
+    await db.delete(menuOptions).where(eq(menuOptions.id, optionId));
+    return {
+      success: true,
+      message: `Menu option '${existing.name}' deleted successfully`,
+    };
   }
 }
 

@@ -502,6 +502,12 @@ export function OrderTrackingPage() {
                   <span>Subtotal Makanan:</span>
                   <span className="font-mono text-[#0a0a0a]">{formatRupiah(order.subtotal || order.totalAmount)}</span>
                 </div>
+                {order.discountAmount > 0 && (
+                  <div className="flex justify-between text-emerald-700 font-semibold">
+                    <span>Diskon Voucher ({order.discountCode || 'Promo'}):</span>
+                    <span className="font-mono font-bold">-{formatRupiah(order.discountAmount)}</span>
+                  </div>
+                )}
                 {(order.serviceFee > 0 || order.taxAmount > 0) && (
                   <>
                     <div className="flex justify-between text-[#737373]">

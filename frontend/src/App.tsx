@@ -29,6 +29,7 @@ import { CategoriesPage } from './pages/categories/CategoriesPage'
 import { CashierDashboardPage } from './pages/cashier/CashierDashboardPage'
 import { TenantWalletPage } from './pages/tenant/TenantWalletPage'
 import { AdminWithdrawalsPage } from './pages/admin/AdminWithdrawalsPage'
+import { DiscountsManagementPage } from './pages/dashboard/DiscountsManagementPage'
 
 function App() {
   const [loadingComplete, setLoadingComplete] = useState(false)
@@ -195,6 +196,32 @@ function App() {
           element={
             <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
               <AdminWithdrawalsPage />
+            </RoleGuard>
+          }
+        />
+
+        {/* Discounts & Promos */}
+        <Route
+          path="/app/super-admin/discounts"
+          element={
+            <RoleGuard allowedRoles={['admin']}>
+              <DiscountsManagementPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/app/admin/discounts"
+          element={
+            <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
+              <DiscountsManagementPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/app/tenant/discounts"
+          element={
+            <RoleGuard allowedRoles={['tenant']}>
+              <DiscountsManagementPage />
             </RoleGuard>
           }
         />

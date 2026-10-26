@@ -365,6 +365,13 @@ export class OrderService {
         const itemOptions = [];
 
         if (item.optionIds && item.optionIds.length > 0) {
+          const uniqueOptionIds = new Set(item.optionIds);
+          if (uniqueOptionIds.size !== item.optionIds.length) {
+            throw new BadRequestError(
+              `Duplicate option selected for menu '${menuItem.name}'`,
+            );
+          }
+
           for (const optId of item.optionIds) {
             const opt = optionMap.get(optId);
             if (!opt || opt.menuId !== menuItem.id) {
@@ -379,6 +386,12 @@ export class OrderService {
               priceAdjustment: opt.priceAdjustment,
             });
           }
+        }
+
+        if (unitPrice < 0) {
+          throw new BadRequestError(
+            `Effective unit price for '${menuItem.name}' cannot be negative`,
+          );
         }
 
         const itemSubtotal = unitPrice * item.quantity;

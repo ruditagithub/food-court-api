@@ -1,5 +1,5 @@
 import { and, eq, inArray, like, or } from "drizzle-orm";
-import { ForbiddenError, NotFoundError } from "../../common/errors";
+import { BadRequestError, ForbiddenError, NotFoundError } from "../../common/errors";
 import type { AuthUser } from "../../common/middlewares/auth";
 import { db } from "../../db";
 import { categories, foodCourts, menuOptions, menus, tenants } from "../../db/schema";
@@ -201,10 +201,14 @@ export class MenuService {
 
     if (data.options && data.options.length > 0) {
       for (const opt of data.options) {
+        const trimmedName = opt.name.trim();
+        if (!trimmedName) {
+          throw new BadRequestError("Option name cannot be empty");
+        }
         await db.insert(menuOptions).values({
           id: crypto.randomUUID(),
           menuId: id,
-          name: opt.name.trim(),
+          name: trimmedName,
           priceAdjustment:
             opt.priceAdjustment !== undefined
               ? Number(opt.priceAdjustment)
@@ -279,12 +283,16 @@ export class MenuService {
       const keepingIds: string[] = [];
 
       for (const opt of options) {
+        const trimmedName = opt.name.trim();
+        if (!trimmedName) {
+          throw new BadRequestError("Option name cannot be empty");
+        }
         if (opt.id && existingMap.has(opt.id)) {
           keepingIds.push(opt.id);
           await db
             .update(menuOptions)
             .set({
-              name: opt.name.trim(),
+              name: trimmedName,
               priceAdjustment:
                 opt.priceAdjustment !== undefined
                   ? Number(opt.priceAdjustment)
@@ -298,7 +306,7 @@ export class MenuService {
           await db.insert(menuOptions).values({
             id: newOptId,
             menuId: id,
-            name: opt.name.trim(),
+            name: trimmedName,
             priceAdjustment:
               opt.priceAdjustment !== undefined
                 ? Number(opt.priceAdjustment)
@@ -456,7 +464,11 @@ export class MenuService {
     return db.query.categories.findMany({
       where: whereClause,
       with: {
-        menus: true,
+        menus: {
+          with: {
+            options: true,
+          },
+        },
         tenant: {
           with: {
             foodCourt: true,
@@ -503,6 +515,9 @@ export class MenuService {
       with: {
         menus: {
           where: eq(menus.tenantId, tenant.id),
+          with: {
+            options: true,
+          },
         },
       },
     });
@@ -596,11 +611,16 @@ export class MenuService {
 
     await this.checkTenantOwnership(menu.tenantId, user);
 
+    const trimmedName = data.name.trim();
+    if (!trimmedName) {
+      throw new BadRequestError("Option name cannot be empty");
+    }
+
     const id = crypto.randomUUID();
     const newOption = {
       id,
       menuId,
-      name: data.name.trim(),
+      name: trimmedName,
       priceAdjustment:
         data.priceAdjustment !== undefined ? Number(data.priceAdjustment) : 0,
       createdAt: new Date(),
@@ -615,6 +635,7 @@ export class MenuService {
     optionId: string,
     data: UpdateMenuOptionDTOType,
     user: AuthUser,
+    expectedMenuId?: string,
   ) {
     const existing = await db.query.menuOptions.findFirst({
       where: eq(menuOptions.id, optionId),
@@ -627,10 +648,24 @@ export class MenuService {
       throw new NotFoundError(`Menu option with id '${optionId}' not found`);
     }
 
+    if (expectedMenuId && existing.menuId !== expectedMenuId) {
+      throw new NotFoundError(
+        `Menu option with id '${optionId}' not found for menu '${expectedMenuId}'`,
+      );
+    }
+
     await this.checkTenantOwnership(existing.menu.tenantId, user);
 
+    let trimmedName: string | undefined = undefined;
+    if (data.name !== undefined) {
+      trimmedName = data.name.trim();
+      if (!trimmedName) {
+        throw new BadRequestError("Option name cannot be empty");
+      }
+    }
+
     const updateData: Partial<typeof menuOptions.$inferInsert> = {
-      ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+      ...(trimmedName !== undefined ? { name: trimmedName } : {}),
       ...(data.priceAdjustment !== undefined
         ? { priceAdjustment: Number(data.priceAdjustment) }
         : {}),
@@ -647,7 +682,11 @@ export class MenuService {
     });
   }
 
-  async deleteOption(optionId: string, user: AuthUser) {
+  async deleteOption(
+    optionId: string,
+    user: AuthUser,
+    expectedMenuId?: string,
+  ) {
     const existing = await db.query.menuOptions.findFirst({
       where: eq(menuOptions.id, optionId),
       with: {
@@ -657,6 +696,12 @@ export class MenuService {
 
     if (!existing) {
       throw new NotFoundError(`Menu option with id '${optionId}' not found`);
+    }
+
+    if (expectedMenuId && existing.menuId !== expectedMenuId) {
+      throw new NotFoundError(
+        `Menu option with id '${optionId}' not found for menu '${expectedMenuId}'`,
+      );
     }
 
     await this.checkTenantOwnership(existing.menu.tenantId, user);

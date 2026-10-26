@@ -26,6 +26,8 @@ export interface CartItem {
   tenantName: string
   stallNumber?: string
   imageUrl?: string | null
+  selectedOptions?: Array<{ id: string; name: string; priceAdjustment: number }>
+  optionIds?: string[]
 }
 
 export function CustomerMenuPage() {

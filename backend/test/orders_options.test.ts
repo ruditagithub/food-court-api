@@ -162,4 +162,102 @@ describe("Order Creation with Menu Options", () => {
       }),
     ).rejects.toThrow(BadRequestError);
   });
+
+  it("should reject order with duplicate optionIds on the same item", async () => {
+    expect(
+      orderService.createOrder({
+        orderType: "TAKEAWAY",
+        customerName: "Duplicate Opt Customer",
+        items: [
+          {
+            menuId: menuAId,
+            quantity: 1,
+            optionIds: [optA1Id, optA1Id], // duplicate optionId
+          },
+        ],
+      }),
+    ).rejects.toThrow(BadRequestError);
+  });
+
+  it("should reject order if options price adjustments reduce effective unit price below zero", async () => {
+    // Create an option with large negative adjustment
+    const hugeDiscountOptId = crypto.randomUUID();
+    await db.insert(menuOptions).values({
+      id: hugeDiscountOptId,
+      menuId: menuAId,
+      name: "Extreme Discount Variant",
+      priceAdjustment: -30000, // base price is 25000 -> effective -5000
+    });
+
+    expect(
+      orderService.createOrder({
+        orderType: "TAKEAWAY",
+        customerName: "Negative Price Exploit",
+        items: [
+          {
+            menuId: menuAId,
+            quantity: 1,
+            optionIds: [hugeDiscountOptId],
+          },
+        ],
+      }),
+    ).rejects.toThrow(BadRequestError);
+
+    // Clean up extreme option
+    await db.delete(menuOptions).where(eq(menuOptions.id, hugeDiscountOptId));
+  });
+
+  it("should preserve orderItemOptions snapshots when parent menu item is deleted", async () => {
+    // 1. Create a dedicated menu with option
+    const tempMenuId = crypto.randomUUID();
+    await db.insert(menus).values({
+      id: tempMenuId,
+      tenantId,
+      name: "Menu To Delete",
+      price: 20000,
+      stock: 50,
+      isAvailable: true,
+      status: "AVAILABLE",
+    });
+
+    const tempOptId = crypto.randomUUID();
+    await db.insert(menuOptions).values({
+      id: tempOptId,
+      menuId: tempMenuId,
+      name: "Temp Topping",
+      priceAdjustment: 3000,
+    });
+
+    // 2. Order it
+    const order = await orderService.createOrder({
+      orderType: "TAKEAWAY",
+      customerName: "History Preservation Test",
+      items: [
+        {
+          menuId: tempMenuId,
+          quantity: 1,
+          optionIds: [tempOptId],
+        },
+      ],
+    });
+
+    const orderItemId = order.items[0].id;
+
+    // 3. Delete the parent menu item
+    await db.delete(menus).where(eq(menus.id, tempMenuId));
+
+    // 4. Verify menu_options was cascaded
+    const optInDb = await db.query.menuOptions.findFirst({
+      where: eq(menuOptions.id, tempOptId),
+    });
+    expect(optInDb).toBeUndefined();
+
+    // 5. Verify order_item_options snapshots are still preserved!
+    const snapshotsInDb = await db.query.orderItemOptions.findMany({
+      where: eq(orderItemOptions.orderItemId, orderItemId),
+    });
+    expect(snapshotsInDb.length).toBe(1);
+    expect(snapshotsInDb[0].optionNameSnapshot).toBe("Temp Topping");
+    expect(snapshotsInDb[0].priceAdjustmentSnapshot).toBe(3000);
+  });
 });

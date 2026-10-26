@@ -216,6 +216,8 @@ export interface CreateOrderRequest {
   customerName?: string
   notes?: string
   orderType?: 'DINE_IN' | 'TAKEAWAY'
+  discountCode?: string
+  discountId?: string
   items: {
     menuId: string
     quantity: number
@@ -233,6 +235,8 @@ export interface TrackOrderResponse {
   tableNumber: string
   sessionCode?: string
   createdAt: string
+  discountAmount?: number
+  discountCode?: string | null
   stalls: {
     tenantName: string
     stallNumber: string
@@ -252,4 +256,83 @@ export interface ProcessPaymentRequest {
   paymentMethod: string
   amount?: number
   provider?: string
+}
+
+export interface Discount {
+  id: string
+  foodCourtId: string
+  tenantId?: string | null
+  code?: string | null
+  name: string
+  description?: string | null
+  scope: 'FOOD_COURT' | 'TENANT'
+  type: 'PERCENTAGE' | 'FIXED_AMOUNT'
+  value: number
+  maxDiscountAmount?: number | null
+  minOrderAmount: number
+  isPublic: boolean
+  usageLimit?: number | null
+  usageCount: number
+  startDate: string
+  endDate: string
+  status: 'ACTIVE' | 'INACTIVE' | 'EXPIRED'
+  createdAt?: string
+  updatedAt?: string
+  foodCourt?: {
+    id: string
+    name: string
+  } | null
+  tenant?: {
+    id: string
+    name: string
+    stallNumber?: string
+  } | null
+}
+
+export interface DiscountCalculationResult {
+  valid: boolean
+  discount: Discount
+  qualifyingSubtotal: number
+  discountAmount: number
+  subtotal: number
+  discountedSubtotal: number
+  serviceFee: number
+  taxAmount: number
+  totalAmount: number
+  message?: string
+}
+
+export interface CreateDiscountInput {
+  foodCourtId: string
+  tenantId?: string | null
+  code?: string | null
+  name: string
+  description?: string | null
+  scope: 'FOOD_COURT' | 'TENANT'
+  type: 'PERCENTAGE' | 'FIXED_AMOUNT'
+  value: number
+  maxDiscountAmount?: number | null
+  minOrderAmount?: number
+  isPublic?: boolean
+  usageLimit?: number | null
+  startDate: string
+  endDate: string
+  status?: 'ACTIVE' | 'INACTIVE' | 'EXPIRED'
+}
+
+export interface UpdateDiscountInput {
+  name?: string
+  description?: string | null
+  scope?: 'FOOD_COURT' | 'TENANT'
+  tenantId?: string | null
+  code?: string | null
+  type?: 'PERCENTAGE' | 'FIXED_AMOUNT'
+  value?: number
+  maxDiscountAmount?: number | null
+  minOrderAmount?: number
+  isPublic?: boolean
+  usageLimit?: number | null
+  startDate?: string
+  endDate?: string
+  status?: 'ACTIVE' | 'INACTIVE' | 'EXPIRED'
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { app } from "../src";
+import { app } from "../index";
 
 describe("Health & Swagger Documentation", () => {
   it("should return health info at GET /", async () => {

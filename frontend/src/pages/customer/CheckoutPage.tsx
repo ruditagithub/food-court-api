@@ -10,6 +10,9 @@ import { Label } from '../../components/ui/Label'
 import { Badge } from '../../components/ui/Badge'
 import { Icons } from '../../components/ui/Icons'
 import { formatRupiah } from '../../lib/utils'
+import { Ticket, Tag, X } from 'lucide-react'
+import { VoucherPickerModal } from '../../components/customer/VoucherPickerModal'
+import type { DiscountCalculationResult } from '../../types'
 import type { CartItem } from './CustomerMenuPage'
 
 export function CheckoutPage() {
@@ -25,6 +28,10 @@ export function CheckoutPage() {
   const [customerName, setCustomerName] = useState(user?.name || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
+
+  // Discount voucher state
+  const [selectedDiscount, setSelectedDiscount] = useState<DiscountCalculationResult | null>(null)
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false)
 
   // Load active table and cart
   useEffect(() => {
@@ -189,7 +196,38 @@ export function CheckoutPage() {
     updateCart(updated)
   }
 
-  const totalAmount = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  // Re-validate applied discount when cart items change
+  useEffect(() => {
+    if (!selectedDiscount || cartItems.length === 0) return
+    const foodCourtId = activeTable?.foodCourtId
+    if (!foodCourtId) return
+
+    apiFetch<{ data: DiscountCalculationResult }>('/api/discounts/validate', {
+      method: 'POST',
+      body: {
+        foodCourtId,
+        discountId: selectedDiscount.discount.id,
+        items: cartItems.map((ci) => ({
+          menuId: ci.menuId,
+          quantity: ci.quantity,
+          optionIds: ci.selectedOptions?.map((o: any) => o.id) || undefined,
+        })),
+      },
+    })
+      .then((res) => {
+        if (res.data) {
+          setSelectedDiscount(res.data)
+        }
+      })
+      .catch(() => {
+        setSelectedDiscount(null)
+        toastError('Voucher Dilepas', 'Syarat minimal belanja atau ketentuan voucher tidak lagi terpenuhi.')
+      })
+  }, [cartItems, activeTable?.foodCourtId])
+
+  const subtotalAmount = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const discountAmount = selectedDiscount?.discountAmount || 0
+  const totalAmount = Math.max(0, subtotalAmount - discountAmount)
   const totalCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
 
   // Group by tenant
@@ -226,6 +264,8 @@ export function CheckoutPage() {
       const payload = {
         tableId: activeTable?.tableId || undefined,
         customerName: customerName.trim(),
+        discountCode: selectedDiscount?.discount?.code || undefined,
+        discountId: selectedDiscount?.discount?.id || undefined,
         items: cartItems.map((ci) => ({
           menuId: ci.menuId,
           quantity: ci.quantity,
@@ -492,6 +532,75 @@ export function CheckoutPage() {
                 </div>
               </Card>
 
+              {/* Voucher & Promo Card */}
+              <Card surface="paper" className="p-4 rounded-[24px] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-[12px] bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                      <Ticket className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-[#0a0a0a]">Voucher & Diskon</h4>
+                      <p className="text-[11px] text-[#737373]">
+                        {selectedDiscount
+                          ? 'Voucher aktif terpasang pada pesanan'
+                          : 'Hemat lebih banyak dengan voucher'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {!selectedDiscount && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsVoucherModalOpen(true)}
+                      className="text-xs font-bold rounded-[12px] h-8 px-3 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                    >
+                      Pilih Promo
+                    </Button>
+                  )}
+                </div>
+
+                {selectedDiscount && (
+                  <div className="p-3 rounded-[16px] bg-emerald-50/80 border border-emerald-200 flex items-center justify-between gap-2">
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                        <span className="text-xs font-bold text-emerald-950 truncate">
+                          {selectedDiscount.discount.name}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-emerald-800 font-mono font-bold">
+                        Hemat {formatRupiah(selectedDiscount.discountAmount)}
+                        {selectedDiscount.discount.code && ` (${selectedDiscount.discount.code})`}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setIsVoucherModalOpen(true)}
+                        className="text-xs font-semibold text-emerald-700 hover:underline px-2 py-1 cursor-pointer"
+                      >
+                        Ganti
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDiscount(null)
+                          toastSuccess('Voucher Dihapus', 'Potongan voucher telah dilepas dari pesanan.')
+                        }}
+                        className="text-[#737373] hover:text-rose-600 p-1 transition-colors cursor-pointer"
+                        title="Hapus Voucher"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </Card>
+
               {/* Bill Summary & Action Card */}
               <Card surface="paper" className="space-y-4 rounded-[24px]">
                 <h3 className="text-sm font-bold text-[#0a0a0a] pb-2 border-b border-[#e5e5e5]">
@@ -507,13 +616,23 @@ export function CheckoutPage() {
                     <span>Stan Dipesan:</span>
                     <span className="font-mono font-bold text-[#0a0a0a]">{Object.keys(groupedByTenant).length} Stan</span>
                   </div>
+                  <div className="flex justify-between text-[#737373]">
+                    <span>Subtotal Menu:</span>
+                    <span className="font-mono font-bold text-[#0a0a0a]">{formatRupiah(subtotalAmount)}</span>
+                  </div>
+                  {selectedDiscount && (
+                    <div className="flex justify-between text-emerald-700 font-semibold">
+                      <span>Potongan Diskon:</span>
+                      <span className="font-mono font-bold">-{formatRupiah(discountAmount)}</span>
+                    </div>
+                  )}
                   <div className="pt-2 border-t border-[#e5e5e5] flex items-center justify-between">
                     <div>
                       <span className="text-sm font-bold text-[#0a0a0a] block">
                         Total Tagihan Meja
                       </span>
                       <span className="text-[11px] text-[#737373]">
-                        Termasuk seluruh pesanan stan
+                        {selectedDiscount ? 'Setelah potongan voucher' : 'Termasuk seluruh pesanan stan'}
                       </span>
                     </div>
                     <span className="text-xl sm:text-2xl font-mono font-black text-[#0a0a0a]">
@@ -546,6 +665,19 @@ export function CheckoutPage() {
             </div>
           </div>
         </form>
+
+        {/* Voucher Picker Modal */}
+        <VoucherPickerModal
+          isOpen={isVoucherModalOpen}
+          onClose={() => setIsVoucherModalOpen(false)}
+          foodCourtId={activeTable?.foodCourtId || ''}
+          cartItems={cartItems}
+          onApplyDiscount={(res) => {
+            setSelectedDiscount(res)
+            toastSuccess('Voucher Diterapkan', `Hemat ${formatRupiah(res.discountAmount)} pada pesanan ini!`)
+          }}
+          appliedDiscountId={selectedDiscount?.discount?.id}
+        />
       </div>
     </div>
   )

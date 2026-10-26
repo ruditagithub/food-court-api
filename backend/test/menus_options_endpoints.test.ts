@@ -301,4 +301,77 @@ describe("Menu Options Sub-Resource Endpoints", () => {
     const body = await checkRes.json();
     expect(body.data.some((o: any) => o.id === optionId)).toBe(false);
   });
+
+  it("should reject PUT /:id/options/:optionId when option does not belong to specified menuId", async () => {
+    // 1. Create a valid option under menuId
+    const createRes = await app.handle(
+      new Request(`http://localhost/api/menus/${menuId}/options`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${ownerToken}`,
+        },
+        body: JSON.stringify({
+          name: "Sambal Matah",
+          priceAdjustment: 3000,
+        }),
+      }),
+    );
+    expect(createRes.status).toBe(201);
+    const createdOpt = (await createRes.json()).data;
+
+    // 2. Try to update using a completely different menuId
+    const fakeMenuId = crypto.randomUUID();
+    const wrongMenuRes = await app.handle(
+      new Request(`http://localhost/api/menus/${fakeMenuId}/options/${createdOpt.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${ownerToken}`,
+        },
+        body: JSON.stringify({
+          name: "Sambal Matah Super",
+        }),
+      }),
+    );
+    expect(wrongMenuRes.status).toBe(404);
+
+    // 3. Try to delete using a completely different menuId
+    const wrongDeleteRes = await app.handle(
+      new Request(`http://localhost/api/menus/${fakeMenuId}/options/${createdOpt.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${ownerToken}`,
+        },
+      }),
+    );
+    expect(wrongDeleteRes.status).toBe(404);
+
+    // Clean up with correct menuId
+    await app.handle(
+      new Request(`http://localhost/api/menus/${menuId}/options/${createdOpt.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${ownerToken}`,
+        },
+      }),
+    );
+  });
+
+  it("should reject POST /api/menus/:menuId/options with whitespace-only name", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/menus/${menuId}/options`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${ownerToken}`,
+        },
+        body: JSON.stringify({
+          name: "    ",
+          priceAdjustment: 1000,
+        }),
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
 });

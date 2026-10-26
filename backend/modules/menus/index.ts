@@ -237,9 +237,9 @@ export const menusController = new Elysia({ prefix: "/api/menus" })
   )
   .put(
     "/:id/options/:optionId",
-    async ({ params: { optionId }, body, user }) => {
+    async ({ params: { id, optionId }, body, user }) => {
       requireRoles(user, ["admin", "tenant", "admin-food-court"]);
-      const updated = await menuService.updateOption(optionId, body, user);
+      const updated = await menuService.updateOption(optionId, body, user, id);
       return {
         message: "Menu option updated successfully",
         data: updated,
@@ -276,9 +276,9 @@ export const menusController = new Elysia({ prefix: "/api/menus" })
   )
   .delete(
     "/:id/options/:optionId",
-    async ({ params: { optionId }, user }) => {
+    async ({ params: { id, optionId }, user }) => {
       requireRoles(user, ["admin", "tenant", "admin-food-court"]);
-      const result = await menuService.deleteOption(optionId, user);
+      const result = await menuService.deleteOption(optionId, user, id);
       return result;
     },
     {

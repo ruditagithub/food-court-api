@@ -19,7 +19,7 @@ import {
   paymentGroups,
   paymentGroupItems,
   payments,
-} from "../src/db/schema";
+} from "../db/schema";
 
 describe("Drizzle Schema Integrity Check", () => {
   it("harus mengekspor seluruh 19 tabel yang didefinisikan", () => {

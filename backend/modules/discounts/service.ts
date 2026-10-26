@@ -112,13 +112,14 @@ export class DiscountService {
       let itemUnitPrice = menu.price;
       if (item.optionIds && item.optionIds.length > 0) {
         const optionMap = new Map(menu.options.map((opt) => [opt.id, opt]));
-        for (const optId of item.optionIds) {
+        for (const optId of new Set(item.optionIds)) {
           const opt = optionMap.get(optId);
           if (opt) {
             itemUnitPrice += opt.priceAdjustment;
           }
         }
       }
+      itemUnitPrice = Math.max(0, itemUnitPrice);
 
       const lineTotal = itemUnitPrice * item.quantity;
       overallSubtotal += lineTotal;

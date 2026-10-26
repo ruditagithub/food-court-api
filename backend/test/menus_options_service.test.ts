@@ -193,4 +193,81 @@ describe("Menu Options Service Integration", () => {
     });
     expect(inDb.length).toBe(0);
   });
+
+  it("should reject creating or updating menu options with whitespace-only name", async () => {
+    // 1. In create
+    expect(
+      menuService.create(
+        {
+          tenantId,
+          name: "Sate Ayam",
+          price: 15000,
+          options: [{ name: "   ", priceAdjustment: 0 }],
+        },
+        tenantUser,
+      ),
+    ).rejects.toThrow();
+
+    // 2. In update
+    const menu = await menuService.create(
+      {
+        tenantId,
+        name: "Sate Kambing",
+        price: 25000,
+      },
+      tenantUser,
+    );
+
+    expect(
+      menuService.update(
+        menu.id,
+        {
+          options: [{ name: "   ", priceAdjustment: 1000 }],
+        },
+        tenantUser,
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("should eager-load options on menus when querying getCategoriesByTenant and getAllCategories", async () => {
+    // Create a category
+    const cat = await menuService.createCategory(
+      {
+        tenantId,
+        name: `Minuman ${Date.now()}`,
+      },
+      tenantUser,
+    );
+
+    // Create a menu with category and options
+    const createdMenu = await menuService.create(
+      {
+        tenantId,
+        categoryId: cat.id,
+        name: "Jus Alpukat",
+        price: 18000,
+        options: [{ name: "Ekstra Susu Cokelat", priceAdjustment: 2000 }],
+      },
+      tenantUser,
+    );
+
+    // Test getCategoriesByTenant
+    const tenantCats = await menuService.getCategoriesByTenant(tenantId, tenantUser);
+    const foundTenantCat = tenantCats.find((c) => c.id === cat.id);
+    expect(foundTenantCat).toBeDefined();
+    const foundMenuInCat = foundTenantCat?.menus.find((m: any) => m.id === createdMenu.id);
+    expect(foundMenuInCat).toBeDefined();
+    expect(foundMenuInCat?.options).toBeDefined();
+    expect(foundMenuInCat?.options.length).toBe(1);
+    expect(foundMenuInCat?.options[0].name).toBe("Ekstra Susu Cokelat");
+
+    // Test getAllCategories
+    const allCats = await menuService.getAllCategories(tenantId, tenantUser);
+    const foundAllCat = allCats.find((c) => c.id === cat.id);
+    expect(foundAllCat).toBeDefined();
+    const foundAllMenu = foundAllCat?.menus.find((m: any) => m.id === createdMenu.id);
+    expect(foundAllMenu).toBeDefined();
+    expect(foundAllMenu?.options).toBeDefined();
+    expect(foundAllMenu?.options.length).toBe(1);
+  });
 });

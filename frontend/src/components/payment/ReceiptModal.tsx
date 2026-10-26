@@ -265,6 +265,12 @@ export function ReceiptModal({ isOpen, onClose, orderId, orderNumber }: ReceiptM
                 <span>Subtotal Pesanan</span>
                 <span>{formatRupiah(orderData?.subtotal || effectiveTotal)}</span>
               </div>
+              {orderData?.discountAmount ? (
+                <div className="flex justify-between text-[11px] text-emerald-700 font-semibold">
+                  <span>Diskon Voucher ({orderData.discountCode || 'Promo'})</span>
+                  <span>-{formatRupiah(orderData.discountAmount)}</span>
+                </div>
+              ) : null}
               {orderData?.serviceFee ? (
                 <div className="flex justify-between text-[11px] text-[#737373]">
                   <span>Biaya Layanan (3%)</span>

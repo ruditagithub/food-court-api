@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import {
   BadRequestError,
   NotFoundError,
@@ -523,7 +523,24 @@ export class PaymentService {
 
     const trimmedQuery = rawQuery.trim();
     let clean = trimmedQuery;
-    if (clean.toUpperCase().startsWith("CSH-")) {
+
+    // Check if query is JSON string from QR/barcode scanner
+    if (clean.startsWith("{") && clean.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(clean);
+        if (parsed.orderNumber) {
+          clean = parsed.orderNumber;
+        } else if (parsed.code) {
+          clean = parsed.code;
+        }
+      } catch {
+        // ignore JSON parse error
+      }
+    }
+
+    if (clean.toUpperCase().startsWith("CSH-TK-")) {
+      clean = clean.slice(7).trim();
+    } else if (clean.toUpperCase().startsWith("CSH-")) {
       clean = clean.slice(4).trim();
     }
 
@@ -584,6 +601,39 @@ export class PaymentService {
         if (candidate) {
           pg = candidate as any;
           (pg as any).order = ord;
+        }
+      }
+    }
+
+    // 3b. Try matching by alphanumeric orderNumber (e.g. from CSH-TK-FC123456789)
+    if (!pg) {
+      const strippedTarget = clean.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      if (strippedTarget.length >= 6) {
+        const activeOrders = await db.query.orders.findMany({
+          where: inArray(orders.paymentStatus, ["PENDING", "PARTIALLY_PAID"]),
+          with: {
+            session: { with: { table: true, participants: true } },
+            paymentGroups: {
+              with: {
+                participant: true,
+                items: { with: { orderItem: true } },
+              },
+            },
+          },
+        });
+
+        const matchedOrd = activeOrders.find(
+          (o) => o.orderNumber.replace(/[^A-Za-z0-9]/g, "").toUpperCase() === strippedTarget
+        );
+
+        if (matchedOrd) {
+          const candidate =
+            matchedOrd.paymentGroups.find((g) => g.status !== "PAID") ??
+            matchedOrd.paymentGroups[0];
+          if (candidate) {
+            pg = candidate as any;
+            (pg as any).order = matchedOrd;
+          }
         }
       }
     }

@@ -57,8 +57,15 @@ export function KdsTicketCard({
             </span>
           </div>
 
-          <Badge variant="solid" className="font-mono text-xs">
-            {tableNumber ? `Meja ${tableNumber}` : 'Bawa Pulang'}
+          <Badge
+            variant={tableNumber ? 'solid' : 'soft'}
+            className={`font-mono text-xs ${
+              tableNumber
+                ? 'bg-[#0a0a0a] text-white'
+                : 'bg-amber-100 text-amber-900 font-extrabold border border-amber-300'
+            }`}
+          >
+            {tableNumber ? `Meja ${tableNumber}` : '🥡 [TAKEAWAY]'}
           </Badge>
         </div>
 

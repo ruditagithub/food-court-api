@@ -12,6 +12,7 @@ export const OrderItemInput = t.Object({
 export const CreateOrderDTO = t.Object({
   tableId: t.Optional(t.String()),
   sessionId: t.Optional(t.String()),
+  kioskId: t.Optional(t.String()),
   customerName: t.Optional(t.String({ minLength: 2, maxLength: 50 })),
   notes: t.Optional(t.String({ maxLength: 500 })),
   orderType: t.Optional(

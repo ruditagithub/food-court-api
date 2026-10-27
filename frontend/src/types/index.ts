@@ -361,3 +361,15 @@ export interface UpdateDiscountInput {
   endDate?: string
   status?: 'ACTIVE' | 'INACTIVE' | 'EXPIRED'
 }
+
+export interface Kiosk {
+  id: string
+  foodCourtId: string
+  kioskName: string
+  deviceCode: string
+  location?: string | null
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt: string
+  updatedAt: string
+  foodCourt?: FoodCourt
+}

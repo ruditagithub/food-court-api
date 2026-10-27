@@ -30,6 +30,8 @@ import { CashierDashboardPage } from './pages/cashier/CashierDashboardPage'
 import { TenantWalletPage } from './pages/tenant/TenantWalletPage'
 import { AdminWithdrawalsPage } from './pages/admin/AdminWithdrawalsPage'
 import { DiscountsManagementPage } from './pages/dashboard/DiscountsManagementPage'
+import { AdminKiosksPage } from './pages/admin/AdminKiosksPage'
+import { KioskTerminalPage } from './pages/kiosk/KioskTerminalPage'
 
 function App() {
   const [loadingComplete, setLoadingComplete] = useState(false)
@@ -127,12 +129,21 @@ function App() {
         />
         <Route path="/s/:qrToken" element={<CustomerMenuPage />} />
         <Route path="/scan/:qrToken" element={<TableScanResolverPage />} />
-        {/* Phase 5: Tables */}
+        <Route path="/kiosk/:deviceCode" element={<KioskTerminalPage />} />
+        {/* Phase 5: Tables & Kiosks */}
         <Route
           path="/app/admin/tables"
           element={
             <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
               <AdminTablesPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/app/admin/kiosks"
+          element={
+            <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
+              <AdminKiosksPage />
             </RoleGuard>
           }
         />

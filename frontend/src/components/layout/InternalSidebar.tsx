@@ -24,6 +24,7 @@ export function InternalSidebar({ onClose }: InternalSidebarProps) {
         { to: '/app/admin/withdrawals', label: 'Pencairan Dana Tenant', icon: Icons.CreditCard },
         { to: '/app/super-admin/discounts', label: 'Promo & Diskon Global', icon: Icons.Sparkles },
         { to: '/app/admin/tables', label: 'Manajemen Meja QR Global', icon: Icons.QrCode },
+        { to: '/app/admin/kiosks', label: 'Perangkat Kiosk Takeaway', icon: Icons.Monitor },
         { to: '/app/profile', label: 'Pengaturan Akun Super Admin', icon: Icons.User },
       ]
     }
@@ -37,6 +38,7 @@ export function InternalSidebar({ onClose }: InternalSidebarProps) {
         { to: '/app/super-admin/menus', label: 'Katalog Menu Cabang', icon: Icons.Utensils },
         { to: '/app/categories', label: 'Kategori Menu Cabang', icon: Icons.Layers },
         { to: '/app/admin/tables', label: 'Manajemen Meja', icon: Icons.QrCode },
+        { to: '/app/admin/kiosks', label: 'Perangkat Kiosk', icon: Icons.Monitor },
         { to: '/app/admin/orders', label: 'Monitoring Pesanan', icon: Icons.ShoppingBag },
         { to: '/app/admin/payments', label: 'Log Transaksi', icon: Icons.CreditCard },
         { to: '/app/admin/withdrawals', label: 'Pencairan Dana Tenant', icon: Icons.CreditCard },

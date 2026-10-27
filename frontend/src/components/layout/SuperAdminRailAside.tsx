@@ -14,6 +14,7 @@ import {
   LogOut,
   Wallet,
   Sparkles,
+  Monitor,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
@@ -151,6 +152,12 @@ export function SuperAdminRailAside() {
           isActive: location.pathname.startsWith('/app/admin/tables'),
         },
         {
+          to: '/app/admin/kiosks',
+          label: 'Perangkat Kiosk Takeaway',
+          icon: Monitor,
+          isActive: location.pathname.startsWith('/app/admin/kiosks'),
+        },
+        {
           to: '/app/profile',
           label: 'Pengaturan Akun Manajer',
           icon: Settings,
@@ -220,6 +227,12 @@ export function SuperAdminRailAside() {
           label: 'Manajemen Meja QR Global',
           icon: Layers,
           isActive: location.pathname.startsWith('/app/admin/tables'),
+        },
+        {
+          to: '/app/admin/kiosks',
+          label: 'Perangkat Kiosk Global',
+          icon: Monitor,
+          isActive: location.pathname.startsWith('/app/admin/kiosks'),
         },
         {
           to: '/app/profile',

@@ -39,7 +39,11 @@ import {
   Lock,
   Camera,
   SwitchCamera,
+  Monitor,
+  Banknote,
 } from 'lucide-react'
+
+export const IconBanknote = Banknote
 
 // Standalone icon exports for backwards compatibility
 export const IconArrowLeft = ArrowLeft
@@ -118,4 +122,6 @@ export const Icons = {
   Lock: Lock,
   Camera: Camera,
   SwitchCamera: SwitchCamera,
+  Monitor: Monitor,
+  Banknote: IconBanknote,
 }

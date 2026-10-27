@@ -10,6 +10,7 @@ import {
   diningSessions,
   discounts,
   foodCourts,
+  kiosks,
   kitchenQueues,
   menuOptions,
   menus,
@@ -222,6 +223,41 @@ export class OrderService {
           joinedAt: new Date(),
         });
       }
+    } else if (data.kioskId) {
+      const kioskRecord = await db.query.kiosks.findFirst({
+        where: eq(kiosks.id, data.kioskId),
+      });
+      if (!kioskRecord) {
+        throw new NotFoundError(`Kiosk '${data.kioskId}' not found`);
+      }
+      if (kioskRecord.status === "INACTIVE") {
+        throw new BadRequestError(
+          `Perangkat Kiosk '${kioskRecord.kioskName}' sedang tidak aktif`,
+        );
+      }
+
+      targetFoodCourtId = kioskRecord.foodCourtId;
+      sessionId = crypto.randomUUID();
+      const sessionCode = `KSK-${Date.now().toString().slice(-6)}-${Math.floor(10 + Math.random() * 90)}`;
+
+      await db.insert(diningSessions).values({
+        id: sessionId,
+        foodCourtId: kioskRecord.foodCourtId,
+        kioskId: kioskRecord.id,
+        sessionCode,
+        orderType: "TAKEAWAY",
+        status: "ACTIVE",
+        startedAt: new Date(),
+      });
+
+      await db.insert(sessionParticipants).values({
+        id: crypto.randomUUID(),
+        sessionId,
+        userId: currentUser?.id ?? null,
+        name: data.customerName ?? (currentUser ? currentUser.name : "Guest"),
+        isHost: true,
+        joinedAt: new Date(),
+      });
     } else {
       // Direct takeaway without table
       const defaultCourtId = await this.getOrCreateDefaultFoodCourt();

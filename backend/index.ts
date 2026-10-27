@@ -14,6 +14,7 @@ import { foodCourtsController } from "./modules/food-courts";
 import { foodCourtService } from "./modules/food-courts/service";
 import { uploadController } from "./modules/upload";
 import { discountsController } from "./modules/discounts";
+import { kiosksController } from "./modules/kiosks";
 
 export const app = new Elysia()
   .use(cors())
@@ -128,6 +129,7 @@ export const app = new Elysia()
   .use(foodCourtsController)
   .use(uploadController)
   .use(discountsController)
+  .use(kiosksController)
   .use(
     new Elysia({ prefix: "/api/food-court" })
       .use(authPlugin)

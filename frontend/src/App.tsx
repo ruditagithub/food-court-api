@@ -32,6 +32,9 @@ import { AdminWithdrawalsPage } from './pages/admin/AdminWithdrawalsPage'
 import { DiscountsManagementPage } from './pages/dashboard/DiscountsManagementPage'
 import { AdminKiosksPage } from './pages/admin/AdminKiosksPage'
 import { KioskTerminalPage } from './pages/kiosk/KioskTerminalPage'
+import { AdminFoodCourtWalletPage } from './pages/admin/AdminFoodCourtWalletPage'
+import { SuperAdminWithdrawalsPage } from './pages/superadmin/SuperAdminWithdrawalsPage'
+import { PlatformRevenuePage } from './pages/superadmin/PlatformRevenuePage'
 
 function App() {
   const [loadingComplete, setLoadingComplete] = useState(false)
@@ -203,10 +206,34 @@ function App() {
           }
         />
         <Route
+          path="/app/admin/wallet"
+          element={
+            <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
+              <AdminFoodCourtWalletPage />
+            </RoleGuard>
+          }
+        />
+        <Route
           path="/app/admin/withdrawals"
           element={
             <RoleGuard allowedRoles={['admin-food-court', 'admin']}>
               <AdminWithdrawalsPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/app/super-admin/withdrawals"
+          element={
+            <RoleGuard allowedRoles={['admin']}>
+              <SuperAdminWithdrawalsPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/app/super-admin/platform-revenue"
+          element={
+            <RoleGuard allowedRoles={['admin']}>
+              <PlatformRevenuePage />
             </RoleGuard>
           }
         />

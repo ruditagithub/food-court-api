@@ -45,7 +45,7 @@ export function AdminWithdrawalsPage() {
     try {
       await apiFetch(`/api/admin/withdrawals/${id}/process`, {
         method: 'PATCH',
-        body: JSON.stringify(data),
+        body: data,
       })
       toastSuccess('Pencairan dana berhasil diproses & bukti tersimpan')
       fetchWithdrawals()
@@ -58,7 +58,7 @@ export function AdminWithdrawalsPage() {
     try {
       await apiFetch(`/api/admin/withdrawals/${id}/reject`, {
         method: 'PATCH',
-        body: JSON.stringify({ reason }),
+        body: { reason },
       })
       toastSuccess('Pengajuan berhasil ditolak dan saldo dikembalikan ke tenant')
       fetchWithdrawals()

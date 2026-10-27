@@ -27,7 +27,8 @@ export async function apiFetch<T>(
     token?: string
   } = {}
 ): Promise<T> {
-  const { method = 'GET', body, token } = options
+  const { method = 'GET', body } = options
+  const token = options.token ?? getToken() ?? undefined
 
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -42,7 +43,7 @@ export async function apiFetch<T>(
   const response = await fetch(url, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: typeof body === 'string' ? body : body ? JSON.stringify(body) : undefined,
   })
 
   const data = await response.json()
@@ -63,9 +64,10 @@ export async function apiUpload<T = { url: string; filename: string; size: numbe
   formData: FormData,
   token?: string
 ): Promise<{ message: string; data: T }> {
+  const authToken = token ?? getToken() ?? undefined
   const headers: HeadersInit = {}
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
   }
 
   const url = `${API_BASE_URL}/api/upload`

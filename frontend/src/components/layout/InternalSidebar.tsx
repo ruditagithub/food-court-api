@@ -15,6 +15,8 @@ export function InternalSidebar({ onClose }: InternalSidebarProps) {
     if (user.role === 'admin') {
       return [
         { to: '/app/dashboard', label: 'Ringkasan Dashboard', icon: Icons.Building },
+        { to: '/app/super-admin/platform-revenue', label: 'Pendapatan Fee Platform (1%)', icon: Icons.Sparkles },
+        { to: '/app/super-admin/withdrawals', label: 'Pencairan Cabang Food Court', icon: Icons.CreditCard },
         { to: '/app/super-admin/food-courts', label: 'Master Cabang Food Court', icon: Icons.Building },
         { to: '/app/super-admin/tenants', label: 'Master Stan Tenant', icon: Icons.Store },
         { to: '/app/super-admin/menus', label: 'Katalog Menu Global', icon: Icons.Utensils },
@@ -32,6 +34,7 @@ export function InternalSidebar({ onClose }: InternalSidebarProps) {
     if (user.role === 'admin-food-court') {
       return [
         { to: '/app/dashboard', label: 'Dashboard Utama', icon: Icons.Building },
+        { to: '/app/admin/wallet', label: 'Dompet Cabang', icon: Icons.CreditCard },
         { to: '/app/cashier', label: 'Kasir POS', icon: Icons.CreditCard },
         { to: '/app/admin/food-court', label: 'Profil Cabang', icon: Icons.Building },
         { to: '/app/admin/tenants', label: 'Stan Tenant', icon: Icons.Store },

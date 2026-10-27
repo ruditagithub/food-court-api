@@ -67,7 +67,7 @@ export function TenantWalletPage() {
     try {
       await apiFetch('/api/tenants/withdrawals', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: data,
       })
       toastSuccess('Pengajuan penarikan dana berhasil dikirim')
       fetchData()

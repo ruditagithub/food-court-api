@@ -13,7 +13,6 @@ import {
   Search,
   ArrowRightLeft,
   Wallet,
-  ShoppingBag,
   SlidersHorizontal,
   MoreVertical,
   TrendingUp,
@@ -27,16 +26,21 @@ import {
   Building,
   Banknote,
   ArrowUpRight,
+  Clock,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { apiFetch, getToken } from '../../api/client'
 import { formatRupiah, formatDate } from '../../lib/utils'
 import { SuperAdminRailAside } from '../../components/layout/SuperAdminRailAside'
 import { SuperAdminHeader } from '../../components/layout/SuperAdminHeader'
+import { WithdrawalModal } from '../../components/tenant/WithdrawalModal'
+import { ProcessWithdrawalModal } from '../../components/admin/ProcessWithdrawalModal'
+import { useToast } from '../../components/ui/Toast'
 
 export function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { success: toastSuccess, error: toastError } = useToast()
   const isFoodCourtManager = user?.role === 'admin-food-court'
   const isTenant = user?.role === 'tenant'
 
@@ -50,69 +54,186 @@ export function DashboardPage() {
   const [tenantMenus, setTenantMenus] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  // Tenant Wallet & Withdrawal States
+  const [walletSummary, setWalletSummary] = useState<any>(null)
+  const [latestWithdrawal, setLatestWithdrawal] = useState<any>(null)
+  const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false)
+  const [isConfirmingReceipt, setIsConfirmingReceipt] = useState(false)
+
+  // Admin Withdrawal Management States
+  const [adminWithdrawals, setAdminWithdrawals] = useState<any[]>([])
+  const [selectedWithdrawalToProcess, setSelectedWithdrawalToProcess] = useState<any | null>(null)
+  const [isProcessModalOpen, setIsProcessModalOpen] = useState(false)
+
+  // Food Court Wallet & Platform Revenue States
+  const [foodCourtWallet, setFoodCourtWallet] = useState<any>(null)
+  const [platformRevenue, setPlatformRevenue] = useState<any>(null)
+
   // Fetch real data from backend
-  useEffect(() => {
-    async function loadDashboardData() {
-      setIsLoading(true)
-      const token = getToken()
-      const headers = { token: token || undefined }
+  async function loadDashboardData() {
+    setIsLoading(true)
+    const token = getToken()
+    const headers = { token: token || undefined }
 
-      if (isTenant) {
-        try {
-          const [mineRes, ordersRes, menusRes] = await Promise.allSettled([
-            apiFetch<{ data: any }>('/api/tenants/mine', headers),
-            apiFetch<{ data: any[] }>('/api/orders', headers),
-            apiFetch<{ data: any[] }>('/api/menus', headers),
-          ])
+    if (isTenant) {
+      try {
+        const [mineRes, ordersRes, menusRes, walletRes, withdrawalsRes] = await Promise.allSettled([
+          apiFetch<{ data: any }>('/api/tenants/mine', headers),
+          apiFetch<{ data: any[] }>('/api/orders', headers),
+          apiFetch<{ data: any[] }>('/api/menus', headers),
+          apiFetch<{ data: any }>('/api/tenants/wallet', headers),
+          apiFetch<{ data: any[] }>('/api/tenants/withdrawals', headers),
+        ])
 
-          if (mineRes.status === 'fulfilled' && mineRes.value?.data) {
-            setTenantStall(mineRes.value.data)
-          }
-          if (ordersRes.status === 'fulfilled' && ordersRes.value?.data) {
-            setOrders(ordersRes.value.data)
-          }
-          if (menusRes.status === 'fulfilled' && menusRes.value?.data) {
-            setTenantMenus(menusRes.value.data)
-          }
-        } catch (err) {
-          console.warn('Tenant dashboard data fetch fallback active:', err)
-        } finally {
-          setIsLoading(false)
+        if (mineRes.status === 'fulfilled' && mineRes.value?.data) {
+          setTenantStall(mineRes.value.data)
         }
-      } else {
-        try {
-          const [ordersRes, tenantsRes, tablesRes, fcRes] = await Promise.allSettled([
-            apiFetch<{ data: any[] }>('/api/orders', headers),
-            apiFetch<{ data: any[] }>('/api/tenants', headers),
-            apiFetch<{ data: any[] }>('/api/tables', headers),
-            apiFetch<{ data: any[] }>('/api/food-courts', headers),
-          ])
-
-          if (ordersRes.status === 'fulfilled' && ordersRes.value?.data) {
-            setOrders(ordersRes.value.data)
-          }
-          if (tenantsRes.status === 'fulfilled' && tenantsRes.value?.data) {
-            setTenants(tenantsRes.value.data)
-          }
-          if (tablesRes.status === 'fulfilled' && tablesRes.value?.data) {
-            setTables(tablesRes.value.data)
-          }
-          if (fcRes.status === 'fulfilled' && fcRes.value?.data) {
-            setFoodCourts(fcRes.value.data)
-            if (isFoodCourtManager && fcRes.value.data.length > 0) {
-              setSelectedBranchId(fcRes.value.data[0].id)
-            }
-          }
-        } catch (err) {
-          console.warn('Dashboard data fetch fallback active:', err)
-        } finally {
-          setIsLoading(false)
+        if (ordersRes.status === 'fulfilled' && ordersRes.value?.data) {
+          setOrders(ordersRes.value.data)
         }
+        if (menusRes.status === 'fulfilled' && menusRes.value?.data) {
+          setTenantMenus(menusRes.value.data)
+        }
+        if (walletRes.status === 'fulfilled' && walletRes.value?.data) {
+          setWalletSummary(walletRes.value.data)
+        }
+        if (withdrawalsRes.status === 'fulfilled' && withdrawalsRes.value?.data && withdrawalsRes.value.data.length > 0) {
+          const active = withdrawalsRes.value.data.find(
+            (w: any) => w.status === 'PENDING' || w.status === 'PROCESSED'
+          )
+          setLatestWithdrawal(active || withdrawalsRes.value.data[0])
+        }
+      } catch (err) {
+        console.warn('Tenant dashboard data fetch fallback active:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    } else {
+      try {
+        const [ordersRes, tenantsRes, tablesRes, fcRes, withdrawalsRes, fcWalletRes, platformRevRes] = await Promise.allSettled([
+          apiFetch<{ data: any[] }>('/api/orders', headers),
+          apiFetch<{ data: any[] }>('/api/tenants', headers),
+          apiFetch<{ data: any[] }>('/api/tables', headers),
+          apiFetch<{ data: any[] }>('/api/food-courts', headers),
+          apiFetch<{ data: any[] }>('/api/admin/withdrawals', headers),
+          isFoodCourtManager ? apiFetch<{ data: any }>('/api/admin/food-court/wallet', headers) : Promise.resolve(null as any),
+          !isFoodCourtManager ? apiFetch<{ data: any }>('/api/super-admin/platform-revenue', headers) : Promise.resolve(null as any),
+        ])
+
+        if (ordersRes.status === 'fulfilled' && ordersRes.value?.data) {
+          setOrders(ordersRes.value.data)
+        }
+        if (tenantsRes.status === 'fulfilled' && tenantsRes.value?.data) {
+          setTenants(tenantsRes.value.data)
+        }
+        if (tablesRes.status === 'fulfilled' && tablesRes.value?.data) {
+          setTables(tablesRes.value.data)
+        }
+        if (fcRes.status === 'fulfilled' && fcRes.value?.data) {
+          setFoodCourts(fcRes.value.data)
+          if (isFoodCourtManager && fcRes.value.data.length > 0) {
+            setSelectedBranchId(fcRes.value.data[0].id)
+          }
+        }
+        if (withdrawalsRes.status === 'fulfilled' && withdrawalsRes.value?.data) {
+          setAdminWithdrawals(withdrawalsRes.value.data)
+        }
+        if (fcWalletRes.status === 'fulfilled' && fcWalletRes.value?.data) {
+          setFoodCourtWallet(fcWalletRes.value.data)
+        }
+        if (platformRevRes.status === 'fulfilled' && platformRevRes.value?.data) {
+          setPlatformRevenue(platformRevRes.value.data)
+        }
+      } catch (err) {
+        console.warn('Dashboard data fetch fallback active:', err)
+      } finally {
+        setIsLoading(false)
       }
     }
+  }
 
+  useEffect(() => {
     loadDashboardData()
   }, [isFoodCourtManager, isTenant])
+
+  const handleWithdrawalSubmit = async (data: any) => {
+    try {
+      await apiFetch('/api/tenants/withdrawals', {
+        method: 'POST',
+        body: data,
+      })
+      toastSuccess('Pengajuan Terkirim', 'Pengajuan penarikan dana berhasil dikirim ke pengelola.')
+      setIsWithdrawalModalOpen(false)
+      loadDashboardData()
+    } catch (err: any) {
+      toastError('Gagal Mengajukan Penarikan', err?.message || 'Terjadi kesalahan saat mengajukan penarikan dana')
+    }
+  }
+
+  const handleConfirmReceipt = async (withdrawalId: string) => {
+    setIsConfirmingReceipt(true)
+    try {
+      await apiFetch(`/api/tenants/withdrawals/${withdrawalId}/confirm`, {
+        method: 'PATCH',
+      })
+      toastSuccess('Konfirmasi Berhasil', 'Penerimaan dana pencairan telah berhasil dikonfirmasi.')
+      loadDashboardData()
+    } catch (err: any) {
+      toastError('Gagal Konfirmasi', err?.message || 'Gagal mengonfirmasi penerimaan dana')
+    } finally {
+      setIsConfirmingReceipt(false)
+    }
+  }
+
+  const handleProcessAdminWithdrawal = async (id: string, data: any) => {
+    try {
+      await apiFetch(`/api/admin/withdrawals/${id}/process`, {
+        method: 'PATCH',
+        body: data,
+      })
+      toastSuccess('Pencairan Berhasil Diproses', 'Pencairan dana tenant berhasil disetujui.')
+      setIsProcessModalOpen(false)
+      setSelectedWithdrawalToProcess(null)
+      loadDashboardData()
+    } catch (err: any) {
+      toastError('Gagal Memproses Pencairan', err?.message || 'Terjadi kesalahan saat memproses')
+    }
+  }
+
+  const handleRejectAdminWithdrawal = async (id: string, reason: string) => {
+    try {
+      await apiFetch(`/api/admin/withdrawals/${id}/reject`, {
+        method: 'PATCH',
+        body: { reason },
+      })
+      toastSuccess('Pengajuan Ditolak', 'Pengajuan ditolak dan saldo dikembalikan ke tenant.')
+      setIsProcessModalOpen(false)
+      setSelectedWithdrawalToProcess(null)
+      loadDashboardData()
+    } catch (err: any) {
+      toastError('Gagal Menolak Pengajuan', err?.message || 'Terjadi kesalahan')
+    }
+  }
+
+  const handleCompleteDirectAdminWithdrawal = async (id: string) => {
+    try {
+      await apiFetch(`/api/admin/withdrawals/${id}/complete`, {
+        method: 'PATCH',
+      })
+      toastSuccess('Pencairan Tunai Selesai', 'Penyerahan uang tunai telah dicatat selesai.')
+      setIsProcessModalOpen(false)
+      setSelectedWithdrawalToProcess(null)
+      loadDashboardData()
+    } catch (err: any) {
+      toastError('Gagal Menyelesaikan Pencairan', err?.message || 'Terjadi kesalahan')
+    }
+  }
+
+  const pendingAdminWithdrawals = adminWithdrawals.filter((w) => w.status === 'PENDING')
+  const totalPendingWithdrawalAmount = pendingAdminWithdrawals.reduce(
+    (sum, w) => sum + (w.amount || 0),
+    0
+  )
 
   // Calculate stats from real orders
   const totalRevenue = isTenant
@@ -361,6 +482,78 @@ export function DashboardPage() {
           </div>
         </section>
 
+        {/* Active Withdrawal Banner for Tenant */}
+        {isTenant && latestWithdrawal && (latestWithdrawal.status === 'PENDING' || latestWithdrawal.status === 'PROCESSED') && (
+          <div
+            className={`p-4 sm:p-5 rounded-[24px] border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
+              latestWithdrawal.status === 'PROCESSED'
+                ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
+                : 'bg-amber-50/80 border-amber-200 text-amber-950'
+            }`}
+          >
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div
+                className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                  latestWithdrawal.status === 'PROCESSED'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-amber-500 text-white'
+                }`}
+              >
+                {latestWithdrawal.status === 'PROCESSED' ? (
+                  <CheckCircle2 className="w-5 h-5" />
+                ) : (
+                  <Clock className="w-5 h-5 animate-pulse" />
+                )}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm">
+                    {latestWithdrawal.status === 'PROCESSED'
+                      ? 'Pencairan Dana Telah Diproses Admin!'
+                      : 'Pengajuan Penarikan Saldo Sedang Diproses'}
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      latestWithdrawal.status === 'PROCESSED'
+                        ? 'bg-emerald-200/80 text-emerald-800'
+                        : 'bg-amber-200/80 text-amber-800'
+                    }`}
+                  >
+                    {latestWithdrawal.status === 'PROCESSED' ? 'Siap Dikonfirmasi' : 'Menunggu Admin'}
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-600 mt-0.5">
+                  Nominal: <strong className="font-mono text-neutral-900">{formatRupiah(latestWithdrawal.amount)}</strong> • Metode:{' '}
+                  {(latestWithdrawal.paymentMethod || latestWithdrawal.method) === 'TRANSFER' ? 'Transfer Bank' : 'Tunai Langsung di Sentra'}
+                  {latestWithdrawal.status === 'PROCESSED'
+                    ? ' — Silakan periksa rekening/kasir Anda dan konfirmasi penerimaan dana.'
+                    : ' — Tim admin food court sedang memverifikasi pengajuan Anda.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              {latestWithdrawal.status === 'PROCESSED' && (
+                <button
+                  type="button"
+                  disabled={isConfirmingReceipt}
+                  onClick={() => handleConfirmReceipt(latestWithdrawal.id)}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{isConfirmingReceipt ? 'Memproses...' : 'Konfirmasi Sudah Terima'}</span>
+                </button>
+              )}
+              <Link
+                to="/app/tenant/wallet"
+                className="px-3.5 py-2 rounded-xl bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-800 text-xs font-bold transition-all"
+              >
+                Lihat Dompet
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Bento Grid: 2-Column Responsive Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* LEFT COLUMN: Financial Cards & Wallets (7 cols) */}
@@ -396,7 +589,7 @@ export function DashboardPage() {
               </div>
 
               {/* Action Buttons: Tarik Dana / Rekap & Catat Pesanan Baru */}
-              <div className="grid grid-cols-2 gap-3 mt-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6">
                 <button
                   type="button"
                   onClick={() => navigate(isTenant ? '/app/tenant/kds' : '/app/admin/payments')}
@@ -413,6 +606,25 @@ export function DashboardPage() {
                       <span>Rekap Pembayaran</span>
                     </>
                   )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isTenant) {
+                      setIsWithdrawalModalOpen(true)
+                    } else {
+                      navigate('/app/admin/withdrawals')
+                    }
+                  }}
+                  className="h-11 rounded-[18px] bg-[#0a0a0a] hover:bg-[#262626] active:scale-[0.99] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
+                >
+                  <Wallet className="w-4 h-4 text-[#9ef01a]" />
+                  <span>
+                    {isTenant
+                      ? 'Tarik Saldo'
+                      : `Pencairan Tenant ${pendingAdminWithdrawals.length > 0 ? `(${pendingAdminWithdrawals.length})` : ''}`}
+                  </span>
                 </button>
 
                 <button
@@ -738,6 +950,85 @@ export function DashboardPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Antrean Pencairan Dana Tenant Quick Widget */}
+                <div className="bg-[#ffffff] rounded-[32px] border border-[#e5e5e5] p-6 shadow-xs">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="w-4 h-4 text-[#0a0a0a]" />
+                      <span className="text-xs font-bold text-[#0a0a0a]">
+                        Antrean Pencairan Dana Tenant
+                      </span>
+                      {pendingAdminWithdrawals.length > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                          {pendingAdminWithdrawals.length} Perlu Diproses
+                        </span>
+                      )}
+                    </div>
+                    <Link
+                      to="/app/admin/withdrawals"
+                      className="text-xs font-semibold text-[#737373] hover:text-[#0a0a0a] transition-colors inline-flex items-center gap-1"
+                    >
+                      <span>Lihat Semua Antrean</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+
+                  {pendingAdminWithdrawals.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-[#737373]">
+                      Tidak ada antrean pencairan dana tenant yang tertunda.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-[#f0f0f0] text-[#737373] font-mono text-[10px] uppercase">
+                            <th className="pb-2.5 font-medium">Tenant</th>
+                            <th className="pb-2.5 font-medium">Metode</th>
+                            <th className="pb-2.5 font-medium text-right">Nominal</th>
+                            <th className="pb-2.5 font-medium text-right">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f5f5f5]">
+                          {pendingAdminWithdrawals.slice(0, 4).map((w: any) => (
+                            <tr key={w.id} className="hover:bg-[#fafafa] transition-colors">
+                              <td className="py-3">
+                                <div className="font-bold text-[#0a0a0a]">{w.tenant?.name || 'Tenant'}</div>
+                                <div className="text-[10px] font-mono text-[#737373]">{w.tenant?.stallNumber || '-'}</div>
+                              </td>
+                              <td className="py-3">
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    (w.paymentMethod || w.method) === 'TRANSFER'
+                                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  }`}
+                                >
+                                  {(w.paymentMethod || w.method) === 'TRANSFER' ? 'Transfer Bank' : 'Tunai Langsung'}
+                                </span>
+                              </td>
+                              <td className="py-3 font-mono font-bold text-right text-[#0a0a0a]">
+                                {formatRupiah(w.amount || 0)}
+                              </td>
+                              <td className="py-3 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedWithdrawalToProcess(w)
+                                    setIsProcessModalOpen(true)
+                                  }}
+                                  className="px-3 py-1 rounded-full bg-[#0a0a0a] hover:bg-[#262626] text-white text-[11px] font-semibold transition-all cursor-pointer"
+                                >
+                                  Proses
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -804,20 +1095,34 @@ export function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Card 4: Total Omzet Gerai */}
+                  {/* Card 4: Saldo Bersih Dompet */}
                   <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-[#737373]">Total Omzet Gerai</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-xs font-semibold text-[#737373]">Saldo Bersih Dompet</span>
+                      </div>
                       <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
-                        <Wallet className="w-3.5 h-3.5" />
+                        <Wallet className="w-3.5 h-3.5 text-emerald-600" />
                       </div>
                     </div>
                     <div>
                       <div className="font-heading text-lg sm:text-xl font-bold tracking-tight text-[#0a0a0a]">
-                        {formatRupiah(displayRevenue)}
+                        {formatRupiah(walletSummary?.balance || 0)}
                       </div>
-                      <div className="text-[11px] text-[#737373] mt-1 font-medium">
-                        {tenantCompletedCount} pesanan selesai
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[11px] text-[#737373] font-medium">
+                          {walletSummary?.pendingWithdrawal && walletSummary.pendingWithdrawal > 0
+                            ? `${formatRupiah(walletSummary.pendingWithdrawal)} tertahan`
+                            : 'Siap ditarik'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsWithdrawalModalOpen(true)}
+                          className="text-[11px] font-bold text-[#047857] hover:underline cursor-pointer"
+                        >
+                          Tarik Saldo &rarr;
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -845,30 +1150,30 @@ export function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Card 2: Cabang Food Court Aktif / Okupansi Meja */}
+                  {/* Card 2: Antrean Pencairan Dana */}
                   <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-[#737373]">
-                        {isFoodCourtManager ? 'Okupansi Meja' : 'Cabang Food Court'}
+                        Antrean Pencairan Dana
                       </span>
                       <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
-                        {isFoodCourtManager ? (
-                          <QrCode className="w-3.5 h-3.5" />
-                        ) : (
-                          <Building className="w-3.5 h-3.5" />
-                        )}
+                        <Wallet className="w-3.5 h-3.5 text-amber-600" />
                       </div>
                     </div>
                     <div>
                       <div className="font-heading text-lg sm:text-xl font-bold tracking-tight text-[#0a0a0a]">
-                        {isFoodCourtManager
-                          ? `${occupancyPercentage}% Terisi`
-                          : `${foodCourts.length || 1} Cabang Aktif`}
+                        {formatRupiah(totalPendingWithdrawalAmount)}
                       </div>
-                      <div className="text-[11px] text-[#737373] mt-1 font-medium">
-                        {isFoodCourtManager
-                          ? `${occupiedTablesCount} dari ${totalTablesCount} meja makan`
-                          : 'Sentra kuliner terdaftar'}
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[11px] text-amber-700 font-medium">
+                          {pendingAdminWithdrawals.length} pengajuan menunggu
+                        </span>
+                        <Link
+                          to="/app/admin/withdrawals"
+                          className="text-[11px] font-bold text-[#0a0a0a] hover:underline"
+                        >
+                          Kelola &rarr;
+                        </Link>
                       </div>
                     </div>
                   </div>
@@ -896,21 +1201,43 @@ export function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Card 4: Total Pesanan Selesai */}
+                  {/* Card 4: Saldo Kas Cabang (Manager) / Fee Platform Sentra (Admin) */}
                   <div className="p-5 rounded-[26px] bg-[#ffffff] border border-[#e5e5e5] shadow-xs flex flex-col justify-between h-36">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-[#737373]">Pesanan Selesai</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-xs font-semibold text-[#737373]">
+                          {isFoodCourtManager
+                            ? 'Saldo Kas Cabang'
+                            : 'Fee Platform Sentra (1%)'}
+                        </span>
+                      </div>
                       <div className="w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center text-[#737373]">
-                        <ShoppingBag className="w-3.5 h-3.5" />
+                        <Wallet className="w-3.5 h-3.5 text-emerald-600" />
                       </div>
                     </div>
                     <div>
-                      <div className="font-heading text-2xl font-bold tracking-tight text-[#0a0a0a]">
-                        {completedOrdersCount} Pesanan
+                      <div className="font-heading text-xl sm:text-2xl font-bold tracking-tight text-[#0a0a0a]">
+                        {formatRupiah(
+                          isFoodCourtManager
+                            ? foodCourtWallet?.balance || 0
+                            : platformRevenue?.totalEarnedPlatformFee || 0,
+                        )}
                       </div>
-                      <div className="flex items-center gap-1 text-[11px] text-[#10b981] mt-1 font-medium">
-                        <UtensilsCrossed className="w-3 h-3" />
-                        <span>Rata-rata 14 menit masak</span>
+                      <div className="flex items-center justify-between mt-1 pt-1 border-t border-[#f0f0f0]">
+                        <span className="text-[11px] text-[#737373] font-medium">
+                          {isFoodCourtManager
+                            ? foodCourtWallet?.pendingWithdrawal && foodCourtWallet.pendingWithdrawal > 0
+                              ? `${formatRupiah(foodCourtWallet.pendingWithdrawal)} tertahan`
+                              : 'Siap ditarik'
+                            : `${platformRevenue?.totalOrdersCount || 0} pesanan selesai`}
+                        </span>
+                        <Link
+                          to={isFoodCourtManager ? '/app/admin/wallet' : '/app/super-admin/platform-revenue'}
+                          className="text-[11px] font-bold text-[#047857] hover:underline"
+                        >
+                          {isFoodCourtManager ? 'Dompet Cabang →' : 'Laporan →'}
+                        </Link>
                       </div>
                     </div>
                   </div>
@@ -1146,6 +1473,30 @@ export function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Modals for Tenant and Admin */}
+        {isTenant && (
+          <WithdrawalModal
+            isOpen={isWithdrawalModalOpen}
+            onClose={() => setIsWithdrawalModalOpen(false)}
+            currentBalance={walletSummary?.balance || 0}
+            onSubmit={handleWithdrawalSubmit}
+          />
+        )}
+
+        {!isTenant && (
+          <ProcessWithdrawalModal
+            isOpen={isProcessModalOpen}
+            onClose={() => {
+              setIsProcessModalOpen(false)
+              setSelectedWithdrawalToProcess(null)
+            }}
+            withdrawal={selectedWithdrawalToProcess}
+            onProcess={handleProcessAdminWithdrawal}
+            onReject={handleRejectAdminWithdrawal}
+            onCompleteDirect={handleCompleteDirectAdminWithdrawal}
+          />
+        )}
       </main>
     </div>
   )

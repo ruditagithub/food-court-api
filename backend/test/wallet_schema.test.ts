@@ -1,5 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { tenants, tenantBalanceLogs, withdrawalRequests } from "../db/schema";
+import {
+  tenants,
+  tenantBalanceLogs,
+  withdrawalRequests,
+  foodCourts,
+  foodCourtWithdrawals,
+  foodCourtBalanceLogs,
+} from "../db/schema";
 
 describe("Wallet & Withdrawal Schema Definitions", () => {
   it("should have balance and bank fields on tenants table", () => {
@@ -28,4 +35,39 @@ describe("Wallet & Withdrawal Schema Definitions", () => {
     expect(withdrawalRequests.status).toBeDefined();
     expect(withdrawalRequests.proofReceiptUrl).toBeDefined();
   });
+
+  it("should have balance and bank fields on foodCourts table", () => {
+    expect(foodCourts.balance).toBeDefined();
+    expect(foodCourts.bankName).toBeDefined();
+    expect(foodCourts.bankAccountNumber).toBeDefined();
+    expect(foodCourts.bankAccountHolder).toBeDefined();
+  });
+
+  it("should define foodCourtWithdrawals table with correct columns", () => {
+    expect(foodCourtWithdrawals).toBeDefined();
+    expect(foodCourtWithdrawals.foodCourtId).toBeDefined();
+    expect(foodCourtWithdrawals.amount).toBeDefined();
+    expect(foodCourtWithdrawals.paymentMethod).toBeDefined();
+    expect(foodCourtWithdrawals.bankName).toBeDefined();
+    expect(foodCourtWithdrawals.bankAccountNumber).toBeDefined();
+    expect(foodCourtWithdrawals.bankAccountHolder).toBeDefined();
+    expect(foodCourtWithdrawals.status).toBeDefined();
+    expect(foodCourtWithdrawals.proofReceiptUrl).toBeDefined();
+    expect(foodCourtWithdrawals.transferReference).toBeDefined();
+  });
+
+  it("should define foodCourtBalanceLogs table with correct columns", () => {
+    expect(foodCourtBalanceLogs).toBeDefined();
+    expect(foodCourtBalanceLogs.foodCourtId).toBeDefined();
+    expect(foodCourtBalanceLogs.orderId).toBeDefined();
+    expect(foodCourtBalanceLogs.withdrawalId).toBeDefined();
+    expect(foodCourtBalanceLogs.type).toBeDefined();
+    expect(foodCourtBalanceLogs.subtotalAmount).toBeDefined();
+    expect(foodCourtBalanceLogs.serviceFee).toBeDefined();
+    expect(foodCourtBalanceLogs.taxAmount).toBeDefined();
+    expect(foodCourtBalanceLogs.platformFee).toBeDefined();
+    expect(foodCourtBalanceLogs.netAmount).toBeDefined();
+    expect(foodCourtBalanceLogs.balanceAfter).toBeDefined();
+  });
 });
+

@@ -52,6 +52,10 @@ export const foodCourts = mysqlTable("food_courts", {
   status: mysqlEnum("status", ["ACTIVE", "INACTIVE"])
     .notNull()
     .default("ACTIVE"),
+  balance: int("balance").notNull().default(0),
+  bankName: varchar("bank_name", { length: 50 }),
+  bankAccountNumber: varchar("bank_account_number", { length: 50 }),
+  bankAccountHolder: varchar("bank_account_holder", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });
@@ -67,6 +71,8 @@ export const foodCourtsRelations = relations(foodCourts, ({ one, many }) => ({
   diningSessions: many(diningSessions),
   discounts: many(discounts),
   withdrawalRequests: many(withdrawalRequests),
+  withdrawals: many(foodCourtWithdrawals),
+  balanceLogs: many(foodCourtBalanceLogs),
 }));
 
 // ==========================================
@@ -739,6 +745,7 @@ export const tenantBalanceLogs = mysqlTable("tenant_balance_logs", {
     "WITHDRAWAL_HOLD",
     "WITHDRAWAL_REFUND",
     "WITHDRAWAL_COMPLETED",
+    "ADJUSTMENT",
   ]).notNull(),
   grossAmount: int("gross_amount").notNull().default(0),
   platformFee: int("platform_fee").notNull().default(0),
@@ -820,6 +827,107 @@ export const withdrawalRequestsRelations = relations(
       references: [users.id],
     }),
     balanceLogs: many(tenantBalanceLogs),
+  }),
+);
+
+// ==========================================
+// 23. Food Court Withdrawals (Pencairan Dana Cabang Food Court)
+// ==========================================
+export const foodCourtWithdrawals = mysqlTable("food_court_withdrawals", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  foodCourtId: varchar("food_court_id", { length: 36 })
+    .notNull()
+    .references(() => foodCourts.id, { onDelete: "cascade" }),
+  amount: int("amount").notNull(),
+  paymentMethod: mysqlEnum("payment_method", ["TRANSFER"]).notNull().default("TRANSFER"),
+  bankName: varchar("bank_name", { length: 50 }).notNull(),
+  bankAccountNumber: varchar("bank_account_number", { length: 50 }).notNull(),
+  bankAccountHolder: varchar("bank_account_holder", { length: 100 }).notNull(),
+  status: mysqlEnum("status", ["PENDING", "PROCESSED", "COMPLETED", "REJECTED"])
+    .notNull()
+    .default("PENDING"),
+  proofReceiptUrl: varchar("proof_receipt_url", { length: 255 }),
+  transferReference: varchar("transfer_reference", { length: 100 }),
+  adminNotes: text("admin_notes"),
+  requestedBy: varchar("requested_by", { length: 36 }).references(() => users.id, {
+    onDelete: "set null",
+  }),
+  processedBy: varchar("processed_by", { length: 36 }).references(() => users.id, {
+    onDelete: "set null",
+  }),
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+  processedAt: timestamp("processed_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export const foodCourtWithdrawalsRelations = relations(
+  foodCourtWithdrawals,
+  ({ one, many }) => ({
+    foodCourt: one(foodCourts, {
+      fields: [foodCourtWithdrawals.foodCourtId],
+      references: [foodCourts.id],
+    }),
+    requester: one(users, {
+      fields: [foodCourtWithdrawals.requestedBy],
+      references: [users.id],
+    }),
+    processor: one(users, {
+      fields: [foodCourtWithdrawals.processedBy],
+      references: [users.id],
+    }),
+    balanceLogs: many(foodCourtBalanceLogs),
+  }),
+);
+
+// ==========================================
+// 24. Food Court Balance Logs (Ledger Mutasi Cabang Food Court)
+// ==========================================
+export const foodCourtBalanceLogs = mysqlTable("food_court_balance_logs", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  foodCourtId: varchar("food_court_id", { length: 36 })
+    .notNull()
+    .references(() => foodCourts.id, { onDelete: "cascade" }),
+  orderId: varchar("order_id", { length: 36 }).references(() => orders.id, {
+    onDelete: "set null",
+  }),
+  withdrawalId: varchar("withdrawal_id", { length: 36 }).references(
+    () => foodCourtWithdrawals.id,
+    { onDelete: "set null" }
+  ),
+  type: mysqlEnum("type", [
+    "ORDER_SETTLEMENT",
+    "ADJUSTMENT",
+    "WITHDRAWAL_HOLD",
+    "WITHDRAWAL_REFUND",
+    "WITHDRAWAL_COMPLETED",
+  ]).notNull(),
+  subtotalAmount: int("subtotal_amount").notNull().default(0),
+  serviceFee: int("service_fee").notNull().default(0),
+  taxAmount: int("tax_amount").notNull().default(0),
+  platformFee: int("platform_fee").notNull().default(0),
+  netAmount: int("net_amount").notNull(),
+  balanceAfter: int("balance_after").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const foodCourtBalanceLogsRelations = relations(
+  foodCourtBalanceLogs,
+  ({ one }) => ({
+    foodCourt: one(foodCourts, {
+      fields: [foodCourtBalanceLogs.foodCourtId],
+      references: [foodCourts.id],
+    }),
+    order: one(orders, {
+      fields: [foodCourtBalanceLogs.orderId],
+      references: [orders.id],
+    }),
+    withdrawal: one(foodCourtWithdrawals, {
+      fields: [foodCourtBalanceLogs.withdrawalId],
+      references: [foodCourtWithdrawals.id],
+    }),
   }),
 );
 

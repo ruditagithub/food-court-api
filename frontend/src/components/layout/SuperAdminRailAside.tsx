@@ -96,6 +96,12 @@ export function SuperAdminRailAside() {
             location.pathname === '/app/dashboard' || location.pathname === '/dashboard',
         },
         {
+          to: '/app/admin/wallet',
+          label: 'Dompet Cabang',
+          icon: Wallet,
+          isActive: location.pathname.startsWith('/app/admin/wallet'),
+        },
+        {
           to: '/app/admin/food-court',
           label: 'Kelola Profil Cabang Saya',
           icon: Building,
@@ -171,6 +177,18 @@ export function SuperAdminRailAside() {
           icon: LayoutDashboard,
           isActive:
             location.pathname === '/app/dashboard' || location.pathname === '/dashboard',
+        },
+        {
+          to: '/app/super-admin/platform-revenue',
+          label: 'Pendapatan Fee Platform (1%)',
+          icon: Sparkles,
+          isActive: location.pathname.startsWith('/app/super-admin/platform-revenue'),
+        },
+        {
+          to: '/app/super-admin/withdrawals',
+          label: 'Pencairan Cabang Food Court',
+          icon: Wallet,
+          isActive: location.pathname.startsWith('/app/super-admin/withdrawals'),
         },
         {
           to: '/app/super-admin/food-courts',

@@ -15,6 +15,11 @@ import { foodCourtService } from "./modules/food-courts/service";
 import { uploadController } from "./modules/upload";
 import { discountsController } from "./modules/discounts";
 import { kiosksController } from "./modules/kiosks";
+import {
+  adminFoodCourtWalletController,
+  superAdminWithdrawalsController,
+  systemReconcileController,
+} from "./modules/food-courts/wallet.controller";
 
 export const app = new Elysia()
   .use(cors())
@@ -127,6 +132,9 @@ export const app = new Elysia()
   .use(ordersController)
   .use(paymentsController)
   .use(foodCourtsController)
+  .use(adminFoodCourtWalletController)
+  .use(superAdminWithdrawalsController)
+  .use(systemReconcileController)
   .use(uploadController)
   .use(discountsController)
   .use(kiosksController)

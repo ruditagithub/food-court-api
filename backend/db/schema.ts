@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  foreignKey,
   int,
   mysqlEnum,
   mysqlTable,
@@ -728,32 +729,42 @@ export const discountsRelations = relations(discounts, ({ one, many }) => ({
 // ==========================================
 // 21. Tenant Balance Logs (Ledger Mutasi)
 // ==========================================
-export const tenantBalanceLogs = mysqlTable("tenant_balance_logs", {
-  id: varchar("id", { length: 36 }).primaryKey(),
-  tenantId: varchar("tenant_id", { length: 36 })
-    .notNull()
-    .references(() => tenants.id, { onDelete: "cascade" }),
-  tenantOrderId: varchar("tenant_order_id", { length: 36 }).references(
-    () => tenantOrders.id,
-    { onDelete: "set null" },
-  ),
-  withdrawalRequestId: varchar("withdrawal_request_id", {
-    length: 36,
-  }).references(() => withdrawalRequests.id, { onDelete: "set null" }),
-  type: mysqlEnum("type", [
-    "ORDER_REVENUE",
-    "WITHDRAWAL_HOLD",
-    "WITHDRAWAL_REFUND",
-    "WITHDRAWAL_COMPLETED",
-    "ADJUSTMENT",
-  ]).notNull(),
-  grossAmount: int("gross_amount").notNull().default(0),
-  platformFee: int("platform_fee").notNull().default(0),
-  netAmount: int("net_amount").notNull(),
-  balanceAfter: int("balance_after").notNull(),
-  description: text("description"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const tenantBalanceLogs = mysqlTable(
+  "tenant_balance_logs",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    tenantId: varchar("tenant_id", { length: 36 })
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    tenantOrderId: varchar("tenant_order_id", { length: 36 }).references(
+      () => tenantOrders.id,
+      { onDelete: "set null" },
+    ),
+    withdrawalRequestId: varchar("withdrawal_request_id", {
+      length: 36,
+    }),
+    type: mysqlEnum("type", [
+      "ORDER_REVENUE",
+      "WITHDRAWAL_HOLD",
+      "WITHDRAWAL_REFUND",
+      "WITHDRAWAL_COMPLETED",
+      "ADJUSTMENT",
+    ]).notNull(),
+    grossAmount: int("gross_amount").notNull().default(0),
+    platformFee: int("platform_fee").notNull().default(0),
+    netAmount: int("net_amount").notNull(),
+    balanceAfter: int("balance_after").notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "fk_tenant_balance_logs_withdrawal",
+      columns: [table.withdrawalRequestId],
+      foreignColumns: [withdrawalRequests.id],
+    }).onDelete("set null"),
+  ],
+);
 
 export const tenantBalanceLogsRelations = relations(
   tenantBalanceLogs,
@@ -884,34 +895,41 @@ export const foodCourtWithdrawalsRelations = relations(
 // ==========================================
 // 24. Food Court Balance Logs (Ledger Mutasi Cabang Food Court)
 // ==========================================
-export const foodCourtBalanceLogs = mysqlTable("food_court_balance_logs", {
-  id: varchar("id", { length: 36 }).primaryKey(),
-  foodCourtId: varchar("food_court_id", { length: 36 })
-    .notNull()
-    .references(() => foodCourts.id, { onDelete: "cascade" }),
-  orderId: varchar("order_id", { length: 36 }).references(() => orders.id, {
-    onDelete: "set null",
-  }),
-  withdrawalId: varchar("withdrawal_id", { length: 36 }).references(
-    () => foodCourtWithdrawals.id,
-    { onDelete: "set null" }
-  ),
-  type: mysqlEnum("type", [
-    "ORDER_SETTLEMENT",
-    "ADJUSTMENT",
-    "WITHDRAWAL_HOLD",
-    "WITHDRAWAL_REFUND",
-    "WITHDRAWAL_COMPLETED",
-  ]).notNull(),
-  subtotalAmount: int("subtotal_amount").notNull().default(0),
-  serviceFee: int("service_fee").notNull().default(0),
-  taxAmount: int("tax_amount").notNull().default(0),
-  platformFee: int("platform_fee").notNull().default(0),
-  netAmount: int("net_amount").notNull(),
-  balanceAfter: int("balance_after").notNull(),
-  description: text("description"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const foodCourtBalanceLogs = mysqlTable(
+  "food_court_balance_logs",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    foodCourtId: varchar("food_court_id", { length: 36 })
+      .notNull()
+      .references(() => foodCourts.id, { onDelete: "cascade" }),
+    orderId: varchar("order_id", { length: 36 }).references(() => orders.id, {
+      onDelete: "set null",
+    }),
+    withdrawalId: varchar("withdrawal_id", { length: 36 }),
+    type: mysqlEnum("type", [
+      "ORDER_SETTLEMENT",
+      "ADJUSTMENT",
+      "WITHDRAWAL_HOLD",
+      "WITHDRAWAL_REFUND",
+      "WITHDRAWAL_COMPLETED",
+    ]).notNull(),
+    subtotalAmount: int("subtotal_amount").notNull().default(0),
+    serviceFee: int("service_fee").notNull().default(0),
+    taxAmount: int("tax_amount").notNull().default(0),
+    platformFee: int("platform_fee").notNull().default(0),
+    netAmount: int("net_amount").notNull(),
+    balanceAfter: int("balance_after").notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "fk_fc_balance_logs_withdrawal",
+      columns: [table.withdrawalId],
+      foreignColumns: [foodCourtWithdrawals.id],
+    }).onDelete("set null"),
+  ],
+);
 
 export const foodCourtBalanceLogsRelations = relations(
   foodCourtBalanceLogs,

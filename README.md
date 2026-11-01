@@ -35,6 +35,7 @@ Seluruh akun default hasil seeding menggunakan kata sandi yang sama: **`password
 | :--- | :--- | :--- | :--- | :--- |
 | **Super Admin** (`admin`) | Super Admin Amici | `admin@foodcourt.com` | `password123` | Akses penuh global: cabang food court, seluruh stan kios, katalog menu global, meja QR, dan rekap pembayaran |
 | **Admin Food Court** (`admin-food-court`) | Manajer Grand City | `manager@foodcourt.com` | `password123` | Mengelola cabang spesifik (*Amici Food Court Grand City*), meja cabang, dan stan kios di cabangnya |
+| **Kasir Food Court** (`cashier`) | Kasir Amici | `cashier@foodcourt.com` | `password123` | Operasional loket kasir: lookup tagihan pesanan (orderNumber/CSH), settlement pembayaran tunai, kembalian uang, dan rekap kas harian |
 | **Tenant** (`tenant`) | Ibu Siti (Warung Rawon) | `tenant@foodcourt.com` | `password123` | Mengelola stan (*Warung Rawon Bu Siti* / STAN-A01), kategori menu, stok menu, dan antrean pesanan dapur |
 | **Customer** (`customer`) | Rizky Ramadhan | `customer@foodcourt.com` | `password123` | Pengunjung/pembeli. Scan QR meja, gabung sesi meja, pesan makanan lintas stan, dan checkout Midtrans |
 

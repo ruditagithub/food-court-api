@@ -1,6 +1,6 @@
 # Food Court API Documentation
 
-RESTful API berperforma tinggi untuk manajemen operasional Food Court modern. Dibangun menggunakan **ElysiaJS**, **Bun runtime**, **Drizzle ORM**, dan **MySQL**.
+RESTful API berperforma tinggi untuk manajemen operasional Food Court modern multi-cabang, multi-tenant, dan multi-kios. Dibangun menggunakan **ElysiaJS**, **Bun runtime**, **Drizzle ORM**, dan **MySQL**.
 
 ---
 
@@ -10,15 +10,37 @@ RESTful API berperforma tinggi untuk manajemen operasional Food Court modern. Di
 3. [Akun Pengujian Seeder (Demo Accounts)](#akun-pengujian-seeder-demo-accounts)
 4. [Konsep Hak Akses (Role-Based Access Control / RBAC)](#konsep-hak-akses-role-based-access-control--rbac)
 5. [Matriks Hak Akses & Response Antar Role Seluruh Endpoint](#matriks-hak-akses--response-antar-role-seluruh-endpoint)
-6. [Dokumentasi Lengkap Seluruh Endpoint](#dokumentasi-lengkap-seluruh-endpoint)
    - [1. General & Health](#1-general--health)
-   - [2. Autentikasi (`/api/auth`)](#2-autentikasi-apiauth)
-   - [3. Food Courts (`/api/food-courts`)](#3-food-courts-apifood-courts)
-   - [4. Tenants / Kios (`/api/tenants`, `/api/food-court/:id/tenant`)](#4-tenants--kios-apitenants-apifood-courtidtenant)
-   - [5. Menus & Kategori (`/api/menus`)](#5-menus--kategori-apimenus)
-   - [6. Meja Food Court (`/api/tables`)](#6-meja-food-court-apitables)
-   - [7. Pemesanan / Orders (`/api/orders`)](#7-pemesanan--orders-apiorders)
-   - [8. Pembayaran / Payments (`/api/payments`)](#8-pembayaran--payments-apipayments)
+   - [2. Auth (`/api/auth`)](#2-auth-apiauth)
+   - [3. Food Courts (`/api/food-courts`, `/api/food-court`)](#3-food-courts-apifood-courts-apifood-court)
+   - [4. Tenants (`/api/tenants`)](#4-tenants-apitenants)
+   - [5. Admin Food Court Withdrawal Management (`/api/admin/withdrawals`)](#5-admin-food-court-withdrawal-management-apiadminwithdrawals)
+   - [6. Menus & Kategori (`/api/menus`)](#6-menus--kategori-apimenus)
+   - [7. Tables & Meja QR (`/api/tables`)](#7-tables--meja-qr-apitables)
+   - [8. Orders & Split Bill (`/api/orders`)](#8-orders--split-bill-apiorders)
+   - [9. Payments & Cashier POS (`/api/payments`)](#9-payments--cashier-pos-apipayments)
+   - [10. Food Court Wallet & Penarikan Cabang (`/api/admin/food-court`)](#10-food-court-wallet--penarikan-cabang-apiadminfood-court)
+   - [11. Super Admin Disbursements & Platform Revenue (`/api/super-admin`)](#11-super-admin-disbursements--platform-revenue-apisuper-admin)
+   - [12. Rekonsiliasi Biaya Platform Sistem (`/api/admin/system`)](#12-rekonsiliasi-biaya-platform-sistem-apiadminsystem)
+   - [13. Media & File Upload (`/api/upload`, `/uploads/*`)](#13-media--file-upload-apiupload-uploads)
+   - [14. Discounts & Promo Vouchers (`/api/discounts`)](#14-discounts--promo-vouchers-apidiscounts)
+   - [15. Self-Service Kiosks (`/api/kiosks`)](#15-self-service-kiosks-apikiosks)
+6. [Dokumentasi Lengkap Seluruh Endpoint](#dokumentasi-lengkap-seluruh-endpoint)
+   - [1. General & Health](#1-general--health-detail)
+   - [2. Autentikasi & Akun (`/api/auth`)](#2-autentikasi--akun-apiauth)
+   - [3. Food Courts (`/api/food-courts`, `/api/food-court`)](#3-food-courts-apifood-courts-apifood-court-detail)
+   - [4. Tenants / Kios Gerai (`/api/tenants`)](#4-tenants--kios-gerai-apitenants)
+   - [5. Manajemen Penarikan Dana Tenant oleh Admin Cabang (`/api/admin/withdrawals`)](#5-manajemen-penarikan-dana-tenant-oleh-admin-cabang-apiadminwithdrawals)
+   - [6. Menus, Kategori & Opsi Varian (`/api/menus`)](#6-menus-kategori--opsi-varian-apimenus)
+   - [7. Meja Food Court & QR Code (`/api/tables`)](#7-meja-food-court--qr-code-apitables)
+   - [8. Pemesanan & Split Bill (`/api/orders`)](#8-pemesanan--split-bill-apiorders)
+   - [9. Pembayaran & Kasir POS (`/api/payments`)](#9-pembayaran--kasir-pos-apipayments)
+   - [10. Dompet Cabang Food Court (`/api/admin/food-court`)](#10-dompet-cabang-food-court-apiadminfood-court)
+   - [11. Super Admin Disbursements & Platform Revenue (`/api/super-admin`)](#11-super-admin-disbursements--platform-revenue-apisuper-admin-detail)
+   - [12. Rekonsiliasi Biaya Platform Sistem (`/api/admin/system`)](#12-rekonsiliasi-biaya-platform-sistem-apiadminsystem-detail)
+   - [13. Media & File Upload (`/api/upload`, `/uploads/*`)](#13-media--file-upload-apiupload-uploads-detail)
+   - [14. Program Promo & Diskon Vouchers (`/api/discounts`)](#14-program-promo--diskon-vouchers-apidiscounts)
+   - [15. Mesin Pemesanan Mandiri / Self-Service Kiosks (`/api/kiosks`)](#15-mesin-pemesanan-mandiri--self-service-kiosks-apikiosks)
 7. [Struktur Error Response](#struktur-error-response)
 
 ---
@@ -47,6 +69,9 @@ PORT=3000
 NODE_ENV=development
 DATABASE_URL="mysql://root:password@localhost:3306/food_court"
 JWT_SECRET="super-secret-key-food-court-api"
+MIDTRANS_SERVER_KEY="SB-Mid-server-..."
+MIDTRANS_CLIENT_KEY="SB-Mid-client-..."
+MIDTRANS_IS_PRODUCTION=false
 ```
 
 ### 3. Install Dependensi & Jalankan Migrasi
@@ -77,10 +102,11 @@ Setelah menjalankan `bun run seed` (atau `bun run db/seed.ts`), sistem secara ot
 
 | Role | Nama Pengguna | Email Login | Kata Sandi | ID Pengguna | Scope / Hak Akses Sampel |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Super Admin** (`admin`) | Super Admin Amici | `admin@foodcourt.com` | `password123` | `usr-super-admin-001` | Akses global seluruh cabang food court, stan tenant, katalog menu global, meja QR, dan rekap transaksi |
-| **Admin Food Court** (`admin-food-court`) | Manajer Grand City | `manager@foodcourt.com` | `password123` | `usr-manager-fc-002` | Manajer cabang *Amici Food Court Grand City* (`fc-grand-city-001`). Mengelola stan, meja, dan operasional cabang |
-| **Tenant / Stan** (`tenant`) | Ibu Siti (Warung Rawon) | `tenant@foodcourt.com` | `password123` | `usr-tenant-owner-003` | Pemilik stan *Warung Rawon Bu Siti* (`STAN-A01`, `tnt-rawon-siti-001`). Mengelola menu dan antrean dapur stan |
-| **Customer** (`customer`) | Rizky Ramadhan | `customer@foodcourt.com` | `password123` | `usr-customer-004` | Pembeli/pengunjung. Scan meja, pesan menu multi-tenant, join sesi meja, dan checkout pembayaran |
+| **Super Admin** (`admin`) | Super Admin Amici | `admin@foodcourt.com` | `password123` | `usr-super-admin-001` | Akses global seluruh cabang food court, stan tenant, katalog menu global, meja QR, pencairan dana cabang, rekap revenue platform, dan rekonsiliasi biaya |
+| **Admin Food Court** (`admin-food-court`) | Manajer Grand City | `manager@foodcourt.com` | `password123` | `usr-manager-fc-001` | Manajer cabang *Amici Food Court Grand City* (`fc-grand-city-001`). Mengelola stan, meja QR, kiosk terminal cabang, persetujuan penarikan tenant, dan dompet cabang |
+| **Kasir Food Court** (`cashier`) | Kasir Amici | `cashier@foodcourt.com` | `password123` | `usr-cashier-001` | Operasional loket kasir: lookup tagihan pesanan (orderNumber/CSH), settlement pembayaran tunai, kembalian uang, dan rekap mutasi kas harian |
+| **Tenant / Stan** (`tenant`) | Ibu Siti (Warung Rawon) | `tenant@foodcourt.com` | `password123` | `usr-tenant-owner-001` | Pemilik stan *Warung Rawon Bu Siti* (`STAN-A01`, `tnt-rawon-siti-001`). Mengelola menu & opsi varian, antrean dapur, dompet stan, dan penarikan saldo |
+| **Customer** (`customer`) | Rizky Ramadhan | `customer@foodcourt.com` | `password123` | `usr-customer-001` | Pembeli/pengunjung. Scan meja via QR, pesan makanan multi-stan, konfigurasi split-bill, checkout Midtrans / tunai di kasir |
 
 ### Data Sampel Tambahan Hasil Seeder
 
@@ -98,114 +124,200 @@ Selain akun pengguna, perintah seeder juga menyertakan data operasional sampel s
   - Nama: `Warung Rawon Bu Siti` (Nomor Stan: `STAN-A01`, `id: tnt-rawon-siti-001`)
 - **Menu Sampel**:
   - `Rawon Daging Spesial` (Rp 32.000, Kategori: *Makanan Utama*, Stok: 40)
-  - `Es Teh Manis Segar` (Rp 5.000, Kategori: *Makanan Utama*, Stok: 100)
+  - `Es Teh Manis Segar` (Rp 5.000, Kategori: *Minuman*, Stok: 100)
 
 ---
 
 ## Konsep Hak Akses (Role-Based Access Control / RBAC)
 
-Sistem ini memiliki 4 tingkatan Role dan 1 akses Publik/Tamu:
+Sistem ini memiliki 5 tingkatan Role dan 1 akses Publik/Tamu:
 
 | Role | Kode Sistem | Deskripsi & Ruang Lingkup Hak Akses |
 | :--- | :--- | :--- |
-| **Super Admin** | `admin` | Pengelola sistem utama. Memiliki hak akses penuh untuk melihat, menambah, mengubah, dan menghapus seluruh data pada semua food court, tenant, menu, meja, dan pesanan. |
-| **Admin Food Court** | `admin-food-court` | Manajer food court tertentu. Mengelola food court miliknya, tenant yang beroperasi di food court miliknya, serta meja dan menu di food court tersebut. Dilarang mengakses data food court milik manajer lain. |
-| **Tenant / Penjual** | `tenant` | Pemilik gerai/kios makanan. Mengelola profil kios miliknya, kategori menu, daftar menu, serta memproses antrean pesanan dapur untuk gerainya. Dilarang mengakses daftar tenant global atau food court lain. |
-| **Customer** | `customer` | Pengunjung/pembeli. Dapat mendaftar akun, scan meja via QR, melihat katalog menu per tenant, memesan makanan multi-gerai dalam 1 keranjang, join sesi meja aktif, dan memproses pembayaran. Dilarang mengakses endpoint manajemen internal. |
-| **Public / Guest** | *(Tanpa Token)* | Pengunjung umum tanpa login. Dapat melihat status API, katalog menu per tenant, tracking live status pesanan melalui nomor pesanan (`orderNumber`), serta membaca dokumentasi Swagger. |
+| **Super Admin** | `admin` | Pengelola platform global. Memiliki hak akses penuh untuk seluruh cabang food court, persetujuan pencairan dana cabang food court, rekapitulasi platform revenue 1%, rekonsiliasi biaya, manajemen master user, tenant, meja, dan pesanan. |
+| **Admin Food Court** | `admin-food-court` | Manajer cabang food court tertentu. Mengelola cabang miliknya, tenant di cabangnya, meja QR cabang, perangkat self-service kiosk, persetujuan penarikan saldo tenant (*tenant withdrawals*), dan penarikan saldo dompet cabang miliknya. Dilarang mengakses cabang manajer lain. |
+| **Kasir Food Court** | `cashier` | Petugas kasir cabang food court. Menangani antrean pembayaran tunai secara langsung di loket kasir (*Cashier POS*), pencarian tagihan pesanan via barcode / kode CSH / orderNumber, konfirmasi penerimaan uang tunai & perhitungan kembalian, serta rekap mutasi kas harian. |
+| **Tenant / Penjual** | `tenant` | Pemilik gerai/kios makanan. Mengelola profil kios miliknya, kategori menu, daftar menu, varian opsi/topping, memproses antrean pesanan dapur stan miliknya, serta mengajukan pencairan saldo dompet tenant. Dilarang mengakses kios atau cabang lain. |
+| **Customer** | `customer` | Pengunjung/pembeli. Mendaftar akun, scan meja via QR, pesan makanan multi-gerai dalam 1 keranjang, join sesi meja aktif, konfigurasi split-bill rombongan, dan memilih metode pembayaran (Midtrans QRIS/transfer atau tunai di kasir). |
+| **Public / Guest** | *(Tanpa Token)* | Pengunjung umum tanpa login. Melihat status API, katalog menu stan per cabang, tracking pesanan secara live via nomor order, scan meja / Kiosk terminal via QR/deviceCode, validasi voucher promo diskon, serta membaca dokumentasi Swagger. |
 
 ---
 
 ## Matriks Hak Akses & Response Antar Role Seluruh Endpoint
 
-Tabel berikut menyajikan seluruh 38 endpoint aktif hasil pemindaian spesifikasi Swagger OpenAPI (`/swagger/json`). Endpoint telah dikelompokkan sesuai dengan folder/tag pada Swagger:
+Tabel berikut menyajikan seluruh **97 endpoint aksi** (mencakup total **105 mounted route entries** termasuk endpoint alias) yang aktif di backend hasil pemindaian route aplikasi ElysiaJS:
 
 ### 1. General & Health
 
-| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Public | Keterangan & Perilaku |
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
 | :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | `GET` | `/` | 200 OK (Status server & metadata) | 200 OK (Status server & metadata) | 200 OK (Status server & metadata) | 200 OK (Status server & metadata) | Health check dan info metadata server API. |
+| 1 | `GET` | `/` | 200 OK | 200 OK | 200 OK | 200 OK | Health check dan info metadata server API. |
 
-### 2. Auth
+### 2. Auth (`/api/auth`)
 
-| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Public | Keterangan & Perilaku |
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
 | :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 2 | `POST` | `/api/auth/register` | Diizinkan (Daftar akun baru) | Diizinkan (Daftar akun baru) | Diizinkan (Daftar akun baru) | Diizinkan (Daftar akun baru) | Registrasi pengguna baru (`admin`, `admin-food-court`, `tenant`, `customer`). |
+| 2 | `POST` | `/api/auth/register` | Diizinkan (Daftar akun baru) | Diizinkan (Daftar akun baru) | Diizinkan (Daftar akun baru) | Diizinkan (Daftar akun baru) | Registrasi pengguna baru (`admin`, `admin-food-court`, `tenant`, `customer`, `cashier`). |
 | 3 | `POST` | `/api/auth/login` | Login & terima token JWT | Login & terima token JWT | Login & terima token JWT | Login & terima token JWT | Autentikasi email dan kata sandi untuk memperoleh token JWT. |
-| 4 | `GET` | `/api/auth/me` | Profil Super Admin | Profil Manajer Food Court | Profil Pemilik Kios | Profil Customer *(Tanpa token: `401 Unauthorized`)* | Mengambil data profil user yang sedang login berdasarkan token JWT. |
+| 4 | `GET` | `/api/auth/verify-activation-token` | Diizinkan (Public) | Diizinkan (Public) | Diizinkan (Public) | **Diizinkan (Public)** | Memverifikasi token aktivasi akun tenant via email sebelum set password. |
+| 5 | `POST` | `/api/auth/activate-account` | Diizinkan (Public) | Diizinkan (Public) | Diizinkan (Public) | **Diizinkan (Public)** | Mengaktifkan akun tenant baru dengan menetapkan kata sandi & menerima token JWT. |
+| 6 | `GET` | `/api/auth/me` | Profil Super Admin | Profil Manajer Cabang | Profil Pemilik Kios | Profil User Login *(Tanpa token: `401 Unauthorized`)* | Mengambil data profil user yang sedang login berdasarkan token JWT. |
 
-### 3. Food Courts
+### 3. Food Courts (`/api/food-courts`, `/api/food-court`)
 
-| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Public | Keterangan & Perilaku |
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
 | :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 5 | `POST` | `/api/food-courts/` | Diizinkan (Bisa pilih managerId) | Diizinkan (Otomatis managerId = user.id) | `403 Forbidden` | `403 Forbidden` | Mendaftarkan lokasi food court baru (otomatis generate slug unik). |
-| 6 | `GET` | `/api/food-courts/` | Mengembalikan **seluruh food court** di sistem | **Hanya food court miliknya** (`managerId = user.id`) | `403 Forbidden` | `403 Forbidden` | Mengambil daftar food court. Tersedia filter status dan pencarian nama. |
-| 7 | `GET` | `/api/food-courts/{id}` | Mengembalikan detail food court manapun | Mengembalikan detail **hanya jika food court miliknya**; ditolak `403` jika food court lain | `403 Forbidden` | `403 Forbidden` | Mengambil data detail food court lengkap dengan daftar meja dan tenant (ID/slug). |
-| 8 | `PUT` | `/api/food-courts/{id}` | Diizinkan update food court manapun | Diizinkan **hanya untuk food court miliknya**; ditolak `403` jika food court lain | `403 Forbidden` | `403 Forbidden` | Memperbarui informasi profil, alamat, telepon, atau status food court. |
-| 9 | `DELETE` | `/api/food-courts/{id}` | Diizinkan menghapus food court | `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Menghapus food court beserta relasi data di dalamnya (Super Admin saja). |
+| 7 | `POST` | `/api/food-courts/` | Diizinkan (Bisa pilih managerId) | Diizinkan (Otomatis managerId = user.id) | `403 Forbidden` | `403 Forbidden` | Mendaftarkan lokasi food court baru (otomatis generate slug unik). |
+| 8 | `GET` | `/api/food-courts/` | Mengembalikan **seluruh food court** | **Hanya food court miliknya** (`managerId = user.id`) | `403 Forbidden` | `403 Forbidden` | Mengambil daftar food court dengan filter status dan pencarian nama. |
+| 9 | `GET` | `/api/food-courts/{id}` | Mengembalikan detail food court manapun | Mengembalikan detail **jika food court miliknya**; ditolak `403` jika lain | `403 Forbidden` | `403 Forbidden` | Mengambil detail food court lengkap dengan daftar meja dan stan kios (ID/slug). |
+| 10 | `GET` | `/api/food-courts/{id}/tenant` | Mengembalikan seluruh tenant di food court | Diizinkan **hanya jika food court miliknya** | `403 Forbidden` | `403 Forbidden` | Mengambil daftar stan tenant di food court untuk manajemen internal (juga tersedia di `/api/food-court/{id}/tenant`). |
+| 11 | `GET` | `/api/food-courts/{id}/tenant/public` | Diizinkan (Public) | Diizinkan (Public) | Diizinkan (Public) | **Diizinkan (Public)** | Mengambil daftar stan tenant aktif di cabang food court untuk pelanggan umum (juga tersedia di `/api/food-court/{id}/tenant/public`). |
+| 12 | `PUT` | `/api/food-courts/{id}` | Diizinkan update cabang manapun | Diizinkan **hanya untuk food court miliknya** | `403 Forbidden` | `403 Forbidden` | Memperbarui informasi profil, alamat, telepon, atau status food court. |
+| 13 | `DELETE` | `/api/food-courts/{id}` | Diizinkan hapus cabang | `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Menghapus food court beserta relasi data di dalamnya (Super Admin saja). |
 
-### 4. Tenants
+### 4. Tenants (`/api/tenants`)
 
-| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Public | Keterangan & Perilaku |
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
 | :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 10 | `GET` | `/api/tenants/` | Mengembalikan **seluruh tenant** dari semua food court | **Hanya tenant yang ada di food court kelolaannya** | `403 Forbidden` | `403 Forbidden` | Mengambil master daftar tenant food court untuk manajemen internal. |
-| 11 | `POST` | `/api/tenants/` | Diizinkan buat gerai di food court manapun | Diizinkan buat gerai di food court kelolaannya | Diizinkan daftarkan gerai miliknya | `403 Forbidden` | Membuat tenant baru (memvalidasi keunikan nomor stan yang sedang aktif). |
-| 12 | `GET` | `/api/tenants/{id}` | Mengembalikan detail profil gerai | Mengembalikan detail profil gerai | Mengembalikan detail profil gerai | Mengembalikan detail profil gerai | Detail tenant lengkap dengan daftar kategori & menu (menerima ID/slug). |
-| 13 | `PUT` | `/api/tenants/{id}` | Diizinkan update gerai manapun | Diizinkan **hanya jika tenant di food court miliknya** | Diizinkan **hanya untuk gerai miliknya sendiri** | `403 Forbidden` | Update data tenant (nama, nomor stan, jam buka/tutup, status operasional). |
-| 14 | `DELETE` | `/api/tenants/{id}` | Diizinkan hapus gerai | `403 Forbidden` | Diizinkan **hanya untuk gerai miliknya sendiri** | `403 Forbidden` | Menghapus tenant dari food court. |
-| 15 | `GET` | `/api/food-court/{id}/tenant` | Mengembalikan seluruh tenant di food court tersebut | Diizinkan **hanya jika food court miliknya**; ditolak `403` jika food court lain | `403 Forbidden` | `403 Forbidden` | Mengambil daftar seluruh gerai/tenant di food court tertentu. |
+| 14 | `GET` | `/api/tenants/` | Mengembalikan **seluruh tenant** | **Hanya tenant di food court miliknya** | `403 Forbidden` | `403 Forbidden` | Mengambil master daftar tenant food court untuk manajemen internal. |
+| 15 | `GET` | `/api/tenants/mine` | `403 Forbidden` | `403 Forbidden` | **Mengembalikan profil stan miliknya** | `403 Forbidden` | Mengambil profil stan kios milik akun tenant yang sedang login. |
+| 16 | `GET` | `/api/tenants/{id}` | Detail profil gerai | Detail profil gerai | Detail profil gerai | **Detail profil gerai (Public)** | Detail tenant lengkap dengan daftar kategori & menu (menerima ID UUID atau slug). |
+| 17 | `GET` | `/api/tenants/food-court/{id}` | Mengembalikan seluruh tenant di cabang | Mengembalikan tenant **jika food court miliknya** | `403 Forbidden` | `403 Forbidden` | Mengambil daftar stan tenant di food court tertentu via modul tenants (`?isOpen=` dan `?search=`). |
+| 18 | `POST` | `/api/tenants/` | Diizinkan buat gerai di cabang manapun | Diizinkan buat gerai di cabangnya | Diizinkan daftarkan gerai miliknya | `403 Forbidden` | Membuat tenant baru (memvalidasi keunikan nomor stan aktif di cabang terkait). |
+| 19 | `PUT` | `/api/tenants/{id}` | Diizinkan update gerai manapun | Diizinkan **jika tenant di cabangnya** | Diizinkan **hanya untuk gerai miliknya** | `403 Forbidden` | Update data tenant (nama, nomor stan, jam buka/tutup, rekening bank, status). |
+| 20 | `DELETE` | `/api/tenants/{id}` | Diizinkan hapus gerai | `403 Forbidden` | Diizinkan **hanya untuk gerai miliknya** | `403 Forbidden` | Menghapus tenant dari food court. |
+| 21 | `POST` | `/api/tenants/{id}/resend-activation` | Diizinkan kirim ulang email | Diizinkan jika di cabangnya | `403 Forbidden` | `403 Forbidden` | Mengirim ulang email tautan aktivasi akun tenant ke pemilik stan. |
+| 22 | `GET` | `/api/tenants/wallet` | Diizinkan (dengan `?tenantId=`) | Diizinkan (dengan `?tenantId=`) | **Melihat saldo dompet stan miliknya** | `403 Forbidden` | Melihat ringkasan saldo dompet stan (`balance`, `heldBalance`), pendapatan kotor, & mutasi. |
+| 23 | `GET` | `/api/tenants/withdrawals` | Diizinkan (dengan `?tenantId=`) | Diizinkan (dengan `?tenantId=`) | **Melihat riwayat pencairan stan miliknya** | `403 Forbidden` | Mengambil riwayat pengajuan pencairan dana dompet stan tenant. |
+| 24 | `POST` | `/api/tenants/withdrawals` | Diizinkan | Diizinkan | **Mengajukan pencairan dana dompet** | `403 Forbidden` | Mengajukan penarikan saldo dompet stan (Tunai atau Transfer Bank, Min Rp 10.000). |
+| 25 | `PATCH`| `/api/tenants/withdrawals/{id}/confirm` | Diizinkan | Diizinkan | **Konfirmasi dana telah diterima** | `403 Forbidden` | Tenant mengonfirmasi penerimaan dana pencairan transfer (`DISBURSED` -> `COMPLETED`). |
 
-### 5. Menus
+### 5. Admin Food Court Withdrawal Management (`/api/admin/withdrawals`)
 
-| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Public | Keterangan & Perilaku |
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
 | :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 18 | `GET` | `/api/menus/` | Mengembalikan **seluruh menu** dari semua food court | **Hanya menu dari tenant di food court kelolaannya** | **Hanya menu dari kios miliknya sendiri** | `403 Forbidden` *(Gunakan menu per tenant)* | Daftar menu internal manajemen dengan filter kategori, ketersediaan, dan nama. |
-| 19 | `POST` | `/api/menus/` | Diizinkan buat menu | Diizinkan jika untuk tenant di food court miliknya | Diizinkan jika untuk gerai miliknya sendiri | `403 Forbidden` | Membuat menu baru (memvalidasi relasi kategori milik tenant terkait). |
-| 20 | `GET` | `/api/menus/categories/{tenantId}` | Mengembalikan kategori & menu tenant | Diizinkan **jika tenant di food court miliknya**; ditolak `403` jika di luar | Diizinkan **jika tenant miliknya sendiri**; ditolak `403` jika milik orang lain | Mengembalikan kategori & menu tenant (katalog belanja pembeli) | Mengambil kategori dan daftar menu di dalamnya untuk tenant tertentu. |
-| 20A | `GET` | `/api/menus/categories` | Mengembalikan **seluruh kategori** semua cabang/tenant | Hanya kategori tenant di food court kelolaannya | Hanya kategori gerai miliknya sendiri | `403 Forbidden` | Mengambil daftar kategori menu terisolasi per role, menerima query `?tenantId=...`. |
-| 21 | `GET` | `/api/menus/tenant/{tenantId}` | Mengembalikan seluruh menu tenant | Diizinkan **jika tenant di food court miliknya**; ditolak `403` jika di luar | Diizinkan **jika tenant miliknya sendiri**; ditolak `403` jika milik orang lain | Mengembalikan seluruh menu tenant (katalog belanja pembeli) | Mengambil seluruh menu milik satu tenant (menerima ID UUID atau slug). |
-| 22 | `POST` | `/api/menus/categories` | Diizinkan buat kategori | Diizinkan untuk tenant di food court miliknya | Diizinkan untuk tenant miliknya sendiri | `403 Forbidden` | Membuat kategori menu baru untuk gerai tenant tertentu (`tenantId`, `name`). |
-| 22A | `PUT` | `/api/menus/categories/{id}` | Diizinkan update kategori | Diizinkan untuk tenant di food court miliknya | Diizinkan untuk tenant miliknya sendiri | `403 Forbidden` | Memperbarui nama kategori menu (`name`). |
-| 22B | `DELETE` | `/api/menus/categories/{id}` | Diizinkan hapus kategori | Diizinkan untuk tenant di food court miliknya | Diizinkan untuk tenant miliknya sendiri | `403 Forbidden` | Menghapus kategori menu (menu di dalamnya dialihkan menjadi tanpa kategori/`null`). |
-| 23 | `GET` | `/api/menus/{id}` | Mengembalikan detail item menu | Mengembalikan detail item menu | Mengembalikan detail item menu | Mengembalikan detail item menu | Mengambil data detail satu item menu makanan/minuman berdasarkan ID. |
-| 24 | `PUT` | `/api/menus/{id}` | Diizinkan update menu | Diizinkan jika menu milik tenant di food court kelolaannya | Diizinkan jika menu milik kiosnya sendiri | `403 Forbidden` | Update data menu (nama, harga, stok, ketersediaan, gambar). |
-| 25 | `DELETE` | `/api/menus/{id}` | Diizinkan hapus menu | Diizinkan jika menu milik tenant di food court kelolaannya | Diizinkan jika menu milik kiosnya sendiri | `403 Forbidden` | Menghapus item menu makanan/minuman. |
+| 26 | `GET` | `/api/admin/withdrawals/` | Melihat seluruh penarikan tenant lintas cabang | **Melihat penarikan tenant di cabangnya** | `403 Forbidden` | `403 Forbidden` | Mengambil daftar pengajuan penarikan dana dari seluruh tenant (filter status). |
+| 27 | `PATCH`| `/api/admin/withdrawals/{id}/process` | Diizinkan proses penarikan | Diizinkan proses tenant cabangnya | `403 Forbidden` | `403 Forbidden` | Memproses pencairan dana tenant dan menyertakan bukti transfer / struk kasir (`DISBURSED`). |
+| 28 | `PATCH`| `/api/admin/withdrawals/{id}/reject` | Diizinkan tolak | Diizinkan tolak tenant cabangnya | `403 Forbidden` | `403 Forbidden` | Menolak penarikan dana tenant; saldo tertahan dikembalikan otomatis ke dompet tenant. |
+| 29 | `PATCH`| `/api/admin/withdrawals/{id}/complete` | Diizinkan selesaikan | Diizinkan selesaikan pencairan tunai | `403 Forbidden` | `403 Forbidden` | Menyelesaikan pencairan uang tunai di tempat secara langsung (`COMPLETED`). |
 
-### 6. Tables
+### 6. Menus & Kategori (`/api/menus`)
 
-| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Public | Keterangan & Perilaku |
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
 | :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 26 | `GET` | `/api/tables/` | Mengembalikan seluruh meja | Hanya meja dari food court kelolaannya | Hanya meja dari food court tempat kiosnya berada | `403 Forbidden` | Mengambil daftar meja makan (terisolasi per Role). |
-| 27 | `POST` | `/api/tables/` | Diizinkan membuat meja | Diizinkan jika di food court kelolaannya | `403 Forbidden` | `403 Forbidden` | Membuat meja makan baru dan otomatis membuat token QR (`qrToken`) unik. |
-| 28 | `GET` | `/api/tables/{id}` | Mengembalikan detail meja | Hanya meja dari food court kelolaannya | Hanya meja dari food court tempat kiosnya berada | `403 Forbidden` | Mengambil data detail meja makan berdasarkan ID (terisolasi per Role). |
-| 29 | `PUT` | `/api/tables/{id}` | Diizinkan update meja | Diizinkan jika meja di food court kelolaannya | `403 Forbidden` | `403 Forbidden` | Memperbarui kapasitas atau status meja (`available`, `occupied`, `disabled`). |
-| 29b| `POST`| `/api/tables/{id}/regenerate-qr` | Diizinkan | Diizinkan jika meja di food court kelolaannya | `403 Forbidden` | `403 Forbidden` | Membuat ulang `qrToken` (untuk alasan keamanan). |
-| 29c| `GET` | `/api/tables/{id}/sessions` | Mengembalikan seluruh riwayat sesi makan | Hanya sesi dari meja di food court kelolaannya | Hanya sesi dari meja di food court tempat kiosnya berada | `403 Forbidden` | Melihat riwayat dining session per meja (partisipan, pesanan, tenant terlibat). |
-| 30 | `DELETE` | `/api/tables/{id}` | Diizinkan hapus meja | Diizinkan jika meja di food court kelolaannya | `403 Forbidden` | `403 Forbidden` | Menghapus meja dari food court. |
-| 30b| `GET` | `/api/tables/scan/{qrToken}` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Public)** | Scan QR untuk mendapatkan detail meja tanpa perlu login. |
+| 30 | `GET` | `/api/menus/` | Mengembalikan seluruh menu | Hanya menu tenant di cabangnya | Hanya menu stan miliknya | `403 Forbidden` | Daftar master menu internal manajemen dengan filter kategori, ketersediaan, dan pencarian. |
+| 31 | `GET` | `/api/menus/categories` | Mengembalikan seluruh kategori | Hanya kategori tenant di cabangnya | Hanya kategori stan miliknya | `403 Forbidden` | Mengambil daftar kategori menu terisolasi per role, menerima query `?tenantId=...`. |
+| 32 | `GET` | `/api/menus/categories/{tenantId}` | Detail kategori & menu tenant | Detail jika stan di cabangnya | Detail jika stan miliknya | **Detail kategori & menu tenant (Public)** | Mengambil kategori dan daftar menu di dalamnya untuk tenant tertentu. |
+| 33 | `GET` | `/api/menus/tenant/{tenantId}` | Mengembalikan menu tenant | Mengembalikan menu tenant | Mengembalikan menu tenant | **Mengembalikan menu tenant (Public)** | Mengambil seluruh menu aktif milik satu tenant (ID UUID atau slug). |
+| 34 | `POST` | `/api/menus/categories` | Diizinkan buat kategori | Diizinkan untuk tenant di cabangnya | Diizinkan untuk stan miliknya | `403 Forbidden` | Membuat kategori menu baru untuk gerai tenant tertentu (`tenantId`, `name`). |
+| 35 | `PUT` | `/api/menus/categories/{id}` | Diizinkan update kategori | Diizinkan untuk tenant di cabangnya | Diizinkan untuk stan miliknya | `403 Forbidden` | Memperbarui nama kategori menu (`name`). |
+| 36 | `DELETE`| `/api/menus/categories/{id}` | Diizinkan hapus kategori | Diizinkan untuk tenant di cabangnya | Diizinkan untuk stan miliknya | `403 Forbidden` | Menghapus kategori menu (menu di dalamnya dialihkan menjadi tanpa kategori/`null`). |
+| 37 | `GET` | `/api/menus/{id}/options` | Melihat opsi menu | Melihat opsi menu | Melihat opsi menu | **Melihat opsi menu (Public)** | Mengambil daftar opsi/topping/varian tambahan (`menu_options`) untuk menu tertentu. |
+| 38 | `POST` | `/api/menus/{id}/options` | Diizinkan tambah opsi | Diizinkan jika di cabangnya | Diizinkan untuk menu miliknya | `403 Forbidden` | Menambahkan opsi varian baru pada menu (nama, penyesuaian harga tambahan). |
+| 39 | `PUT` | `/api/menus/options/{id}` | Diizinkan update opsi | Diizinkan jika di cabangnya | Diizinkan untuk opsi miliknya | `403 Forbidden` | Memperbarui nama atau penyesuaian harga opsi menu (juga: `/api/menus/{id}/options/{optionId}`). |
+| 40 | `DELETE`| `/api/menus/options/{id}` | Diizinkan hapus opsi | Diizinkan jika di cabangnya | Diizinkan untuk opsi miliknya | `403 Forbidden` | Menghapus opsi varian menu (juga: `/api/menus/{id}/options/{optionId}`). |
+| 41 | `GET` | `/api/menus/{id}` | Detail item menu | Detail item menu | Detail item menu | **Detail item menu (Public)** | Mengambil data detail satu item menu makanan/minuman berdasarkan ID. |
+| 42 | `POST` | `/api/menus/` | Diizinkan buat menu | Diizinkan untuk tenant di cabangnya | Diizinkan untuk stan miliknya | `403 Forbidden` | Membuat menu baru lengkap dengan stok, kategori, dan opsi varian. |
+| 43 | `PUT` | `/api/menus/{id}` | Diizinkan update menu | Diizinkan jika menu di cabangnya | Diizinkan jika menu miliknya | `403 Forbidden` | Update data menu (nama, harga, stok, ketersediaan, gambar). |
+| 44 | `DELETE`| `/api/menus/{id}` | Diizinkan hapus menu | Diizinkan jika menu di cabangnya | Diizinkan jika menu miliknya | `403 Forbidden` | Menghapus item menu makanan/minuman. |
 
-### 7. Orders
+### 7. Tables & Meja QR (`/api/tables`)
 
-| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Public | Keterangan & Perilaku |
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
 | :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 31 | `POST` | `/api/orders/` | Diizinkan membuat order | Diizinkan membuat order | Diizinkan membuat order | Diizinkan membuat order (multi-tenant order di meja) | Membuat pesanan baru, membuat sesi meja makan, dan memecah sub-order per kios. |
-| 32 | `GET` | `/api/orders/` | Melihat **seluruh riwayat pesanan** di semua food court | *(Mengikuti relasi transaksi)* | **Hanya melihat pesanan yang masuk ke kios miliknya** (`tenantOrders`) | **Hanya melihat pesanan yang dibuat oleh dirinya sendiri** (`userId = user.id`) | Mengambil riwayat daftar pesanan (disaring otomatis sesuai hak role pemanggil). |
-| 33 | `GET` | `/api/orders/track/{orderNumber}` | Live tracking pesanan | Live tracking pesanan | Live tracking pesanan | Live tracking pesanan pembeli tanpa login via nomor order | Live tracking status pesanan dan antrean masak dapur secara publik via link/QR. |
-| 34 | `POST` | `/api/orders/sessions/join` | Diizinkan join sesi | Diizinkan join sesi | Diizinkan join sesi | Customer login dapat bergabung ke sesi meja via `qrToken` *(Tamu: `401 Unauthorized`)* | Bergabung ke sesi meja makan aktif untuk pemesanan rombongan. |
-| 35 | `GET` | `/api/orders/{id}` | Melihat rincian lengkap pesanan manapun | Melihat jika terkait food court kelolaannya | Melihat jika pesanan memuat menu dari gerainya | Melihat jika merupakan pesanan miliknya sendiri | Mengambil detail pesanan, rincian sub-order gerai, dan total tagihan. |
-| 36 | `PATCH` | `/api/orders/{id}/status` | Diizinkan update status utama | Diizinkan jika terkait | Diizinkan jika gerainya terlibat | `403 Forbidden` | Update status pesanan utama (COMPLETED/CANCELLED). Selesai otomatis bebaskan meja. |
-| 37 | `PATCH` | `/api/orders/tenant-orders/{id}/status` | Diizinkan update antrean | Diizinkan jika terkait | Diizinkan **hanya pemilik stan penerima order tersebut** | `403 Forbidden` | Dapur tenant memperbarui progres masak (`QUEUED` -> `PREPARING` -> `READY` -> `COMPLETED`). |
-| 38 | `PATCH` | `/api/orders/items/{itemId}/status` | Diizinkan update status item | Diizinkan jika terkait | Diizinkan **hanya pemilik gerai dari menu tersebut** | `403 Forbidden` | Mengupdate status pengerjaan untuk setiap item makanan individual. |
+| 45 | `GET` | `/api/tables/scan/{qrToken}` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Public)** | Scan QR untuk mendapatkan detail meja & cabang tanpa perlu login. |
+| 46 | `GET` | `/api/tables/{id}/qr` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Public)** | Merender dan men-stream grafis QR Code meja secara dinamis dalam format SVG. |
+| 47 | `GET` | `/api/tables/` | Mengembalikan seluruh meja | Hanya meja di cabangnya | `403 Forbidden` | `403 Forbidden` | Mengambil daftar meja makan cabang (filter status meja). |
+| 48 | `GET` | `/api/tables/{id}` | Mengembalikan detail meja | Hanya meja di cabangnya | `403 Forbidden` | `403 Forbidden` | Mengambil data detail meja makan berdasarkan ID. |
+| 49 | `GET` | `/api/tables/{id}/sessions` | Seluruh riwayat sesi meja | Sesi meja di cabangnya | `403 Forbidden` | `403 Forbidden` | Melihat riwayat sesi makan per meja (partisipan, pesanan, status). |
+| 50 | `POST` | `/api/tables/` | Diizinkan membuat meja | Diizinkan membuat di cabangnya | `403 Forbidden` | `403 Forbidden` | Membuat meja makan baru dan otomatis membuat token QR (`qrToken`) unik. |
+| 51 | `PUT` | `/api/tables/{id}` | Diizinkan update meja | Diizinkan update di cabangnya | `403 Forbidden` | `403 Forbidden` | Memperbarui kapasitas atau status meja (`available`, `occupied`, `disabled`). |
+| 52 | `POST` | `/api/tables/{id}/regenerate-qr` | Diizinkan | Diizinkan jika di cabangnya | `403 Forbidden` | `403 Forbidden` | Membuat ulang token QR meja untuk alasan keamanan. |
+| 53 | `DELETE`| `/api/tables/{id}` | Diizinkan hapus meja | Diizinkan jika di cabangnya | `403 Forbidden` | `403 Forbidden` | Menghapus meja dari cabang food court. |
 
-### 8. Payments
+### 8. Orders & Split Bill (`/api/orders`)
 
-| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Public | Keterangan & Perilaku |
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
 | :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 39 | `POST` | `/api/payments/` | Diizinkan proses bayar | Diizinkan proses bayar | Diizinkan proses bayar | Diizinkan bayar pesanan (QRIS, CASH, TRANSFER) | Memproses pembayaran pesanan, mengubah status order jadi `PAID`, dan kirim antrean ke dapur. |
-| 39b | `POST` | `/api/payments/midtrans` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Public)** | Membuat transaksi Midtrans Snap, mengembalikan `snapToken` & `redirectUrl`. |
-| 39c | `POST` | `/api/payments/midtrans/notification` | - | - | - | **Dipanggil server Midtrans** | Webhook status pembayaran (diverifikasi via `signature_key`). |
-| 39d | `POST` | `/api/payments/midtrans/{reference}/sync` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Public)** | Cek ulang status transaksi ke Midtrans (berguna tanpa webhook publik). |
-| 40 | `GET` | `/api/payments/{orderId}` | Melihat bukti pembayaran | Melihat bukti jika terkait | Melihat bukti jika terkait | Melihat bukti pembayaran pesanannya *(Tamu: `401 Unauthorized`)* | Mengambil detail dan bukti transaksi pembayaran berdasarkan ID pesanan. |
+| 54 | `POST` | `/api/orders/` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Customer / Public)** | Membuat pesanan baru multi-tenant (Dine-In meja / Takeaway Kiosk), snapshot harga, dan sub-order per stan. |
+| 55 | `GET` | `/api/orders/` | Melihat seluruh riwayat pesanan | *(Mengikuti relasi cabang)* | **Hanya pesanan yang masuk ke stannya** | **Hanya pesanan miliknya sendiri** | Mengambil riwayat daftar pesanan (disaring otomatis sesuai hak role pemanggil). |
+| 56 | `GET` | `/api/orders/track/{orderNumber}` | Live tracking pesanan | Live tracking pesanan | Live tracking pesanan | **Live tracking pesanan (Public)** | Live tracking status pesanan dan antrean masak dapur secara publik via link/QR. |
+| 57 | `POST` | `/api/orders/sessions/join` | Diizinkan join sesi | Diizinkan join sesi | Diizinkan join sesi | **Diizinkan (Customer / Public)** | Bergabung ke sesi meja makan aktif untuk pemesanan bersama rombongan. |
+| 58 | `GET` | `/api/orders/{id}` | Melihat rincian order manapun | Melihat jika terkait cabangnya | Melihat jika stannya terlibat | Melihat jika merupakan order miliknya | Mengambil detail lengkap pesanan, sub-order per gerai, alokasi split bill, dan rincian diskon. |
+| 59 | `POST` | `/api/orders/{id}/split-bill` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Customer / Public)** | Mengonfigurasi pembagian tagihan pesanan rombongan (*split-bill*) per item per partisipan. |
+| 60 | `PATCH`| `/api/orders/{id}/status` | Diizinkan update status | Diizinkan jika terkait | Diizinkan jika terlibat | `403 Forbidden` | Update status pesanan utama (COMPLETED/CANCELLED). Selesai otomatis bebaskan meja. |
+| 61 | `PATCH`| `/api/orders/tenant-orders/{id}/status`| Diizinkan update antrean | Diizinkan jika terkait | **Pemilik stan penerima order** | `403 Forbidden` | Dapur tenant memperbarui progres masak (`QUEUED` -> `PREPARING` -> `READY` -> `COMPLETED`). |
+| 62 | `PATCH`| `/api/orders/items/{itemId}/status` | Diizinkan update status item | Diizinkan jika terkait | **Pemilik stan item tersebut** | `403 Forbidden` | Mengupdate status pengerjaan untuk setiap item makanan individual. |
+
+### 9. Payments & Cashier POS (`/api/payments`)
+
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
+| :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 63 | `POST` | `/api/payments/` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Public / Kasir)** | Memproses pembayaran langsung (QRIS, CASH, TRANSFER), ubah status `PAID`, dan teruskan ke dapur. |
+| 64 | `POST` | `/api/payments/midtrans` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Public / Customer)** | Membuat transaksi Midtrans Snap, mengembalikan `snapToken` & `redirectUrl`. |
+| 65 | `POST` | `/api/payments/midtrans/notification` | - | - | - | **Dipanggil server Midtrans (Public)** | Webhook status pembayaran Midtrans (diverifikasi via `signature_key`). |
+| 66 | `POST` | `/api/payments/midtrans/{reference}/sync` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Public)** | Tarik ulang status transaksi dari Midtrans (berguna tanpa webhook publik). |
+| 67 | `GET` | `/api/payments/cashier/pending` | Diizinkan | Diizinkan | `403 Forbidden` | **Diizinkan (Kasir / Public)** | Mengambil daftar tagihan yang menunggu pembayaran tunai di kasir (*cash on delivery*). |
+| 68 | `GET` | `/api/payments/cashier/lookup/{query}` | Diizinkan | Diizinkan | `403 Forbidden` | **Diizinkan (Kasir / Public)** | Mencari rincian tagihan kasir berdasarkan orderNumber, paymentGroupId, atau kode CSH-. |
+| 69 | `POST` | `/api/payments/cashier/confirm` | Diizinkan | Diizinkan | `403 Forbidden` | **Diizinkan (Kasir / Public)** | Kasir mengonfirmasi uang tunai diterima, menghitung kembalian, dan memfinalisasi pembayaran jadi `PAID`. |
+| 70 | `GET` | `/api/payments/cashier/history` | Diizinkan | Diizinkan | `403 Forbidden` | **Diizinkan (Kasir)** | Mengambil rekap transaksi kasir dan akumulasi total uang kas harian. |
+| 71 | `GET` | `/api/payments/{orderId}` | Melihat bukti pembayaran | Melihat bukti jika terkait | Melihat bukti jika terkait | Melihat bukti order miliknya *(Tamu: `401`)* | Mengambil rincian dan bukti transaksi pembayaran berdasarkan ID pesanan. |
+
+### 10. Food Court Wallet & Penarikan Cabang (`/api/admin/food-court`)
+
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
+| :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 72 | `GET` | `/api/admin/food-court/wallet` | Diizinkan (dengan `?foodCourtId=`) | **Melihat saldo dompet cabangnya** | `403 Forbidden` | `403 Forbidden` | Mengambil ringkasan saldo dompet cabang food court dan mutasi komisi sewa. |
+| 73 | `GET` | `/api/admin/food-court/withdrawals` | Diizinkan (seluruh cabang) | **Melihat riwayat penarikan cabangnya** | `403 Forbidden` | `403 Forbidden` | Mengambil riwayat pengajuan penarikan dana cabang food court. |
+| 74 | `POST` | `/api/admin/food-court/withdrawals` | Diizinkan | **Mengajukan penarikan dana cabang** | `403 Forbidden` | `403 Forbidden` | Mengajukan pencairan dana cabang via Transfer Bank (Minimal Rp 50.000). |
+| 75 | `POST`/`PATCH` | `/api/admin/food-court/withdrawals/{id}/confirm` | Diizinkan | **Konfirmasi dana masuk ke rekening cabang** | `403 Forbidden` | `403 Forbidden` | Manajer cabang mengonfirmasi bahwa dana transfer dari Super Admin telah diterima. |
+
+### 11. Super Admin Disbursements & Platform Revenue (`/api/super-admin`)
+
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
+| :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 76 | `GET` | `/api/super-admin/withdrawals` | **Melihat seluruh pengajuan cabang** | `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Menampilkan seluruh pengajuan pencairan dana dari cabang-cabang food court. |
+| 77 | `POST`/`PATCH` | `/api/super-admin/withdrawals/{id}/process` | **Memproses pencairan dana cabang** | `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Super Admin memproses pencairan dan mengunggah bukti transfer bank (`DISBURSED`). |
+| 78 | `POST`/`PATCH` | `/api/super-admin/withdrawals/{id}/reject` | **Menolak pengajuan pencairan cabang** | `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Menolak pencairan cabang; saldo tertahan dikembalikan otomatis ke dompet cabang. |
+| 79 | `POST`/`PATCH` | `/api/super-admin/withdrawals/{id}/complete`| **Memfinalisasi pencairan dana cabang**| `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Memfinalisasi status pencairan dana food court menjadi `COMPLETED`. |
+| 80 | `GET` | `/api/super-admin/platform-revenue` | **Melihat rekap pendapatan platform** | `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Melihat total pendapatan platform Amici (biaya layanan aplikasi 1%) & kontribusi per cabang. |
+
+### 12. Rekonsiliasi Biaya Platform Sistem (`/api/admin/system`)
+
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
+| :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 81 | `POST` | `/api/admin/system/reconcile-tenant-fees` | **Menjalankan rekonsiliasi fee** | `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Merekonsiliasi riwayat potongan platform tenant dan mengkreditkan kembali ke saldo tenant. |
+
+### 13. Media & File Upload (`/api/upload`, `/uploads/*`)
+
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
+| :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 82 | `POST` | `/api/upload` | Diizinkan | Diizinkan | Diizinkan | `401 Unauthorized` | Mengunggah gambar (maks 1 MB, jpg/png/webp) ke folder `menus`, `tenants`, atau `food-courts`. |
+| 83 | `GET` | `/uploads/*` | Diizinkan (Public) | Diizinkan (Public) | Diizinkan (Public) | **Diizinkan (Public)** | Mengakses file gambar statis publik (aman dari path traversal). |
+
+### 14. Discounts & Promo Vouchers (`/api/discounts`)
+
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
+| :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 84 | `GET` | `/api/discounts/public` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Public)** | Mengambil daftar voucher diskon aktif yang dapat dipakai pelanggan saat checkout. |
+| 85 | `POST` | `/api/discounts/validate` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Customer / Public)** | Validasi kode promo terhadap keranjang belanja dan simulasi potongan harga. |
+| 86 | `POST` | `/api/discounts/` | Diizinkan buat promo | Diizinkan untuk cabangnya | Diizinkan untuk stannya | `403 Forbidden` | Membuat promo diskon baru (persentase / nominal tetap, kuota, masa berlaku). |
+| 87 | `GET` | `/api/discounts/` | Seluruh promo diskon | Promo di cabangnya | Promo stannya | `403 Forbidden` | Mengambil daftar master promo diskon untuk dashboard manajemen internal. |
+| 88 | `GET` | `/api/discounts/{id}` | Detail promo diskon | Detail promo diskon | Detail promo diskon | `403 Forbidden` | Mengambil detail konfigurasi promo diskon berdasarkan ID. |
+| 89 | `PUT` | `/api/discounts/{id}` | Diizinkan update promo | Diizinkan jika di cabangnya | Diizinkan jika promo stannya | `403 Forbidden` | Memperbarui nama, masa berlaku, kuota, atau status promo diskon. |
+| 90 | `DELETE`| `/api/discounts/{id}` | Diizinkan hapus/nonaktif | Diizinkan jika di cabangnya | Diizinkan jika promo stannya | `403 Forbidden` | Menonaktifkan voucher promo diskon (`INACTIVE`). |
+
+### 15. Self-Service Kiosks (`/api/kiosks`)
+
+| No | Method | Endpoint / Path | Super Admin (`admin`) | Admin Food Court (`admin-food-court`) | Tenant (`tenant`) | Customer / Kasir / Public | Keterangan & Perilaku |
+| :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 91 | `GET` | `/api/kiosks/resolve/{deviceCode}` | Diizinkan | Diizinkan | Diizinkan | **Diizinkan (Public)** | Resolusi terminal Kiosk via deviceCode untuk memuat cabang, stan, dan katalog menu takeaway. |
+| 92 | `GET` | `/api/kiosks/` | Seluruh terminal Kiosk | Kiosk di cabangnya | `403 Forbidden` | `403 Forbidden` | Mengambil daftar perangkat terminal Kiosk yang terdaftar di cabang food court. |
+| 93 | `POST` | `/api/kiosks/` | Diizinkan mendaftarkan | Diizinkan di cabangnya | `403 Forbidden` | `403 Forbidden` | Mendaftarkan perangkat mesin terminal Kiosk baru di cabang food court. |
+| 94 | `GET` | `/api/kiosks/{id}` | Detail perangkat Kiosk | Detail Kiosk cabangnya | `403 Forbidden` | `403 Forbidden` | Mengambil detail informasi perangkat terminal Kiosk berdasarkan ID. |
+| 95 | `PUT` | `/api/kiosks/{id}` | Diizinkan update Kiosk | Diizinkan di cabangnya | `403 Forbidden` | `403 Forbidden` | Memperbarui data Kiosk atau mengubah status aktif/nonaktif terminal. |
+| 96 | `DELETE`| `/api/kiosks/{id}` | Diizinkan hapus Kiosk | Diizinkan di cabangnya | `403 Forbidden` | `403 Forbidden` | Menghapus perangkat Kiosk dari sistem cabang food court. |
+| 97 | `GET` | `/api/kiosks/{id}/stats` | Statistik performa Kiosk | Statistik Kiosk cabangnya | `403 Forbidden` | `403 Forbidden` | Mengambil statistik pemesanan takeaway & omzet yang diproses mesin Kiosk. |
 
 ---
 
@@ -217,6 +329,8 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
 ```
 
 ---
+
+<div id="1-general--health-detail"></div>
 
 ### 1. General & Health
 
@@ -230,16 +344,16 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
   "status": "online",
   "version": "1.0.0",
   "documentation": "/swagger",
-  "timestamp": "2026-09-25T01:20:00.000Z"
+  "timestamp": "2026-11-01T04:30:00.000Z"
 }
 ```
 
 ---
 
-### 2. Autentikasi (`/api/auth`)
+### 2. Autentikasi & Akun (`/api/auth`)
 
 #### `POST /api/auth/register`
-- **Fungsi**: Mendaftarkan pengguna baru dengan role tertentu (`admin`, `admin-food-court`, `tenant`, atau `customer`).
+- **Fungsi**: Mendaftarkan pengguna baru dengan role tertentu (`admin`, `admin-food-court`, `tenant`, `customer`, atau `cashier`).
 - **Akses**: Public
 - **Contoh Request Body**:
 ```json
@@ -259,8 +373,7 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
     "name": "Budi Santoso",
     "email": "budi@foodcourt.com",
     "role": "admin-food-court",
-    "createdAt": "2026-09-25T01:21:00.000Z",
-    "updatedAt": "2026-09-25T01:21:00.000Z"
+    "createdAt": "2026-11-01T04:30:00.000Z"
   }
 }
 ```
@@ -291,9 +404,49 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
 }
 ```
 
+#### `GET /api/auth/verify-activation-token`
+- **Fungsi**: Memverifikasi validitas token aktivasi akun tenant yang dikirimkan via email.
+- **Akses**: Public
+- **Query Parameter**: `?token=act_987654321_abc`
+- **Contoh Response (200 OK)**:
+```json
+{
+  "valid": true,
+  "email": "tenant.siti@foodcourt.com",
+  "name": "Ibu Siti",
+  "tenantName": "Warung Rawon Bu Siti"
+}
+```
+
+#### `POST /api/auth/activate-account`
+- **Fungsi**: Mengaktifkan akun tenant baru dengan memasukkan token aktivasi dan membuat password awal.
+- **Akses**: Public
+- **Contoh Request Body**:
+```json
+{
+  "token": "act_987654321_abc",
+  "password": "passwordBaru123"
+}
+```
+- **Contoh Response (200 OK)**:
+```json
+{
+  "message": "Akun berhasil diaktifkan",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": "usr-tenant-owner-001",
+      "name": "Ibu Siti",
+      "email": "tenant.siti@foodcourt.com",
+      "role": "tenant"
+    }
+  }
+}
+```
+
 #### `GET /api/auth/me`
-- **Fungsi**: Mengambil profil user yang sedang login berdasarkan token JWT.
-- **Akses**: Authenticated (`admin`, `admin-food-court`, `tenant`, `customer`)
+- **Fungsi**: Mengambil profil pengguna yang sedang login berdasarkan token JWT.
+- **Akses**: Authenticated (`admin`, `admin-food-court`, `tenant`, `customer`, `cashier`)
 - **Contoh Response (200 OK)**:
 ```json
 {
@@ -302,17 +455,19 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
     "name": "Budi Santoso",
     "email": "budi@foodcourt.com",
     "role": "admin-food-court",
-    "createdAt": "2026-09-25T01:21:00.000Z"
+    "createdAt": "2026-11-01T04:30:00.000Z"
   }
 }
 ```
 
 ---
 
-### 3. Food Courts (`/api/food-courts`)
+<div id="3-food-courts-apifood-courts-apifood-court-detail"></div>
+
+### 3. Food Courts (`/api/food-courts`, `/api/food-court`)
 
 #### `POST /api/food-courts`
-- **Fungsi**: Mendaftarkan lokasi food court baru. Field `slug` dibuat otomatis dari `name` (karakter dibersihkan dari spasi & simbol khusus).
+- **Fungsi**: Mendaftarkan lokasi food court baru. Field `slug` dibuat otomatis dari `name`.
 - **Akses**: `admin`, `admin-food-court`
 - **Contoh Request Body**:
 ```json
@@ -328,18 +483,13 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
 {
   "message": "Food court registered successfully",
   "data": {
-    "id": "18f9185a-0d17-48f8-a128-40960538a7c1",
-    "managerId": "7ca34b7f-20bf-4bfb-8eb5-a50d2bb2d6f7",
+    "id": "fc-grand-city-001",
+    "managerId": "usr-manager-fc-001",
     "name": "Grand City Food Court @Lantai 2",
     "slug": "grand-city-food-court-lantai-2",
     "address": "Jl. Pemuda No. 10, Surabaya",
     "phone": "081234567890",
-    "logo": "https://example.com/logo.jpg",
-    "status": "ACTIVE",
-    "createdAt": "2026-09-25T01:22:00.000Z",
-    "updatedAt": "2026-09-25T01:22:00.000Z",
-    "tenants": [],
-    "tables": []
+    "status": "ACTIVE"
   }
 }
 ```
@@ -347,39 +497,25 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
 #### `GET /api/food-courts`
 - **Fungsi**: Mengambil daftar food court.
 - **Akses**: `admin`, `admin-food-court` (`tenant` dan `customer` ditolak dengan `403 Forbidden`).
-- **Dinamika Perilaku**:
-  - `admin`: Melihat semua food court dari seluruh manajer.
-  - `admin-food-court`: Otomatis hanya melihat food court miliknya.
 - **Query Opsional**: `?status=ACTIVE&search=Grand`
-- **Contoh Response (200 OK)**:
-```json
-{
-  "data": [
-    {
-      "id": "18f9185a-0d17-48f8-a128-40960538a7c1",
-      "managerId": "7ca34b7f-20bf-4bfb-8eb5-a50d2bb2d6f7",
-      "name": "Grand City Food Court @Lantai 2",
-      "slug": "grand-city-food-court-lantai-2",
-      "status": "ACTIVE",
-      "manager": {
-        "id": "7ca34b7f-20bf-4bfb-8eb5-a50d2bb2d6f7",
-        "name": "Budi Santoso",
-        "email": "budi@foodcourt.com",
-        "role": "admin-food-court"
-      },
-      "tenants": [],
-      "tables": []
-    }
-  ]
-}
-```
 
 #### `GET /api/food-courts/:id`
-- **Fungsi**: Mengambil detail satu food court lengkap dengan daftar meja dan tenant. Parameter `:id` mendukung ID UUID maupun slug.
-- **Akses**: `admin`, atau `admin-food-court` pemiliknya (`403 Forbidden` jika food court milik manajer lain).
+- **Fungsi**: Mengambil detail satu food court lengkap dengan daftar meja dan tenant (ID UUID atau slug).
+- **Akses**: `admin`, atau `admin-food-court` pemiliknya.
+
+#### `GET /api/food-courts/:id/tenant`
+- **Fungsi**: Mengambil daftar seluruh stan gerai/tenant yang berada di food court tertentu untuk dashboard manajemen internal.
+- **Akses**: `admin`, `admin-food-court` pemilik cabang.
+- **Alias Endpoint**: `GET /api/food-court/:id/tenant`
+
+#### `GET /api/food-courts/:id/tenant/public`
+- **Fungsi**: Mengambil daftar stan gerai/tenant aktif di cabang food court untuk pengunjung/pelanggan tanpa login.
+- **Akses**: Public (Tanpa token)
+- **Alias Endpoint**: `GET /api/food-court/:id/tenant/public`
+- **Query Opsional**: `?isOpen=true&search=Rawon`
 
 #### `PUT /api/food-courts/:id`
-- **Fungsi**: Memperbarui profil/nama food court.
+- **Fungsi**: Memperbarui informasi profil, alamat, telepon, atau status cabang food court.
 - **Akses**: `admin`, atau manajer pemilik (`admin-food-court`).
 
 #### `DELETE /api/food-courts/:id`
@@ -388,613 +524,536 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
 
 ---
 
-### 4. Tenants / Kios (`/api/tenants`, `/api/food-court/:id/tenant`)
+### 4. Tenants / Kios Gerai (`/api/tenants`)
 
 #### `POST /api/tenants`
-- **Fungsi**: Membuat tenant/kios baru di dalam food court.
-  - Slug dibuat otomatis dan dijamin unik per food court.
-  - Nomor stan (`stallNumber`) divalidasi tidak boleh bertabrakan dengan tenant lain yang sedang buka/aktif (`isOpen: true`) di food court yang sama.
+- **Fungsi**: Membuat tenant/kios baru di dalam food court. Nomor stan divalidasi unik untuk stan yang aktif di cabang tersebut.
 - **Akses**: `admin`, `admin-food-court`, `tenant`
 - **Contoh Request Body**:
 ```json
 {
-  "foodCourtId": "18f9185a-0d17-48f8-a128-40960538a7c1",
+  "foodCourtId": "fc-grand-city-001",
   "name": "Warung Rawon Bu Siti",
   "stallNumber": "STAN-A01",
   "description": "Rawon empal daging sapi khas Surabaya",
+  "ownerName": "Ibu Siti",
+  "ownerEmail": "siti.rawon@gmail.com",
   "isOpen": true,
   "openingTime": "09:00:00",
   "closingTime": "21:00:00"
 }
 ```
-- **Contoh Response (201 Created)**:
-```json
-{
-  "message": "Tenant created successfully",
-  "data": {
-    "id": "59b40097-4007-42f0-94cb-fa225916ca11",
-    "foodCourtId": "18f9185a-0d17-48f8-a128-40960538a7c1",
-    "name": "Warung Rawon Bu Siti",
-    "slug": "warung-rawon-bu-siti",
-    "stallNumber": "STAN-A01",
-    "isOpen": true
-  }
-}
-```
 
 #### `GET /api/tenants`
-- **Fungsi**: Mengambil daftar tenant di food court.
-- **Akses**: `admin`, `admin-food-court` (`tenant` dan `customer` **tidak memiliki akses** / `403 Forbidden`).
-- **Dinamika Perilaku**:
-  - `admin`: Melihat tenant dari seluruh food court di sistem.
-  - `admin-food-court`: **Otomatis hanya melihat tenant yang berada di food court kelolaannya**.
-- **Contoh Response (200 OK)**:
-```json
-{
-  "data": [
-    {
-      "id": "59b40097-4007-42f0-94cb-fa225916ca11",
-      "foodCourtId": "18f9185a-0d17-48f8-a128-40960538a7c1",
-      "name": "Warung Rawon Bu Siti",
-      "slug": "warung-rawon-bu-siti",
-      "stallNumber": "STAN-A01",
-      "isOpen": true,
-      "categories": []
-    }
-  ]
-}
-```
+- **Fungsi**: Mengambil daftar tenant di food court untuk manajemen internal.
+- **Akses**: `admin` (seluruh cabang), `admin-food-court` (cabang kelolaannya).
+
+#### `GET /api/tenants/mine`
+- **Fungsi**: Mengambil profil lengkap gerai/stan kios milik akun tenant yang sedang login.
+- **Akses**: `tenant`
 
 #### `GET /api/tenants/:id`
-- **Fungsi**: Mengambil data detail gerai lengkap dengan daftar menu dan kategorinya.
+- **Fungsi**: Mengambil data detail gerai lengkap dengan daftar menu dan kategorinya (menerima ID UUID atau slug).
 - **Akses**: Public / Semua Role
 
-#### `GET /api/food-court/:id/tenant`
-- **Fungsi**: Mengambil daftar seluruh gerai/tenant yang berada di suatu food court.
-- **Folder di Swagger**: **Tenants**
-- **Akses**: `admin`, `admin-food-court` pemiliknya (`tenant` dan `customer` **tidak memiliki akses** / `403 Forbidden`).
-- **Parameter**: `:id` berupa UUID atau slug food court (misal: `grand-city-food-court-lantai-2`).
+#### `GET /api/tenants/food-court/:id`
+- **Fungsi**: Mengambil daftar seluruh gerai/stan kios di cabang food court tertentu (berdasarkan ID cabang) untuk dashboard manajemen internal melalui modul Tenants.
+- **Akses**: `admin`, `admin-food-court` pengelola cabang terkait.
 - **Query Opsional**: `?isOpen=true&search=Rawon`
 - **Contoh Response (200 OK)**:
 ```json
 {
   "data": [
     {
-      "id": "59b40097-4007-42f0-94cb-fa225916ca11",
-      "foodCourtId": "18f9185a-0d17-48f8-a128-40960538a7c1",
-      "ownerId": "91a1e0b5-7c9b-4a57-b08e-5bdf8e983058",
+      "id": "tnt-rawon-siti-001",
+      "foodCourtId": "fc-grand-city-001",
       "name": "Warung Rawon Bu Siti",
-      "slug": "warung-rawon-bu-siti",
       "stallNumber": "STAN-A01",
-      "description": "Rawon empal sapi kuah gurih",
-      "isOpen": true,
-      "categories": [
-        {
-          "id": "7a35368a-6b80-45c1-9018-b80c3547b7c5",
-          "name": "Makanan Utama",
-          "sortOrder": 0
-        }
-      ]
+      "description": "Rawon empal daging sapi khas Surabaya",
+      "isOpen": true
     }
   ]
 }
 ```
 
 #### `PUT /api/tenants/:id`
-- **Fungsi**: Memperbarui informasi gerai/kios.
-- **Akses**: `admin`, `tenant` pemilik kios, `admin-food-court` pengelola food court terkait.
+- **Fungsi**: Memperbarui informasi gerai/kios, jam operasional, atau nomor rekening bank tenant.
+- **Akses**: `admin`, `tenant` pemilik kios, `admin-food-court` pengelola cabang terkait.
 
 #### `DELETE /api/tenants/:id`
-- **Fungsi**: Menghapus gerai/kios.
+- **Fungsi**: Menghapus gerai/kios tenant dari food court.
 - **Akses**: `admin`, `tenant` pemilik kios.
 
----
+#### `POST /api/tenants/:id/resend-activation`
+- **Fungsi**: Mengirim ulang email tautan aktivasi akun ke pemilik stan kios tenant.
+- **Akses**: `admin`, `admin-food-court`
 
-### 5. Menus & Kategori (`/api/menus`)
+#### `GET /api/tenants/wallet`
+- **Fungsi**: Mengambil ringkasan saldo dompet stan tenant (`balance`, `heldBalance`), total pendapatan kotor, serta mutasi kredit dan debit pesanan.
+- **Akses**: `tenant`, `admin`, `admin-food-court` (menerima query `?tenantId=...`)
 
-#### `POST /api/menus/categories`
-- **Fungsi**: Membuat kategori menu baru untuk tenant.
-- **Akses**: `admin`, `tenant` pemilik kios, `admin-food-court` pengelola food court terkait.
+#### `GET /api/tenants/withdrawals`
+- **Fungsi**: Mengambil riwayat pengajuan penarikan dana dompet stan tenant.
+- **Akses**: `tenant`, `admin`, `admin-food-court` (menerima query `?tenantId=...`)
+
+#### `POST /api/tenants/withdrawals`
+- **Fungsi**: Mengajukan pencairan dana saldo dompet (minimal Rp 10.000).
+- **Akses**: `tenant`, `admin`, `admin-food-court`
 - **Contoh Request Body**:
 ```json
 {
-  "tenantId": "59b40097-4007-42f0-94cb-fa225916ca11",
-  "name": "Makanan Utama"
+  "amount": 150000,
+  "paymentMethod": "TRANSFER",
+  "bankName": "BCA",
+  "bankAccountNumber": "8291029384",
+  "bankAccountHolder": "Siti Rahmawati"
 }
 ```
-- **Contoh Response (201 Created)**:
+
+#### `PATCH /api/tenants/withdrawals/:id/confirm`
+- **Fungsi**: Konfirmasi oleh pemilik tenant bahwa dana pencairan transfer bank telah masuk ke rekening pribadinya (`DISBURSED` -> `COMPLETED`).
+- **Akses**: `tenant`, `admin`, `admin-food-court`
+
+---
+
+### 5. Manajemen Penarikan Dana Tenant oleh Admin Cabang (`/api/admin/withdrawals`)
+
+#### `GET /api/admin/withdrawals`
+- **Fungsi**: Menampilkan daftar seluruh pengajuan pencairan dana dari tenant di bawah cabang kelolaan.
+- **Akses**: `admin`, `admin-food-court`
+- **Query Opsional**: `?status=REQUESTED|DISBURSED|COMPLETED|REJECTED`
+
+#### `PATCH /api/admin/withdrawals/:id/process`
+- **Fungsi**: Memproses pengajuan pencairan dana tenant dan menyertakan bukti transfer bank atau struk pencairan (`DISBURSED`).
+- **Akses**: `admin`, `admin-food-court`
+- **Contoh Request Body**:
 ```json
 {
-  "message": "Category created successfully",
-  "data": {
-    "id": "7a35368a-6b80-45c1-9018-b80c3547b7c5",
-    "tenantId": "59b40097-4007-42f0-94cb-fa225916ca11",
-    "name": "Makanan Utama",
-    "createdAt": "2026-09-25T01:25:00.000Z"
-  }
+  "paymentMethod": "TRANSFER",
+  "proofReceiptUrl": "http://localhost:3000/uploads/proofs/trx-123.jpg",
+  "transferReference": "TRX-BCA-99881122",
+  "adminNotes": "Pencairan batch sore telah ditransfer"
 }
 ```
+
+#### `PATCH /api/admin/withdrawals/:id/reject`
+- **Fungsi**: Menolak pengajuan pencairan dana tenant; sistem secara otomatis mengembalikan saldo tertahan (`heldBalance`) kembali ke saldo aktif tenant.
+- **Akses**: `admin`, `admin-food-court`
+- **Contoh Request Body**:
+```json
+{
+  "reason": "Nomor rekening tidak valid / nama tidak sesuai buku tabungan"
+}
+```
+
+#### `PATCH /api/admin/withdrawals/:id/complete`
+- **Fungsi**: Menyelesaikan pencairan uang tunai di tempat secara langsung (`COMPLETED`).
+- **Akses**: `admin`, `admin-food-court`
+
+---
+
+### 6. Menus, Kategori & Opsi Varian (`/api/menus`)
+
+#### `GET /api/menus`
+- **Fungsi**: Mengambil daftar master menu dengan opsi filter untuk pengelolaan gerai.
+- **Akses**: `admin`, `admin-food-court`, `tenant`
+- **Query Opsional**: `?tenantId=...&categoryId=...&isAvailable=true&search=Rawon`
+
+#### `GET /api/menus/categories`
+- **Fungsi**: Mengambil seluruh kategori menu sesuai lingkup otorisasi akun.
+- **Akses**: `admin`, `admin-food-court`, `tenant` (menerima `?tenantId=...`)
 
 #### `GET /api/menus/categories/:tenantId`
 - **Fungsi**: Mengambil semua kategori beserta menu di dalamnya untuk tenant tertentu.
-- **Akses**: Public / Semua Role (Pembeli, Tenant, Admin Food Court, Super Admin).
-- **Dinamika Perilaku & Proteksi**:
-  - `admin-food-court`: Ditolak `403 Forbidden` jika tenant berada di luar food court kelolaannya.
-  - `tenant`: Ditolak `403 Forbidden` jika bukan kios miliknya.
-  - Menu di dalam kategori diproteksi 100% hanya menampilkan menu dengan `tenant_id` yang sesuai (tidak bocor ke tenant lain).
-- **Contoh Response (200 OK)**:
+- **Akses**: Public / Semua Role
+
+#### `GET /api/menus/tenant/:tenantId`
+- **Fungsi**: Mengambil seluruh menu milik satu tenant (ID UUID atau slug).
+- **Akses**: Public / Semua Role
+
+#### `POST /api/menus/categories`
+- **Fungsi**: Membuat kategori menu baru untuk tenant.
+- **Akses**: `admin`, `admin-food-court`, `tenant`
+- **Contoh Request Body**:
 ```json
 {
-  "data": [
-    {
-      "id": "7a35368a-6b80-45c1-9018-b80c3547b7c5",
-      "tenantId": "59b40097-4007-42f0-94cb-fa225916ca11",
-      "name": "Makanan Utama",
-      "menus": [
-        {
-          "id": "90d1bf43-e692-4917-8e6f-fcb802619bb2",
-          "tenantId": "59b40097-4007-42f0-94cb-fa225916ca11",
-          "categoryId": "7a35368a-6b80-45c1-9018-b80c3547b7c5",
-          "name": "Rawon Komplit Empal",
-          "price": 32000,
-          "isAvailable": true
-        }
-      ]
-    }
-  ]
+  "tenantId": "tnt-rawon-siti-001",
+  "name": "Makanan Utama"
 }
 ```
-
-#### `GET /api/menus/categories`
-- **Fungsi**: Mengambil seluruh kategori menu sesuai lingkup otorisasi (RBAC) akun yang sedang login.
-- **Akses**: `admin`, `admin-food-court`, `tenant`.
-- **Query Parameters**:
-  - `tenantId` (opsional): Menyaring kategori hanya untuk tenant spesifik.
-- **Dinamika Perilaku & Proteksi**:
-  - `admin`: Mengembalikan kategori seluruh tenant lintas food court.
-  - `admin-food-court`: Mengembalikan kategori tenant yang berada di food court kelolaannya.
-  - `tenant`: Mengembalikan kategori tenant miliknya sendiri.
 
 #### `PUT /api/menus/categories/:id`
 - **Fungsi**: Memperbarui nama kategori menu.
-- **Akses**: `admin`, `tenant` pemilik kios, `admin-food-court` pengelola food court terkait.
-- **Contoh Request Body**:
-```json
-{
-  "name": "Makanan Utama & Paket Hemat"
-}
-```
-- **Contoh Response (200 OK)**:
-```json
-{
-  "message": "Category updated successfully",
-  "data": {
-    "id": "7a35368a-6b80-45c1-9018-b80c3547b7c5",
-    "tenantId": "59b40097-4007-42f0-94cb-fa225916ca11",
-    "name": "Makanan Utama & Paket Hemat",
-    "updatedAt": "2026-10-23T15:20:00.000Z"
-  }
-}
-```
+- **Akses**: `admin`, `admin-food-court`, `tenant`
 
 #### `DELETE /api/menus/categories/:id`
-- **Fungsi**: Menghapus kategori menu.
-  - Seluruh menu yang sebelumnya terhubung dengan kategori ini **tidak akan terhapus**, melainkan nilai `categoryId`-nya otomatis diubah menjadi `null` (*Tanpa Kategori*).
-- **Akses**: `admin`, `tenant` pemilik kios, `admin-food-court` pengelola food court terkait.
-- **Contoh Response (200 OK)**:
-```json
-{
-  "success": true,
-  "message": "Category 'Makanan Utama' deleted successfully"
-}
-```
+- **Fungsi**: Menghapus kategori menu (menu di dalamnya dialihkan menjadi tanpa kategori).
+- **Akses**: `admin`, `admin-food-court`, `tenant`
 
-#### `POST /api/menus`
-- **Fungsi**: Membuat menu baru.
-  - String kosong `""` pada `categoryId`, `description`, atau `imageUrl` otomatis dikonversi ke `null`.
-  - Jika `categoryId` diisi, sistem memvalidasi bahwa kategori tersebut ada dan milik tenant terkait (mencegah error database foreign key).
-  - Field `price` fleksibel menerima number (`32000`) maupun numeric string (`"32000"`).
-  - Field `imageUrl` menerima URL penuh (`https://...`) maupun relative path (`/uploads/rawon.jpg`).
-- **Akses**: `admin`, `tenant` pemilik kios, `admin-food-court` pengelola food court.
+#### `GET /api/menus/:id/options`
+- **Fungsi**: Mengambil daftar opsi/topping/varian tambahan untuk menu tertentu.
+- **Akses**: Public / Semua Role
+
+#### `POST /api/menus/:id/options`
+- **Fungsi**: Menambahkan varian opsi tambahan baru pada menu.
+- **Akses**: `admin`, `admin-food-court`, `tenant`
 - **Contoh Request Body**:
 ```json
 {
-  "tenantId": "59b40097-4007-42f0-94cb-fa225916ca11",
-  "categoryId": "7a35368a-6b80-45c1-9018-b80c3547b7c5",
-  "name": "Rawon Komplit Empal",
-  "description": "Nasi rawon kuah hitam dengan daging empal gurih & telur asin",
-  "price": 32000,
-  "imageUrl": "/images/rawon.jpg",
-  "isAvailable": true
-}
-```
-- **Contoh Response (201 Created)**:
-```json
-{
-  "message": "Menu item created successfully",
-  "data": {
-    "id": "90d1bf43-e692-4917-8e6f-fcb802619bb2",
-    "tenantId": "59b40097-4007-42f0-94cb-fa225916ca11",
-    "categoryId": "7a35368a-6b80-45c1-9018-b80c3547b7c5",
-    "name": "Rawon Komplit Empal",
-    "description": "Nasi rawon kuah hitam dengan daging empal gurih & telur asin",
-    "price": 32000,
-    "stock": 0,
-    "status": "AVAILABLE",
-    "imageUrl": "/images/rawon.jpg",
-    "isAvailable": true,
-    "createdAt": "2026-09-25T01:26:00.000Z",
-    "updatedAt": "2026-09-25T01:26:00.000Z"
-  }
+  "name": "Extra Telur Asin",
+  "priceAdjustment": 5000
 }
 ```
 
-#### `GET /api/menus`
-- **Fungsi**: Mengambil daftar menu dengan opsi filter untuk pengelolaan gerai.
-- **Akses**: `admin`, `admin-food-court`, `tenant` (Customer **tidak boleh mengakses endpoint ini** / `403 Forbidden`).
-- **Dinamika Perilaku**:
-  - `admin`: Melihat semua menu dari semua gerai.
-  - `admin-food-court`: **Hanya melihat menu dari tenant yang berada di food court miliknya**.
-  - `tenant`: **Hanya melihat menu dari kios miliknya sendiri**.
-  - `customer`: Ditolak `403 Forbidden`. Customer dapat melihat menu per tenant via `GET /api/menus/tenant/:tenantId` atau `GET /api/tenants/:id/menus`.
-- **Query Opsional**: `?tenantId=...&categoryId=...&isAvailable=true&search=Rawon`
+#### `PUT /api/menus/options/:id`
+- **Fungsi**: Memperbarui nama atau penyesuaian harga varian opsi menu (juga didukung via `PUT /api/menus/:id/options/:optionId`).
+- **Akses**: `admin`, `admin-food-court`, `tenant`
 
-#### `GET /api/menus/tenant/:tenantId`
-- **Fungsi**: Endpoint khusus untuk mengambil seluruh menu milik satu tenant tertentu. Parameter `:tenantId` fleksibel menerima UUID maupun slug tenant.
-- **Akses**: Public / Semua Role (Digunakan oleh aplikasi pemesan makanan / pembeli).
-- **Contoh Response (200 OK)**:
+#### `DELETE /api/menus/options/:id`
+- **Fungsi**: Menghapus opsi varian menu (juga didukung via `DELETE /api/menus/:id/options/:optionId`).
+- **Akses**: `admin`, `admin-food-court`, `tenant`
+
+#### `GET /api/menus/:id`
+- **Fungsi**: Mengambil detail satu item menu makanan/minuman berdasarkan ID.
+- **Akses**: Public / Semua Role
+
+#### `POST /api/menus`
+- **Fungsi**: Membuat menu baru lengkap dengan stok dan opsi varian.
+- **Akses**: `admin`, `admin-food-court`, `tenant`
+- **Contoh Request Body**:
 ```json
 {
-  "data": [
-    {
-      "id": "90d1bf43-e692-4917-8e6f-fcb802619bb2",
-      "tenantId": "59b40097-4007-42f0-94cb-fa225916ca11",
-      "categoryId": "7a35368a-6b80-45c1-9018-b80c3547b7c5",
-      "name": "Rawon Komplit Empal",
-      "price": 32000,
-      "isAvailable": true,
-      "category": {
-        "id": "7a35368a-6b80-45c1-9018-b80c3547b7c5",
-        "name": "Makanan Utama"
-      }
-    }
+  "tenantId": "tnt-rawon-siti-001",
+  "categoryId": "cat-makanan-utama-001",
+  "name": "Rawon Komplit Daging Empal",
+  "description": "Nasi rawon kuah hitam dengan daging empal gurih & sambal terasi",
+  "price": 35000,
+  "stock": 50,
+  "imageUrl": "/uploads/menus/rawon.jpg",
+  "isAvailable": true,
+  "options": [
+    { "name": "Level Pedas Sedang", "priceAdjustment": 0 },
+    { "name": "Tambah Kerupuk Udang", "priceAdjustment": 3000 }
   ]
 }
 ```
-
-#### `GET /api/menus/:id`
-- **Fungsi**: Mengambil data detail satu menu item berdasarkan ID menunya.
-- **Akses**: Public / Semua Role
 
 #### `PUT /api/menus/:id`
 - **Fungsi**: Memperbarui informasi menu item.
-- **Akses**: `admin`, `tenant` pemilik kios, `admin-food-court`.
+- **Akses**: `admin`, `admin-food-court`, `tenant`
 
 #### `DELETE /api/menus/:id`
-- **Fungsi**: Menghapus menu item.
-- **Akses**: `admin`, `tenant` pemilik kios, `admin-food-court`.
+- **Fungsi**: Menghapus menu item makanan/minuman.
+- **Akses**: `admin`, `admin-food-court`, `tenant`
 
 ---
 
-### 6. Meja Food Court (`/api/tables`)
-
-#### `POST /api/tables`
-- **Fungsi**: Membuat meja baru di food court. Otomatis menghasilkan `qrToken` unik untuk discan pelanggan.
-- **Akses**: `admin` only.
-- **Contoh Request Body**:
-```json
-{
-  "foodCourtId": "18f9185a-0d17-48f8-a128-40960538a7c1",
-  "tableNumber": "T-01",
-  "capacity": 4
-}
-```
-- **Contoh Response (201 Created)**:
-```json
-{
-  "message": "Table created successfully",
-  "data": {
-    "id": "3be51a84-1e08-410a-ba92-d9ee72a4f00b",
-    "foodCourtId": "18f9185a-0d17-48f8-a128-40960538a7c1",
-    "tableNumber": "T-01",
-    "qrToken": "qr_1727227654321_abc123",
-    "capacity": 4,
-    "status": "available"
-  }
-}
-```
+### 7. Meja Food Court & QR Code (`/api/tables`)
 
 #### `GET /api/tables/scan/:qrToken`
-- **Fungsi**: Memindai token QR untuk mengambil data detail meja makan. Endpoint ini digunakan agar pelanggan bisa langsung mengetahui ID meja tanpa perlu login ketika memindai QR Code di meja.
+- **Fungsi**: Scan token QR untuk mendapatkan detail meja dan cabang food court tanpa login.
 - **Akses**: Public (Tanpa token)
-- **Contoh Response (200 OK)**:
-```json
-{
-  "data": {
-    "id": "3be51a84-1e08-410a-ba92-d9ee72a4f00b",
-    "foodCourtId": "18f9185a-0d17-48f8-a128-40960538a7c1",
-    "tableNumber": "T-01",
-    "qrToken": "qr_1727227654321_abc123",
-    "capacity": 4,
-    "status": "available",
-    "foodCourt": { "id": "...", "name": "..." },
-    "diningSessions": []
-  }
-}
-```
+
+#### `GET /api/tables/:id/qr`
+- **Fungsi**: Menghasilkan dan men-stream grafis QR Code meja secara dinamis dalam format SVG scannable (`image/svg+xml`).
+- **Akses**: Public (Tanpa token)
+- **Query Opsional**: `?origin=http://localhost:5173`
 
 #### `GET /api/tables`
-- **Fungsi**: Mengambil daftar meja (dapat difilter via `?status=available|occupied|disabled`).
-- **Akses**: Public / Semua Role
+- **Fungsi**: Mengambil daftar meja makan cabang food court (filter `?status=available|occupied|disabled`).
+- **Akses**: `admin`, `admin-food-court`
 
 #### `GET /api/tables/:id`
-- **Fungsi**: Mengambil data detail meja berdasarkan ID meja.
-- **Akses**: Public / Semua Role
-
-#### `PUT /api/tables/:id`
-- **Fungsi**: Memperbarui kapasitas atau status meja.
-- **Akses**: `admin`, `admin-food-court`.
-
-#### `POST /api/tables/:id/regenerate-qr`
-- **Fungsi**: Mereset dan mengganti `qrToken` dengan yang baru. Fitur keamanan untuk mencegah orang iseng dari luar yang menggunakan QR code lama yang tersebar di internet.
-- **Akses**: `admin`, `admin-food-court`.
-- **Contoh Response (200 OK)**:
-```json
-{
-  "message": "QR Token regenerated successfully",
-  "data": {
-    "id": "3be51a84-1e08-410a-ba92-d9ee72a4f00b",
-    "qrToken": "qr_t-01_xyz987",
-    "status": "available"
-  }
-}
-```
+- **Fungsi**: Mengambil data detail meja makan berdasarkan ID.
+- **Akses**: `admin`, `admin-food-court`
 
 #### `GET /api/tables/:id/sessions`
-- **Fungsi**: Mengambil riwayat seluruh dining session yang pernah terjadi di meja tertentu. Data mencakup daftar partisipan (siapa yang bergabung ke meja), dan seluruh pesanan beserta sub-order per tenant.
-- **Akses**: `admin`, `admin-food-court`, `tenant`
-- **Query Opsional**: `?status=COMPLETED&limit=10&offset=0`
-  - `status`: Filter berdasarkan status sesi (`ACTIVE`, `PAYMENT_PENDING`, `COMPLETED`, `CANCELLED`, `EXPIRED`)
-  - `limit`: Jumlah data per halaman (default: `10`)
-  - `offset`: Posisi awal data (default: `0`)
-- **Contoh Response (200 OK)**:
-```json
-{
-  "data": [
-    {
-      "id": "e54a8f77-d8c3-4b91-b9af-26c5cc7a9712",
-      "foodCourtId": "18f9185a-0d17-48f8-a128-40960538a7c1",
-      "tableId": "3be51a84-1e08-410a-ba92-d9ee72a4f00b",
-      "sessionCode": "SES-20260925-001",
-      "orderType": "DINE_IN",
-      "status": "COMPLETED",
-      "startedAt": "2026-09-25T12:00:00.000Z",
-      "participants": [
-        {
-          "id": "p1-uuid",
-          "name": "Rizky Ramadhan",
-          "isHost": true,
-          "joinedAt": "2026-09-25T12:00:00.000Z"
-        },
-        {
-          "id": "p2-uuid",
-          "name": "Andi Saputra",
-          "isHost": false,
-          "joinedAt": "2026-09-25T12:05:00.000Z"
-        }
-      ],
-      "orders": [
-        {
-          "id": "76e33f38-2785-455b-8669-ce561a0d319a",
-          "orderNumber": "ORD-20260925-0001",
-          "totalAmount": 64000,
-          "orderStatus": "COMPLETED",
-          "paymentStatus": "PAID",
-          "tenantOrders": [
-            {
-              "id": "42e2b921-2e11-482a-a92c-55c4ea87f941",
-              "subtotal": 64000,
-              "status": "COMPLETED",
-              "tenant": {
-                "id": "59b40097-4007-42f0-94cb-fa225916ca11",
-                "name": "Warung Rawon Bu Siti",
-                "stallNumber": "STAN-A01"
-              }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
+- **Fungsi**: Mengambil riwayat sesi makan (*dining sessions*) per meja (partisipan, pesanan, status).
+- **Akses**: `admin`, `admin-food-court`
+
+#### `POST /api/tables`
+- **Fungsi**: Membuat meja makan baru dan otomatis membuat token QR scannable.
+- **Akses**: `admin`, `admin-food-court`
+
+#### `PUT /api/tables/:id`
+- **Fungsi**: Memperbarui nomor meja, kapasitas, atau status meja (`available`, `occupied`, `disabled`).
+- **Akses**: `admin`, `admin-food-court`
+
+#### `POST /api/tables/:id/regenerate-qr`
+- **Fungsi**: Membuat ulang token QR meja baru untuk alasan keamanan.
+- **Akses**: `admin`, `admin-food-court`
 
 #### `DELETE /api/tables/:id`
 - **Fungsi**: Menghapus meja dari food court.
-- **Akses**: `admin` only.
+- **Akses**: `admin`, `admin-food-court`
 
 ---
 
-### 7. Pemesanan / Orders (`/api/orders`)
+### 8. Pemesanan & Split Bill (`/api/orders`)
 
 #### `POST /api/orders`
-- **Fungsi**: Membuat pesanan makanan multi-tenant. Sistem otomatis:
-  1. Membuat/menghubungkan ke `diningSession` meja.
-  2. Menyimpan snapshot nama & harga menu pada saat dipesan.
-  3. Memecah pesanan utama menjadi sub-order per tenant (`tenantOrders`).
-- **Akses**: Customer (atau guest dengan mencantumkan nama pembeli).
+- **Fungsi**: Membuat pesanan makanan multi-tenant. Mendukung pesanan Dine-In di meja atau Takeaway via Kiosk, snapshot harga menu, integrasi promo voucher, dan pemecahan sub-order per stan.
+- **Akses**: Customer / Public
 - **Contoh Request Body**:
 ```json
 {
-  "tableId": "3be51a84-1e08-410a-ba92-d9ee72a4f00b",
+  "tableId": "tbl-01-gc",
   "customerName": "Rizky Ramadhan",
-  "notes": "Pesanan makan siang",
+  "orderType": "DINE_IN",
+  "discountCode": "HEMAT10K",
+  "notes": "Pesanan makan siang rombongan",
   "items": [
     {
-      "menuId": "90d1bf43-e692-4917-8e6f-fcb802619bb2",
+      "menuId": "menu-rawon-001",
       "quantity": 2,
-      "specialInstructions": "Kuah dipisah, pedas"
+      "specialInstructions": "Kuah dipisah",
+      "optionIds": ["opt-kerupuk-001"]
     }
   ]
 }
 ```
-- **Contoh Response (201 Created)**:
-```json
-{
-  "message": "Order placed successfully",
-  "data": {
-    "id": "76e33f38-2785-455b-8669-ce561a0d319a",
-    "orderNumber": "ORD-20260925-0001",
-    "tableId": "3be51a84-1e08-410a-ba92-d9ee72a4f00b",
-    "customerName": "Rizky Ramadhan",
-    "totalAmount": 64000,
-    "status": "PENDING_PAYMENT",
-    "tenantOrders": [
-      {
-        "id": "42e2b921-2e11-482a-a92c-55c4ea87f941",
-        "tenantId": "59b40097-4007-42f0-94cb-fa225916ca11",
-        "subtotal": 64000,
-        "cookingStatus": "QUEUED"
-      }
-    ]
-  }
-}
-```
-
-#### `GET /api/orders/track/:orderNumber`
-- **Fungsi**: Tracking status pesanan dan antrean masak dapur secara real-time menggunakan nomor pesanan (`orderNumber`).
-- **Akses**: Public (Dapat diakses langsung oleh pembeli lewat link/QR tanpa login).
-- **Contoh Response (200 OK)**:
-```json
-{
-  "data": {
-    "orderNumber": "ORD-20260925-0001",
-    "status": "PAID",
-    "customerName": "Rizky Ramadhan",
-    "totalAmount": 64000,
-    "tenantOrders": [
-      {
-        "tenantName": "Warung Rawon Bu Siti",
-        "stallNumber": "STAN-A01",
-        "cookingStatus": "PREPARING"
-      }
-    ]
-  }
-}
-```
-
-#### `POST /api/orders/sessions/join`
-- **Fungsi**: Pelanggan lain di meja yang sama bergabung ke sesi makan aktif via scan `qrToken`.
-- **Akses**: Authenticated / Customer
 
 #### `GET /api/orders`
-- **Fungsi**: Mengambil daftar pesanan.
+- **Fungsi**: Mengambil riwayat daftar pesanan disaring otomatis sesuai peran pemanggil (`admin`, `tenant`, atau `customer`).
 - **Akses**: Authenticated (`admin`, `tenant`, `customer`)
-- **Dinamika Perilaku**:
-  - `admin`: Melihat semua pesanan di seluruh food court.
-  - `customer`: Hanya melihat pesanan yang dibuat oleh akun miliknya.
-  - `tenant`: Melihat pesanan yang memuat menu gerainya.
+
+#### `GET /api/orders/track/:orderNumber`
+- **Fungsi**: Tracking status pesanan dan antrean masak dapur secara real-time via nomor pesanan.
+- **Akses**: Public (Tanpa token)
+
+#### `POST /api/orders/sessions/join`
+- **Fungsi**: Pelanggan lain di meja yang sama bergabung ke sesi makan aktif via scan `qrToken` atau kode sesi.
+- **Akses**: Customer / Public
 
 #### `GET /api/orders/:id`
-- **Fungsi**: Mengambil rincian lengkap pesanan berdasarkan ID order.
-- **Akses**: Authenticated (`admin`, `customer` pemesan, atau `tenant` yang terlibat).
+- **Fungsi**: Mengambil rincian lengkap pesanan, sub-order stan dapur, alokasi split bill, dan total tagihan.
+- **Akses**: Public / Authenticated
+
+#### `POST /api/orders/:id/split-bill`
+- **Fungsi**: Mengonfigurasi pembagian tagihan pesanan rombongan (*split-bill*) per item per nama partisipan secara transparan & proporsional terhadap diskon.
+- **Akses**: Customer / Public
+- **Contoh Request Body**:
+```json
+{
+  "groups": [
+    {
+      "participantName": "Rizky",
+      "items": [{ "orderItemId": "item-rawon-001", "quantity": 1 }]
+    },
+    {
+      "participantName": "Budi",
+      "items": [{ "orderItemId": "item-rawon-001", "quantity": 1 }]
+    }
+  ]
+}
+```
 
 #### `PATCH /api/orders/:id/status`
-- **Fungsi**: Memperbarui status pesanan utama (misal: `COMPLETED` / `CANCELLED`). Jika pesanan selesai, sistem otomatis membebaskan meja menjadi `available`.
-- **Akses**: `admin`, `tenant` yang terlibat.
+- **Fungsi**: Memperbarui status pesanan utama (`COMPLETED` / `CANCELLED`). Selesai otomatis membebaskan meja menjadi `available`.
+- **Akses**: `admin`, `tenant` yang terlibat
 
 #### `PATCH /api/orders/tenant-orders/:id/status`
 - **Fungsi**: Dapur gerai tenant memperbarui status antrean masakan (`QUEUED` -> `PREPARING` -> `READY` -> `COMPLETED`).
-- **Akses**: `admin`, `tenant` pemilik kios.
-- **Contoh Request Body**:
-```json
-{
-  "cookingStatus": "PREPARING"
-}
-```
+- **Akses**: `admin`, `tenant` pemilik stan
 
 #### `PATCH /api/orders/items/:itemId/status`
 - **Fungsi**: Memperbarui status pengerjaan untuk setiap item individual di pesanan.
-- **Akses**: `admin`, `tenant` pemilik kios.
+- **Akses**: `admin`, `tenant` pemilik stan
 
 ---
 
-### 8. Pembayaran / Payments (`/api/payments`)
+### 9. Pembayaran & Kasir POS (`/api/payments`)
 
 #### `POST /api/payments`
-- **Fungsi**: Memproses pembayaran untuk pesanan. Otomatis mengubah status order menjadi `PAID` dan meneruskan antrean ke dapur tenant.
+- **Fungsi**: Memproses pembayaran pesanan (QRIS, CASH, TRANSFER). Otomatis mengubah status tagihan menjadi `PAID` dan meneruskan pesanan ke antrean dapur tenant.
 - **Akses**: Public / Customer / Kasir
-- **Metode Pembayaran**: `QRIS`, `CASH`, `TRANSFER`
 - **Contoh Request Body**:
 ```json
 {
-  "orderId": "76e33f38-2785-455b-8669-ce561a0d319a",
-  "method": "QRIS",
+  "orderId": "ord-76e33f38-2026",
+  "paymentMethod": "QRIS",
   "amount": 64000,
-  "reference": "QRIS-TRX-998877"
-}
-```
-- **Contoh Response (201 Created)**:
-```json
-{
-  "message": "Payment processed successfully",
-  "data": {
-    "id": "a90b4317-09d2-43d9-9528-662580a6c781",
-    "orderId": "76e33f38-2785-455b-8669-ce561a0d319a",
-    "method": "QRIS",
-    "amount": 64000,
-    "status": "SUCCESS",
-    "paidAt": "2026-09-25T01:28:00.000Z"
-  }
+  "provider": "Static-QRIS"
 }
 ```
 
 #### `POST /api/payments/midtrans`
-- **Fungsi**: Membuat transaksi Midtrans Snap untuk tagihan (payment group) dan menyimpan record payment `PENDING` (kadaluarsa 30 menit).
+- **Fungsi**: Membuat transaksi Midtrans Snap untuk pembayaran digital (mengembalikan `snapToken` & `redirectUrl`).
 - **Akses**: Public / Customer
-- **Contoh Request Body** (isi salah satu):
-```json
-{ "orderId": "76e33f38-2785-455b-8669-ce561a0d319a" }
-```
-- **Contoh Response (201 Created)**:
+
+#### `POST /api/payments/midtrans/notification`
+- **Fungsi**: Webhook status transaksi dari server Midtrans (diverifikasi via `signature_key`).
+- **Akses**: Dipanggil oleh server Midtrans (Public)
+
+#### `POST /api/payments/midtrans/:reference/sync`
+- **Fungsi**: Tarik ulang status transaksi dari Midtrans untuk `reference` tertentu dan sinkronisasi status pembayaran.
+- **Akses**: Public
+
+#### `GET /api/payments/cashier/pending`
+- **Fungsi**: Menampilkan daftar seluruh tagihan yang menunggu penyelesaian pembayaran tunai di kasir (*cashier settlement*).
+- **Akses**: Kasir / Admin / Public
+- **Query Opsional**: `?q=ORD-20261101`
+
+#### `GET /api/payments/cashier/lookup/:query`
+- **Fungsi**: Mencari rincian tagihan kasir berdasarkan nomor pesanan (`orderNumber`), ID payment group, atau kode pembayaran `CSH-`.
+- **Akses**: Kasir / Public
+
+#### `POST /api/payments/cashier/confirm`
+- **Fungsi**: Kasir mengonfirmasi penerimaan uang tunai dari pelanggan. Sistem menghitung kembalian uang, memfinalisasi status menjadi `PAID/SUCCESS`, dan meneruskan order ke dapur tenant.
+- **Akses**: Kasir / Admin / Public
+- **Contoh Request Body**:
 ```json
 {
-  "message": "Midtrans transaction created",
+  "orderId": "ord-76e33f38-2026",
+  "cashReceived": 100000
+}
+```
+- **Contoh Response (200 OK)**:
+```json
+{
+  "message": "Cash payment confirmed successfully",
   "data": {
-    "id": "...",
-    "orderId": "76e33f38-...",
-    "paymentReference": "ORD-20260925-0001-1760406000000",
-    "amount": 64000,
-    "status": "PENDING",
-    "snapToken": "66e4fa55-...",
-    "redirectUrl": "https://app.sandbox.midtrans.com/snap/v4/redirection/...",
-    "clientKey": "SB-Mid-client-...",
-    "isProduction": false
+    "paymentId": "pay-csh-001",
+    "orderId": "ord-76e33f38-2026",
+    "totalAmount": 64000,
+    "cashReceived": 100000,
+    "changeAmount": 36000,
+    "status": "SUCCESS"
   }
 }
 ```
-- **Frontend**: buka `redirectUrl`, atau pakai `window.snap.pay(snapToken)` dengan script `https://app.sandbox.midtrans.com/snap/snap.js` + atribut `data-client-key`.
 
-#### `POST /api/payments/midtrans/notification`
-- **Fungsi**: Webhook dari Midtrans. Signature diverifikasi, lalu status diambil ulang dari API Midtrans. Jika `settlement`/`capture(accept)` → payment `SUCCESS`, tagihan `PAID`, order `CONFIRMED`, antrean dapur `QUEUED`. Idempoten.
-- **Setup**: Midtrans Dashboard → Settings → Payment → *Notification URL* = `https://<domain-publik>/api/payments/midtrans/notification` (lokal: gunakan ngrok).
-
-#### `POST /api/payments/midtrans/:reference/sync`
-- **Fungsi**: Menarik status terbaru dari Midtrans untuk `paymentReference` tertentu dan menerapkannya (logika sama dengan webhook). Panggil dari frontend setelah callback Snap `onSuccess`/`onPending`.
+#### `GET /api/payments/cashier/history`
+- **Fungsi**: Mengambil riwayat transaksi pembayaran kasir dan rekapitulasi total penerimaan uang kas harian.
+- **Akses**: Kasir / Admin
 
 #### `GET /api/payments/:orderId`
-- **Fungsi**: Mengambil bukti/detail transaksi pembayaran berdasarkan ID order.
-- **Akses**: Authenticated (`customer` terkait, Kasir, atau `admin`).
+- **Fungsi**: Mengambil bukti dan rincian transaksi pembayaran berdasarkan ID order.
+- **Akses**: Authenticated (`customer`, `cashier`, `admin`, `tenant`)
 
 ---
 
-### 9. Media & File Upload (`/api/upload`, `/uploads/*`)
+### 10. Dompet Cabang Food Court (`/api/admin/food-court`)
 
-Modul penyimpanan file gambar lokal (Local Storage) dengan pembatasan ketat ukuran file **maksimal 1 MB** per file, validasi tipe gambar (`image/jpeg`, `image/png`, `image/webp`), sanitasi nama file acak, dan proteksi path traversal.
+#### `GET /api/admin/food-court/wallet`
+- **Fungsi**: Mengambil ringkasan saldo dompet cabang food court (akumulasi potongan komisi sewa stan) dan buku besar mutasi transaksi (*ledger*).
+- **Akses**: `admin-food-court`, `admin`
+- **Query Opsional**: `?foodCourtId=fc-grand-city-001`
+
+#### `GET /api/admin/food-court/withdrawals`
+- **Fungsi**: Mengambil riwayat pengajuan penarikan dana cabang food court.
+- **Akses**: `admin-food-court`, `admin`
+- **Query Opsional**: `?foodCourtId=...&status=REQUESTED|DISBURSED|COMPLETED|REJECTED`
+
+#### `POST /api/admin/food-court/withdrawals`
+- **Fungsi**: Manajer cabang mengajukan pencairan dana saldo dompet food court via Transfer Bank (minimal Rp 50.000).
+- **Akses**: `admin-food-court`, `admin`
+- **Contoh Request Body**:
+```json
+{
+  "amount": 2500000,
+  "bankName": "Bank Mandiri",
+  "bankAccountNumber": "142001928374",
+  "bankAccountHolder": "PT Pengelola Grand City"
+}
+```
+
+#### `POST /api/admin/food-court/withdrawals/:id/confirm`
+- **Fungsi**: Manajer cabang mengonfirmasi bahwa dana transfer dari Super Admin platform telah masuk ke rekening cabang (`DISBURSED` -> `COMPLETED`).
+- **Akses**: `admin-food-court`, `admin`
+- **Alias Method**: Mendukung `PATCH /api/admin/food-court/withdrawals/:id/confirm`
+
+---
+
+<div id="11-super-admin-disbursements--platform-revenue-apisuper-admin-detail"></div>
+
+### 11. Super Admin Disbursements & Platform Revenue (`/api/super-admin`)
+
+#### `GET /api/super-admin/withdrawals`
+- **Fungsi**: Menampilkan seluruh pengajuan pencairan dana dari seluruh cabang food court di sistem platform.
+- **Akses**: `admin` (Super Admin)
+
+#### `POST /api/super-admin/withdrawals/:id/process`
+- **Fungsi**: Super Admin memproses pencairan dana cabang food court dan menyertakan bukti transfer bank (`DISBURSED`).
+- **Akses**: `admin` (Super Admin)
+- **Alias Method**: Mendukung `PATCH`
+- **Contoh Request Body**:
+```json
+{
+  "proofReceiptUrl": "http://localhost:3000/uploads/proofs/transfer-fc-01.jpg",
+  "transferReference": "TRX-MDR-889900",
+  "adminNotes": "Pencairan operasional cabang periode akhir bulan"
+}
+```
+
+#### `POST /api/super-admin/withdrawals/:id/reject`
+- **Fungsi**: Menolak pengajuan pencairan cabang food court; saldo tertahan dikembalikan otomatis ke dompet cabang terkait.
+- **Akses**: `admin` (Super Admin)
+- **Alias Method**: Mendukung `PATCH`
+- **Contoh Request Body**:
+```json
+{
+  "reason": "Nomor rekening perusahaan tidak terdaftar dalam kontrak kerjasama"
+}
+```
+
+#### `POST /api/super-admin/withdrawals/:id/complete`
+- **Fungsi**: Memfinalisasi status pencairan dana food court menjadi `COMPLETED`.
+- **Akses**: `admin` (Super Admin)
+- **Alias Method**: Mendukung `PATCH`
+
+#### `GET /api/super-admin/platform-revenue`
+- **Fungsi**: Menampilkan total akumulasi pendapatan platform Amici (biaya layanan aplikasi 1% dari omzet kotor pesanan) beserta rincian kontribusi per cabang food court.
+- **Akses**: `admin` (Super Admin)
+- **Contoh Response (200 OK)**:
+```json
+{
+  "data": {
+    "totalPlatformRevenue": 4850000,
+    "branches": [
+      {
+        "foodCourtId": "fc-grand-city-001",
+        "foodCourtName": "Amici Food Court Grand City",
+        "totalGrossRevenue": 485000000,
+        "platformFeeContribution": 4850000
+      }
+    ]
+  }
+}
+```
+
+---
+
+<div id="12-rekonsiliasi-biaya-platform-sistem-apiadminsystem-detail"></div>
+
+### 12. Rekonsiliasi Biaya Platform Sistem (`/api/admin/system`)
+
+#### `POST /api/admin/system/reconcile-tenant-fees`
+- **Fungsi**: Rekonsiliasi riwayat potongan platform tenant masa lampau dan mengkreditkan kembali selisih dana ke saldo dompet tenant.
+- **Akses**: `admin` (Super Admin)
+- **Contoh Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "Rekonsiliasi platform fee tenant berhasil diselesaikan",
+  "data": {
+    "reconciledTenantsCount": 12,
+    "totalRefundedAmount": 145000
+  }
+}
+```
+
+---
+
+<div id="13-media--file-upload-apiupload-uploads-detail"></div>
+
+### 13. Media & File Upload (`/api/upload`, `/uploads/*`)
+
+Modul penyimpanan file gambar lokal (Local Storage) dengan pembatasan ukuran file **maksimal 1 MB** per file, validasi tipe gambar (`image/jpeg`, `image/png`, `image/webp`), nama file acak, dan proteksi path traversal.
 
 #### `POST /api/upload`
-- **Fungsi**: Mengunggah file foto sajian menu, logo kios gerai, atau logo cabang food court.
-- **Akses**: Authenticated (`admin`, `admin-food-court`, `tenant`).
+- **Fungsi**: Mengunggah file foto sajian menu, logo stan gerai, atau logo cabang food court.
+- **Akses**: Authenticated (`admin`, `admin-food-court`, `tenant`)
 - **Headers**:
   - `Authorization: Bearer <token>`
   - `Content-Type: multipart/form-data`
@@ -1013,19 +1072,205 @@ Modul penyimpanan file gambar lokal (Local Storage) dengan pembatasan ketat ukur
   }
 }
 ```
-- **Response `400 / 422 Bad Request` (Jika file > 1 MB)**:
+
+#### `GET /uploads/*`
+- **Fungsi**: Mengambil file gambar statis publik untuk ditampilkan di browser / web pelanggan.
+- **Akses**: Public (Tanpa token).
+- **Keamanan**: Dilengkapi proteksi path traversal attack (menolak `..`), header `X-Content-Type-Options: nosniff`, dan browser cache `max-age=86400`.
+
+---
+
+### 14. Program Promo & Diskon Vouchers (`/api/discounts`)
+
+#### `GET /api/discounts/public`
+- **Fungsi**: Mengambil daftar kupon promo/voucher aktif yang tersedia untuk digunakan pelanggan saat checkout.
+- **Akses**: Public (Tanpa token)
+- **Query Parameter**: `?foodCourtId=fc-grand-city-001&tenantId=...`
+- **Contoh Response (200 OK)**:
 ```json
 {
-  "success": false,
-  "error": "BadRequestError",
-  "message": "Ukuran file melebihi batas maksimal 1 MB (Terdeteksi 1.85 MB). Silakan kompres gambar terlebih dahulu."
+  "data": [
+    {
+      "id": "dsc-grand-opening-10k",
+      "foodCourtId": "fc-grand-city-001",
+      "code": "HEMAT10K",
+      "name": "Diskon Grand Opening Rp 10.000",
+      "description": "Potongan langsung Rp 10.000 minimal belanja Rp 40.000",
+      "scope": "FOOD_COURT",
+      "type": "FIXED_AMOUNT",
+      "value": 10000,
+      "minOrderAmount": 40000,
+      "isPublic": true,
+      "startDate": "2026-11-01T00:00:00.000Z",
+      "endDate": "2026-12-31T23:59:59.000Z",
+      "status": "ACTIVE"
+    }
+  ]
 }
 ```
 
-#### `GET /uploads/:folder/:filename`
-- **Fungsi**: Mengambil file gambar statis publik untuk ditampilkan di browser / web pelanggan.
-- **Akses**: Publik (Tanpa token).
-- **Keamanan**: Dilengkapi proteksi path traversal attack (menolak `..`), header `X-Content-Type-Options: nosniff`, dan browser cache `max-age=86400`.
+#### `POST /api/discounts/validate`
+- **Fungsi**: Memvalidasi kode kupon promo atau ID voucher terhadap item keranjang belanja dan menghitung estimasi diskon sebelum checkout.
+- **Akses**: Customer / Public
+- **Contoh Request Body**:
+```json
+{
+  "foodCourtId": "fc-grand-city-001",
+  "discountCode": "HEMAT10K",
+  "items": [
+    {
+      "menuId": "menu-rawon-001",
+      "quantity": 2,
+      "optionIds": ["opt-kerupuk-001"]
+    }
+  ]
+}
+```
+- **Contoh Response (200 OK)**:
+```json
+{
+  "message": "Voucher valid",
+  "data": {
+    "valid": true,
+    "discount": { "id": "dsc-grand-opening-10k", "code": "HEMAT10K", "name": "Diskon Grand Opening" },
+    "subtotal": 70000,
+    "discountAmount": 10000,
+    "discountedSubtotal": 60000,
+    "serviceFee": 600,
+    "taxAmount": 6060,
+    "totalAmount": 66660
+  }
+}
+```
+
+#### `POST /api/discounts`
+- **Fungsi**: Membuat program promo diskon baru (tingkat food court atau tingkat stan tenant).
+- **Akses**: `admin`, `admin-food-court`, `tenant`
+- **Contoh Request Body**:
+```json
+{
+  "foodCourtId": "fc-grand-city-001",
+  "code": "RAWONFEST",
+  "name": "Diskon Spesial Rawon 15%",
+  "description": "Potongan 15% untuk santap rawon",
+  "scope": "TENANT",
+  "tenantId": "tnt-rawon-siti-001",
+  "type": "PERCENTAGE",
+  "value": 15,
+  "maxDiscountAmount": 20000,
+  "minOrderAmount": 50000,
+  "isPublic": true,
+  "usageLimit": 100,
+  "startDate": "2026-11-01T00:00:00.000Z",
+  "endDate": "2026-11-30T23:59:59.000Z",
+  "status": "ACTIVE"
+}
+```
+
+#### `GET /api/discounts`
+- **Fungsi**: Mengambil master daftar promo diskon untuk dashboard manajemen internal.
+- **Akses**: `admin`, `admin-food-court`, `tenant`
+- **Query Opsional**: `?foodCourtId=...&tenantId=...&status=ACTIVE&search=RAWON`
+
+#### `GET /api/discounts/:id`
+- **Fungsi**: Mengambil detail informasi konfigurasi voucher promo berdasarkan ID diskon.
+- **Akses**: `admin`, `admin-food-court`, `tenant`
+
+#### `PUT /api/discounts/:id`
+- **Fungsi**: Memperbarui nama, masa berlaku, kuota, atau status promo diskon.
+- **Akses**: `admin`, `admin-food-court`, `tenant`
+
+#### `DELETE /api/discounts/:id`
+- **Fungsi**: Menonaktifkan program promo diskon (`INACTIVE`).
+- **Akses**: `admin`, `admin-food-court`, `tenant`
+
+---
+
+### 15. Mesin Pemesanan Mandiri / Self-Service Kiosks (`/api/kiosks`)
+
+#### `GET /api/kiosks/resolve/:deviceCode`
+- **Fungsi**: Resolusi terminal mesin kios mandiri berdasarkan kode perangkat (`deviceCode`). Mengembalikan profil food court, daftar stan tenant aktif, dan katalog menu takeaway untuk pemesanan langsung di mesin.
+- **Akses**: Public (Tanpa token)
+- **Contoh Response (200 OK)**:
+```json
+{
+  "data": {
+    "kiosk": {
+      "id": "ksk-gc-lobby-01",
+      "kioskName": "Kiosk Lobby Utama",
+      "deviceCode": "KIOSK-GC-LOBBY-01",
+      "status": "ACTIVE",
+      "location": "Lobby Barat Lantai 2"
+    },
+    "foodCourt": {
+      "id": "fc-grand-city-001",
+      "name": "Amici Food Court Grand City",
+      "slug": "amici-food-court-grand-city"
+    },
+    "tenants": [
+      {
+        "id": "tnt-rawon-siti-001",
+        "name": "Warung Rawon Bu Siti",
+        "stallNumber": "STAN-A01",
+        "isOpen": true
+      }
+    ]
+  }
+}
+```
+
+#### `GET /api/kiosks`
+- **Fungsi**: Mengambil daftar perangkat terminal Kiosk yang terdaftar di cabang food court.
+- **Akses**: `admin`, `admin-food-court`
+- **Query Opsional**: `?status=ACTIVE&foodCourtId=fc-grand-city-001`
+
+#### `POST /api/kiosks`
+- **Fungsi**: Mendaftarkan perangkat mesin terminal Kiosk baru di cabang food court.
+- **Akses**: `admin`, `admin-food-court`
+- **Contoh Request Body**:
+```json
+{
+  "foodCourtId": "fc-grand-city-001",
+  "kioskName": "Kiosk Pintu Timur Lantai 2",
+  "deviceCode": "KIOSK-GC-EAST-02",
+  "location": "Dekat Pintu Masuk Timur",
+  "status": "ACTIVE"
+}
+```
+
+#### `GET /api/kiosks/:id`
+- **Fungsi**: Mengambil detail informasi perangkat terminal Kiosk berdasarkan ID.
+- **Akses**: `admin`, `admin-food-court`
+
+#### `PUT /api/kiosks/:id`
+- **Fungsi**: Memperbarui nama, kode mesin, lokasi fisik, atau mengaktifkan/menonaktifkan perangkat Kiosk.
+- **Akses**: `admin`, `admin-food-court`
+
+#### `DELETE /api/kiosks/:id`
+- **Fungsi**: Menghapus data perangkat Kiosk dari sistem cabang food court.
+- **Akses**: `admin`, `admin-food-court`
+
+#### `GET /api/kiosks/:id/stats`
+- **Fungsi**: Mengambil statistik performa mesin Kiosk (total pesanan takeaway yang dibuat, total omzet yang diproses, nilai rata-rata transaksi, dan tenant terpopuler).
+- **Akses**: `admin`, `admin-food-court`
+- **Contoh Response (200 OK)**:
+```json
+{
+  "data": {
+    "kioskId": "ksk-gc-lobby-01",
+    "totalOrders": 128,
+    "totalRevenue": 7450000,
+    "averageOrderValue": 58203,
+    "topTenants": [
+      {
+        "tenantId": "tnt-rawon-siti-001",
+        "tenantName": "Warung Rawon Bu Siti",
+        "orderCount": 74
+      }
+    ]
+  }
+}
+```
 
 ---
 
@@ -1042,10 +1287,10 @@ Semua error pada API ini mengikuti format respons JSON terstandar:
 ```
 
 ### Panduan Kode Status HTTP:
-- **`400 BadRequestError`**: Format input data salah atau melanggar aturan bisnis (misal: nomor stan duplikat pada stan aktif di food court yang sama).
+- **`400 BadRequestError`**: Format input data salah atau melanggar aturan bisnis (misal: nomor stan duplikat pada stan aktif di food court yang sama, nominal pencairan di bawah batas minimal, file melebihi 1 MB).
 - **`401 UnauthorizedError`**: Token JWT tidak disertakan atau token telah kadaluarsa.
-- **`403 ForbiddenError`**: Pengguna login, tetapi tidak memiliki izin mengakses entitas tersebut (misal: manajer food court mengakses data tenant food court lain, customer mengakses daftar internal tenant, atau customer mengakses daftar menu global).
-- **`404 NotFoundError`**: Data yang dicari (Food Court / Tenant / Menu / Kategori / Meja / Order) tidak ditemukan.
-- **`409 ConflictError`**: Terjadi konflik data unik (misal: slug food court sudah terdaftar).
+- **`403 ForbiddenError`**: Pengguna login, tetapi tidak memiliki izin mengakses entitas tersebut (misal: manajer food court mengakses data cabang lain, customer mengakses daftar internal tenant, atau bukan pemilik stan).
+- **`404 NotFoundError`**: Data yang dicari (Food Court / Tenant / Menu / Kategori / Meja / Order / Diskon / Kiosk) tidak ditemukan.
+- **`409 ConflictError`**: Terjadi konflik data unik (misal: slug food court sudah terdaftar, deviceCode Kiosk duplikat, email pengguna sudah digunakan).
 - **`422 ValidationError`**: Data body/parameter tidak sesuai dengan validasi skema TypeBox.
 - **`500 InternalServerError`**: Terjadi kesalahan internal pada server database atau aplikasi.

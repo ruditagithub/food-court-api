@@ -199,3 +199,4 @@ flowchart TD
 3. **Manual Verification**:
    - Login sebagai `tenant@foodcourt.com` dan buka `/app/dashboard`.
    - Verifikasi data yang tampil sesuai dengan porsi menu dan riwayat transaksi Warung Rawon Bu Siti.
+

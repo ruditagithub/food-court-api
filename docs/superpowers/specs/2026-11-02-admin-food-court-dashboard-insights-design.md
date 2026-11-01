@@ -178,3 +178,4 @@ flowchart TD
 3. **Manual Verification**:
    - Login sebagai `manager@foodcourt.com` dan buka `/app/dashboard`.
    - Verifikasi data yang tampil sesuai dengan data stan, meja, dan transaksi di cabang Grand City.
+

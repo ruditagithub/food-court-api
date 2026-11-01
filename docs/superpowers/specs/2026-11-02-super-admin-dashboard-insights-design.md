@@ -181,3 +181,4 @@ flowchart TD
 3. **Manual Verification**:
    - Login sebagai `admin@foodcourt.com` dan buka `/app/dashboard`.
    - Ubah filter rentang waktu (`Hari Ini`, `7 Hari`, `30 Hari`, `1 Tahun`) dan pastikan seluruh grafik dan metrik memperbarui nilainya secara dinamis.
+

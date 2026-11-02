@@ -191,6 +191,7 @@ Tabel berikut menyajikan seluruh **97 endpoint aksi** (mencakup total **105 moun
 | 23 | `GET` | `/api/tenants/withdrawals` | Diizinkan (dengan `?tenantId=`) | Diizinkan (dengan `?tenantId=`) | **Melihat riwayat pencairan stan miliknya** | `403 Forbidden` | Mengambil riwayat pengajuan pencairan dana dompet stan tenant. |
 | 24 | `POST` | `/api/tenants/withdrawals` | Diizinkan | Diizinkan | **Mengajukan pencairan dana dompet** | `403 Forbidden` | Mengajukan penarikan saldo dompet stan (Tunai atau Transfer Bank, Min Rp 10.000). |
 | 25 | `PATCH`| `/api/tenants/withdrawals/{id}/confirm` | Diizinkan | Diizinkan | **Konfirmasi dana telah diterima** | `403 Forbidden` | Tenant mengonfirmasi penerimaan dana pencairan transfer (`DISBURSED` -> `COMPLETED`). |
+| 25b | `GET` | `/api/tenants/dashboard-stats` | Diizinkan (dengan `?tenantId=`) | `403 Forbidden` | **Melihat analitik 4-layer stan miliknya** | `403 Forbidden` | Mengambil 4-layer merchant business & product intelligence (omzet, porsi, best sellers, jam sibuk). |
 
 ### 5. Admin Food Court Withdrawal Management (`/api/admin/withdrawals`)
 
@@ -271,6 +272,7 @@ Tabel berikut menyajikan seluruh **97 endpoint aksi** (mencakup total **105 moun
 | 73 | `GET` | `/api/admin/food-court/withdrawals` | Diizinkan (seluruh cabang) | **Melihat riwayat penarikan cabangnya** | `403 Forbidden` | `403 Forbidden` | Mengambil riwayat pengajuan penarikan dana cabang food court. |
 | 74 | `POST` | `/api/admin/food-court/withdrawals` | Diizinkan | **Mengajukan penarikan dana cabang** | `403 Forbidden` | `403 Forbidden` | Mengajukan pencairan dana cabang via Transfer Bank (Minimal Rp 50.000). |
 | 75 | `POST`/`PATCH` | `/api/admin/food-court/withdrawals/{id}/confirm` | Diizinkan | **Konfirmasi dana masuk ke rekening cabang** | `403 Forbidden` | `403 Forbidden` | Manajer cabang mengonfirmasi bahwa dana transfer dari Super Admin telah diterima. |
+| 75b | `GET` | `/api/admin/food-court/dashboard-stats` | Diizinkan (cabang default) | **Melihat analitik 4-layer cabangnya** | `403 Forbidden` | `403 Forbidden` | Mengambil 4-layer insight statistik cabang (finansial, okupansi meja, beban dapur stan, kanal). |
 
 ### 11. Super Admin Disbursements & Platform Revenue (`/api/super-admin`)
 
@@ -281,6 +283,7 @@ Tabel berikut menyajikan seluruh **97 endpoint aksi** (mencakup total **105 moun
 | 78 | `POST`/`PATCH` | `/api/super-admin/withdrawals/{id}/reject` | **Menolak pengajuan pencairan cabang** | `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Menolak pencairan cabang; saldo tertahan dikembalikan otomatis ke dompet cabang. |
 | 79 | `POST`/`PATCH` | `/api/super-admin/withdrawals/{id}/complete`| **Memfinalisasi pencairan dana cabang**| `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Memfinalisasi status pencairan dana food court menjadi `COMPLETED`. |
 | 80 | `GET` | `/api/super-admin/platform-revenue` | **Melihat rekap pendapatan platform** | `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Melihat total pendapatan platform Amici (biaya layanan aplikasi 1%) & kontribusi per cabang. |
+| 80b | `GET` | `/api/super-admin/dashboard-stats` | **Melihat analitik 4-layer platform** | `403 Forbidden` | `403 Forbidden` | `403 Forbidden` | Mengambil 4-layer executive statistical insights (GMV, fee 1%, leaderboard cabang, SLA dapur). |
 
 ### 12. Rekonsiliasi Biaya Platform Sistem (`/api/admin/system`)
 
@@ -613,6 +616,60 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
 #### `PATCH /api/tenants/withdrawals/:id/confirm`
 - **Fungsi**: Konfirmasi oleh pemilik tenant bahwa dana pencairan transfer bank telah masuk ke rekening pribadinya (`DISBURSED` -> `COMPLETED`).
 - **Akses**: `tenant`, `admin`, `admin-food-court`
+
+#### `GET /api/tenants/dashboard-stats`
+- **Fungsi**: Mengambil 4-layer merchant business & product intelligence terisolasi untuk akun stan tenant yang sedang login atau stan yang dispesifikasikan oleh Super Admin. Menyajikan total omzet, saldo dompet siap tarik, porsi terjual, rata-rata nilai transaksi (AOV), tren omzet harian/mingguan, grafik distribusi jam sibuk (*peak hours*), daftar 5 menu terlaris beserta popularitas opsi tambahannya, peringatan stok menipis/habis, serta riwayat pencairan dana terakhir.
+- **Akses**: `tenant` (stan miliknya), `admin` (dengan query `?tenantId=...`)
+- **Query Opsional**:
+  - `range`: Rentang waktu filter analitik (`today`, `7d`, `30d`, `this_month`). Default: `30d`.
+  - `tenantId`: ID stan tenant (khusus akses oleh Super Admin `admin`).
+- **Contoh Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "summary": {
+      "totalRevenue": 14500000,
+      "portionsSold": 580,
+      "walletBalance": 3200000,
+      "averageOrderValue": 25000
+    },
+    "salesTrend": [
+      { "date": "2026-11-01", "revenue": 450000, "portions": 18 }
+    ],
+    "peakHours": [
+      { "hour": "12:00", "portionCount": 42 }
+    ],
+    "topMenus": [
+      {
+        "menuId": "menu-uuid-1",
+        "menuName": "Nasi Goreng Spesial",
+        "categoryName": "Makanan Utama",
+        "portionCount": 120,
+        "totalSales": 3000000,
+        "popularOptions": [
+          { "optionName": "Pedas Sedang", "selectionCount": 75 }
+        ]
+      }
+    ],
+    "categoryDistribution": [
+      { "categoryName": "Makanan Utama", "itemCount": 8, "percentage": 80 }
+    ],
+    "stockAlerts": [
+      { "menuId": "menu-uuid-2", "menuName": "Es Teh Manis", "stock": 3, "isAvailable": true }
+    ],
+    "recentWithdrawals": [
+      {
+        "id": "wd-01",
+        "amount": 500000,
+        "paymentMethod": "TRANSFER",
+        "status": "COMPLETED",
+        "createdAt": "2026-11-01T10:00:00.000Z"
+      }
+    ]
+  }
+}
+```
 
 ---
 
@@ -963,6 +1020,64 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
 - **Akses**: `admin-food-court`, `admin`
 - **Alias Method**: Mendukung `PATCH /api/admin/food-court/withdrawals/:id/confirm`
 
+#### `GET /api/admin/food-court/dashboard-stats`
+- **Fungsi**: Mengambil 4-layer insight statistik operasional dan finansial terisolasi untuk manajer cabang food court (`admin-food-court`) atau Super Admin. Menampilkan ringkasan omzet kotor cabang, total pesanan, okupansi meja makan real-time, durasi rata-rata makan pelanggan (*dining duration*), tren pendapatan, perbandingan kanal pemesanan (Dine-in QR vs Takeaway Kiosk), leaderboard omzet tenant di cabang, antrean aktif pengerjaan dapur per stan, dan daftar pesanan terbaru yang sedang berjalan.
+- **Akses**: `admin-food-court` (cabang kelolaannya), `admin` (cabang default atau via `?foodCourtId=...`)
+- **Query Opsional**:
+  - `range`: Rentang waktu filter analitik (`today`, `7d`, `30d`, `this_month`). Default: `30d`.
+  - `foodCourtId`: ID cabang food court (khusus Super Admin `admin`).
+- **Contoh Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "summary": {
+      "branchRevenue": 85000000,
+      "totalOrders": 1250,
+      "currentOccupancyRate": 68.5,
+      "avgDiningDurationMinutes": 42
+    },
+    "revenueTrend": [
+      { "date": "2026-11-01", "revenue": 3200000, "orderCount": 48 }
+    ],
+    "channelBreakdown": {
+      "dineInQrRevenue": 65000000,
+      "dineInQrOrders": 950,
+      "takeawayKioskRevenue": 20000000,
+      "takeawayKioskOrders": 300
+    },
+    "tenantLeaderboard": [
+      {
+        "tenantId": "tnt-01",
+        "tenantName": "Kopi Kenangan Senja",
+        "stallNumber": "B-01",
+        "totalRevenue": 22000000,
+        "orderCount": 410
+      }
+    ],
+    "kitchenQueueWorkload": [
+      {
+        "tenantId": "tnt-01",
+        "tenantName": "Kopi Kenangan Senja",
+        "queuedCount": 3,
+        "preparingCount": 2,
+        "readyCount": 1
+      }
+    ],
+    "recentBranchOrders": [
+      {
+        "id": "ord-01",
+        "orderNumber": "ORD-20261102-001",
+        "type": "DINE_IN",
+        "status": "PROCESSING",
+        "totalAmount": 75000,
+        "createdAt": "2026-11-02T12:30:00.000Z"
+      }
+    ]
+  }
+}
+```
+
 ---
 
 <div id="11-super-admin-disbursements--platform-revenue-apisuper-admin-detail"></div>
@@ -1016,6 +1131,64 @@ Authorization: Bearer <TOKEN_JWT_DARI_LOGIN>
         "foodCourtName": "Amici Food Court Grand City",
         "totalGrossRevenue": 485000000,
         "platformFeeContribution": 4850000
+      }
+    ]
+  }
+}
+```
+
+#### `GET /api/super-admin/dashboard-stats`
+- **Fungsi**: Mengambil 4-layer executive statistical insights lintas cabang untuk akun Super Admin (`admin`). Menampilkan metrik makro Gross Merchandise Value (GMV), akumulasi platform fee 1%, total transaksi terselesaikan, active branch count, tren pendapatan platform harian/mingguan, leaderboard performa seluruh cabang food court, perbandingan adopsi kanal pemesanan (Dine-in QR vs Kiosk Takeaway), metrik SLA kecepatan masak dapur, komposisi metode pembayaran pelanggan, serta antrean pencairan dana cabang yang memerlukan tindakan verifikasi.
+- **Akses**: `admin` (Super Admin only)
+- **Query Opsional**:
+  - `range`: Rentang waktu filter analitik (`today`, `7d`, `30d`, `this_month`). Default: `30d`.
+  - `foodCourtId`: Filter analitik khusus untuk satu cabang tertentu (opsional).
+- **Contoh Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "summary": {
+      "totalGmv": 485000000,
+      "platformFee": 4850000,
+      "totalOrders": 12450,
+      "activeBranches": 8
+    },
+    "gmvTrend": [
+      { "date": "2026-11-01", "gmv": 15200000, "platformFee": 152000 }
+    ],
+    "branchLeaderboard": [
+      {
+        "foodCourtId": "fc-01",
+        "foodCourtName": "Grand City Food Court",
+        "gmv": 185000000,
+        "orderCount": 4800,
+        "platformFee": 1850000
+      }
+    ],
+    "channelAdoption": {
+      "dineInQrRevenue": 340000000,
+      "dineInQrCount": 8700,
+      "takeawayKioskRevenue": 145000000,
+      "takeawayKioskCount": 3750
+    },
+    "kitchenSla": {
+      "avgPrepTimeMinutes": 14.5,
+      "ordersDelayedCount": 18,
+      "onTimePercentage": 96.2
+    },
+    "paymentComposition": [
+      { "method": "QRIS", "count": 7800, "totalAmount": 310000000 },
+      { "method": "CASH", "count": 3200, "totalAmount": 125000000 },
+      { "method": "TRANSFER", "count": 1450, "totalAmount": 50000000 }
+    ],
+    "actionableWithdrawals": [
+      {
+        "id": "wd-fc-01",
+        "foodCourtName": "Grand City Food Court",
+        "amount": 5000000,
+        "status": "REQUESTED",
+        "createdAt": "2026-11-02T08:00:00.000Z"
       }
     ]
   }

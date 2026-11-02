@@ -13,6 +13,7 @@ import {
   UpdateTenantDTO,
 } from "./model";
 import { tenantService } from "./service";
+import { tenantStatsService } from "./stats.service";
 import { menuService } from "../menus/service";
 import { foodCourtService } from "../food-courts/service";
 
@@ -53,6 +54,28 @@ export const tenantsController = new Elysia({ prefix: "/api/tenants" })
       detail: {
         tags: ["Tenants"],
         summary: "Get current tenant stall for logged in tenant user",
+      },
+    },
+  )
+  .get(
+    "/dashboard-stats",
+    async ({ query, user }) => {
+      requireRoles(user, ["tenant", "admin"]);
+      const data = await tenantStatsService.getTenantDashboardStats(
+        user,
+        query.range,
+        query.tenantId,
+      );
+      return { data };
+    },
+    {
+      query: t.Object({
+        range: t.Optional(t.String()),
+        tenantId: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Tenants", "Tenant Stats"],
+        summary: "Get 4-layer merchant business and product intelligence statistics",
       },
     },
   )

@@ -21,7 +21,10 @@ export const jwtPlugin = new Elysia({ name: "jwtPlugin" }).use(
 export const authPlugin = new Elysia({ name: "authPlugin" })
   .use(jwtPlugin)
   .derive({ as: "scoped" }, async ({ jwt, headers }) => {
-    const auth = headers.authorization;
+    let auth = headers.authorization;
+    if (!auth && (headers as any).token) {
+      auth = `Bearer ${(headers as any).token}`;
+    }
     if (!auth || !auth.startsWith("Bearer ")) {
       return { user: null as AuthUser | null };
     }

@@ -6,6 +6,7 @@ import {
   RequestFoodCourtWithdrawalDTO,
 } from "./model";
 import { foodCourtWalletService } from "./wallet.service";
+import { foodCourtStatsService } from "./stats.service";
 
 // ==========================================
 // 1. ADMIN FOOD COURT WALLET CONTROLLER
@@ -115,6 +116,26 @@ export const adminFoodCourtWalletController = new Elysia({
       detail: {
         tags: ["Food Court Wallet"],
         summary: "Confirm receipt of disbursed withdrawal funds (PATCH)",
+      },
+    },
+  )
+  .get(
+    "/dashboard-stats",
+    async ({ query, user }) => {
+      requireRoles(user, ["admin-food-court", "admin"]);
+      const data = await foodCourtStatsService.getFoodCourtManagerStats(
+        user,
+        query.range,
+      );
+      return { data };
+    },
+    {
+      query: t.Object({
+        range: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Food Court Wallet", "Food Court Stats"],
+        summary: "Get 4-layer dashboard statistics for food court branch manager",
       },
     },
   );
@@ -283,6 +304,28 @@ export const superAdminWithdrawalsController = new Elysia({
       detail: {
         tags: ["Super Admin"],
         summary: "Get accumulated 1% platform revenue and branch fee contributions",
+      },
+    },
+  )
+  .get(
+    "/dashboard-stats",
+    async ({ query, user }) => {
+      requireRoles(user, ["admin"]);
+      const data = await foodCourtStatsService.getSuperAdminDashboardStats(
+        user,
+        query.range,
+        query.foodCourtId,
+      );
+      return { data };
+    },
+    {
+      query: t.Object({
+        range: t.Optional(t.String()),
+        foodCourtId: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ["Super Admin", "Super Admin Stats"],
+        summary: "Get 4-layer executive dashboard statistics for super admin",
       },
     },
   );

@@ -17,6 +17,7 @@ import {
   ChefHat,
   ChevronRight,
   Flame,
+  AlertCircle,
 } from 'lucide-react'
 import { formatRupiah } from '../../lib/utils'
 
@@ -100,7 +101,7 @@ export function FoodCourtManagerAnalyticsWidgets({
     occupiedTables: 0,
     availableTables: 0,
     occupancyRatePercentage: 0,
-    averageDiningDurationMinutes: 38.5,
+    averageDiningDurationMinutes: 0,
   }
   const tenantKitchen = stats?.tenantAndKitchen || {
     totalTenants: 0,
@@ -119,14 +120,6 @@ export function FoodCourtManagerAnalyticsWidgets({
     { name: 'Kiosk Mandiri', value: channels.kiosk.count, pct: channels.kiosk.percentage },
     { name: 'Kasir POS', value: channels.cashierPos.count, pct: channels.cashierPos.percentage },
   ].filter((d) => d.value > 0 || d.pct > 0)
-
-  const finalPieData = channelPieData.length > 0
-    ? channelPieData
-    : [
-        { name: 'QR Meja', value: 65, pct: 65 },
-        { name: 'Kiosk Mandiri', value: 20, pct: 20 },
-        { name: 'Kasir POS', value: 15, pct: 15 },
-      ]
 
   return (
     <div className="space-y-6">
@@ -373,61 +366,69 @@ export function FoodCourtManagerAnalyticsWidgets({
               <QrCode className="w-5 h-5 text-emerald-600" />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-              <div className="h-44 w-full flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={finalPieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={65}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {finalPieData.map((_, i) => (
-                        <Cell key={`cell-${i}`} fill={CHANNEL_COLORS[i % CHANNEL_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(val: any, name: any) => [`${val} order`, name]}
-                      contentStyle={{ borderRadius: '12px', fontSize: '11px' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+            {channelPieData.length === 0 ? (
+              <div className="h-44 w-full flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-dashed border-neutral-200">
+                <AlertCircle className="w-7 h-7 text-neutral-300 mb-1.5" />
+                <p className="text-xs font-semibold text-neutral-600">Belum ada data adopsi kanal</p>
+                <p className="text-[10px] text-neutral-400">Tidak ada pesanan pada cabang ini di periode yang dipilih</p>
               </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                <div className="h-44 w-full flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={channelPieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={40}
+                        outerRadius={65}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {channelPieData.map((_, i) => (
+                          <Cell key={`cell-${i}`} fill={CHANNEL_COLORS[i % CHANNEL_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(val: any, name: any) => [`${val} order`, name]}
+                        contentStyle={{ borderRadius: '12px', fontSize: '11px' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
 
-              <div className="space-y-3">
-                <div className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    <span>QR Meja</span>
+                <div className="space-y-3">
+                  <div className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                      <span>QR Meja</span>
+                    </div>
+                    <span className="font-mono font-bold text-xs text-neutral-900">
+                      {channels.tableQr.percentage}% ({channels.tableQr.count})
+                    </span>
                   </div>
-                  <span className="font-mono font-bold text-xs text-neutral-900">
-                    {channels.tableQr.percentage}% ({channels.tableQr.count})
-                  </span>
-                </div>
-                <div className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800">
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                    <span>Kiosk Mandiri</span>
+                  <div className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                      <span>Kiosk Mandiri</span>
+                    </div>
+                    <span className="font-mono font-bold text-xs text-neutral-900">
+                      {channels.kiosk.percentage}% ({channels.kiosk.count})
+                    </span>
                   </div>
-                  <span className="font-mono font-bold text-xs text-neutral-900">
-                    {channels.kiosk.percentage}% ({channels.kiosk.count})
-                  </span>
-                </div>
-                <div className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                    <span>Kasir POS</span>
+                  <div className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                      <span>Kasir POS</span>
+                    </div>
+                    <span className="font-mono font-bold text-xs text-neutral-900">
+                      {channels.cashierPos.percentage}% ({channels.cashierPos.count})
+                    </span>
                   </div>
-                  <span className="font-mono font-bold text-xs text-neutral-900">
-                    {channels.cashierPos.percentage}% ({channels.cashierPos.count})
-                  </span>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

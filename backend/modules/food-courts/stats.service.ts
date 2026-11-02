@@ -190,14 +190,13 @@ export class FoodCourtStatsService {
           fc.name AS name,
           COALESCE(SUM(o.total_amount), 0) AS totalGmv,
           COUNT(o.id) AS totalOrders,
-          COUNT(DISTINCT t.id) AS activeTenantsCount
+          (SELECT COUNT(t.id) FROM tenants t WHERE t.food_court_id = fc.id AND t.is_open = 1) AS activeTenantsCount
         FROM food_courts fc
         LEFT JOIN dining_sessions ds ON fc.id = ds.food_court_id
         LEFT JOIN orders o ON ds.id = o.session_id 
           AND o.order_status = 'COMPLETED'
           AND o.created_at >= ${startDate}
           AND o.created_at <= ${endDate}
-        LEFT JOIN tenants t ON fc.id = t.food_court_id AND t.is_open = 1
         WHERE fc.id = ${foodCourtId}
         GROUP BY fc.id, fc.name
         ORDER BY totalGmv DESC
@@ -307,7 +306,7 @@ export class FoodCourtStatsService {
     const kitchenSlaQuery = filterBranch
       ? sql`
         SELECT 
-          COALESCE(AVG(TIMESTAMPDIFF(MINUTE, kq.queued_at, kq.finished_at)), 14.2) AS avgMinutes,
+          COALESCE(AVG(TIMESTAMPDIFF(MINUTE, kq.queued_at, kq.finished_at)), 0) AS avgMinutes,
           COUNT(kq.id) AS totalQueues,
           SUM(CASE WHEN TIMESTAMPDIFF(MINUTE, kq.queued_at, kq.finished_at) <= 20 THEN 1 ELSE 0 END) AS onTimeCount
         FROM kitchen_queues kq
@@ -321,7 +320,7 @@ export class FoodCourtStatsService {
       `
       : sql`
         SELECT 
-          COALESCE(AVG(TIMESTAMPDIFF(MINUTE, kq.queued_at, kq.finished_at)), 14.2) AS avgMinutes,
+          COALESCE(AVG(TIMESTAMPDIFF(MINUTE, kq.queued_at, kq.finished_at)), 0) AS avgMinutes,
           COUNT(kq.id) AS totalQueues,
           SUM(CASE WHEN TIMESTAMPDIFF(MINUTE, kq.queued_at, kq.finished_at) <= 20 THEN 1 ELSE 0 END) AS onTimeCount
         FROM kitchen_queues kq
@@ -401,14 +400,14 @@ export class FoodCourtStatsService {
     const kitchenRow = extractRows<any>(kitchenRes)[0] || {};
     const totalQueues = Number(kitchenRow.totalQueues || 0);
     const onTimeCount = Number(kitchenRow.onTimeCount || 0);
-    const avgMinutes = Number(kitchenRow.avgMinutes || 14.2);
+    const avgMinutes = Number(kitchenRow.avgMinutes || 0);
     const kitchenSla = {
-      averageCookingTimeMinutes: Number(avgMinutes.toFixed(1)),
+      averageCookingTimeMinutes: totalQueues > 0 ? Number(avgMinutes.toFixed(1)) : 0,
       targetMinutes: 20.0,
       onTimePercentage:
         totalQueues > 0
           ? Number(((onTimeCount / totalQueues) * 100).toFixed(1))
-          : 92.4,
+          : 100,
     };
 
     // 8. Trends (Daily aggregation)
@@ -546,12 +545,14 @@ export class FoodCourtStatsService {
     // 4. Dining Duration (in minutes)
     const diningDurationQuery = sql`
       SELECT 
-        COALESCE(AVG(TIMESTAMPDIFF(MINUTE, started_at, updated_at)), 38.5) AS avgDuration
+        COALESCE(AVG(TIMESTAMPDIFF(MINUTE, started_at, updated_at)), 0) AS avgDuration
       FROM dining_sessions
       WHERE food_court_id = ${fcId}
         AND status = 'COMPLETED'
         AND started_at IS NOT NULL
         AND updated_at IS NOT NULL
+        AND created_at >= ${startDate}
+        AND created_at <= ${endDate}
     `;
 
     // 5. Tenants stats & kitchen workload
@@ -595,6 +596,20 @@ export class FoodCourtStatsService {
       JOIN tenants t ON to_ord.tenant_id = t.id
       WHERE t.food_court_id = ${fcId}
         AND kq.status IN ('QUEUED', 'COOKING')
+    `;
+
+    const busiestTenantQuery = sql`
+      SELECT 
+        t.name AS name,
+        COUNT(kq.id) AS activeCooking
+      FROM kitchen_queues kq
+      JOIN tenant_orders to_ord ON kq.tenant_order_id = to_ord.id
+      JOIN tenants t ON to_ord.tenant_id = t.id
+      WHERE t.food_court_id = ${fcId}
+        AND kq.status IN ('QUEUED', 'COOKING')
+      GROUP BY t.id, t.name
+      ORDER BY activeCooking DESC
+      LIMIT 1
     `;
 
     // 6. Channel breakdown
@@ -655,6 +670,7 @@ export class FoodCourtStatsService {
       tenantsRes,
       topTenantsRes,
       kitchenOverviewRes,
+      busiestTenantRes,
       channelRes,
       trendsRes,
     ] = await Promise.all([
@@ -666,6 +682,7 @@ export class FoodCourtStatsService {
       db.execute(tenantsQuery),
       db.execute(topTenantsQuery),
       db.execute(kitchenOverviewQuery),
+      db.execute(busiestTenantQuery),
       db.execute(channelQuery),
       db.execute(trendsQuery),
     ]);
@@ -678,6 +695,7 @@ export class FoodCourtStatsService {
     const tenantsRow = extractRows<any>(tenantsRes)[0] || {};
     const topTenantsRows = extractRows<any>(topTenantsRes);
     const kitchenOverviewRow = extractRows<any>(kitchenOverviewRes)[0] || {};
+    const busiestTenantRow = extractRows<any>(busiestTenantRes)[0];
     const channelRows = extractRows<any>(channelRes);
     const trendsRows = extractRows<any>(trendsRes);
 
@@ -709,9 +727,10 @@ export class FoodCourtStatsService {
       activeCookingOrders: Number(t.activeCookingOrders || 0),
     }));
 
-    const busiestTenant = [...topTenants].sort(
-      (a, b) => b.activeCookingOrders - a.activeCookingOrders
-    )[0];
+    const busiestTenantName =
+      busiestTenantRow && Number(busiestTenantRow.activeCooking || 0) > 0
+        ? busiestTenantRow.name
+        : "Semua dapur lancar";
 
     let tableQrCount = 0;
     let kioskCount = 0;
@@ -745,7 +764,7 @@ export class FoodCourtStatsService {
         availableTables,
         occupancyRatePercentage,
         averageDiningDurationMinutes: Number(
-          Number(diningDurationRow.avgDuration || 38.5).toFixed(1)
+          Number(diningDurationRow.avgDuration || 0).toFixed(1)
         ),
       },
       tenantAndKitchen: {
@@ -754,10 +773,7 @@ export class FoodCourtStatsService {
         topTenants,
         kitchenQueueOverview: {
           totalActiveCooking: Number(kitchenOverviewRow.totalActiveCooking || 0),
-          busiestTenantName:
-            busiestTenant && busiestTenant.activeCookingOrders > 0
-              ? busiestTenant.name
-              : "Semua dapur lancar",
+          busiestTenantName,
         },
       },
       channelBreakdown: {

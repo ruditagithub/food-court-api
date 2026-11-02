@@ -34,8 +34,27 @@ describe("GET /api/tenants/dashboard-stats", () => {
     expect(typeof json.data.summary.totalRevenue).toBe("number");
     expect(json.data.menuIntelligence).toBeDefined();
     expect(Array.isArray(json.data.menuIntelligence.topSellingMenus)).toBe(true);
+    if (json.data.menuIntelligence.topSellingMenus.length > 0) {
+      expect(typeof json.data.menuIntelligence.topSellingMenus[0].popularOption).toBe("string");
+    }
     expect(json.data.peakHoursAndTrends).toBeDefined();
+    expect(typeof json.data.peakHoursAndTrends.peakHour).toBe("string");
     expect(Array.isArray(json.data.peakHoursAndTrends.hourlyBreakdown)).toBe(true);
     expect(Array.isArray(json.data.recentWithdrawals)).toBe(true);
+  });
+
+  it("should handle multi-range queries for tenant (today, 30d, year)", async () => {
+    const tenantToken = await generateAuthToken("tenant");
+    for (const range of ["today", "30d", "year"]) {
+      const res = await app.handle(
+        new Request(`http://localhost/api/tenants/dashboard-stats?range=${range}`, {
+          headers: { token: tenantToken },
+        })
+      );
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as any;
+      expect(json.data.summary).toBeDefined();
+      expect(typeof json.data.summary.totalRevenue).toBe("number");
+    }
   });
 });

@@ -293,23 +293,48 @@ export class TenantStatsService {
         ? Math.round(totalRevenue / totalCompletedOrders)
         : 0;
 
-    // Process Top Menus
+    // Process Top Menus & Popular Options
     const topMenusRows = extractRows<any>(topMenusRes);
-    const topSellingMenus = topMenusRows.map((m) => {
-      const rev = Number(m.revenue || 0);
-      return {
-        menuId: m.menuId || "",
-        name: m.name,
-        categoryName: m.categoryName,
-        portionsSold: Number(m.portionsSold || 0),
-        revenue: rev,
-        contributionPercentage:
-          totalRevenue > 0
-            ? Number(((rev / totalRevenue) * 100).toFixed(1))
-            : 0,
-        popularOption: m.popularOption || "Reguler",
-      };
-    });
+    const topSellingMenus = await Promise.all(
+      topMenusRows.map(async (m) => {
+        const rev = Number(m.revenue || 0);
+        let popularOption = "Standard / Tanpa Varian";
+        if (m.menuId) {
+          const optRes = await db.execute(sql`
+            SELECT 
+              oio.option_name_snapshot AS optName,
+              COUNT(oio.id) AS optCount
+            FROM order_item_options oio
+            JOIN order_items oi ON oio.order_item_id = oi.id
+            JOIN tenant_orders tord ON oi.tenant_order_id = tord.id
+            WHERE tord.tenant_id = ${tenantId}
+              AND oi.menu_id = ${m.menuId}
+              AND tord.status = 'COMPLETED'
+              AND tord.created_at >= ${startDate}
+              AND tord.created_at <= ${endDate}
+            GROUP BY oio.option_name_snapshot
+            ORDER BY optCount DESC
+            LIMIT 1
+          `);
+          const optRow = extractRows<any>(optRes)[0];
+          if (optRow?.optName) {
+            popularOption = optRow.optName;
+          }
+        }
+        return {
+          menuId: m.menuId || "",
+          name: m.name,
+          categoryName: m.categoryName,
+          portionsSold: Number(m.portionsSold || 0),
+          revenue: rev,
+          contributionPercentage:
+            totalRevenue > 0
+              ? Number(((rev / totalRevenue) * 100).toFixed(1))
+              : 0,
+          popularOption,
+        };
+      })
+    );
 
     // Process Category Distribution
     const catRows = extractRows<any>(categoryDistRes);
@@ -353,10 +378,13 @@ export class TenantStatsService {
         peakHourLabel = h.hourLabel;
       }
     }
-    const peakHourStart = parseInt(peakHourLabel.split(":")[0], 10) || 12;
-    const peakHour = `${String(peakHourStart).padStart(2, "0")}:00 - ${String(
-      peakHourStart + 1
-    ).padStart(2, "0")}:00`;
+    let peakHour = "-";
+    if (hourlyBreakdown.length > 0 && maxOrderCount > 0) {
+      const peakHourStart = parseInt(peakHourLabel.split(":")[0], 10) || 12;
+      peakHour = `${String(peakHourStart).padStart(2, "0")}:00 - ${String(
+        peakHourStart + 1
+      ).padStart(2, "0")}:00`;
+    }
 
     // Process Daily Trends
     const dailyTrends = extractRows<any>(dailyTrendsRes).map((d) => ({

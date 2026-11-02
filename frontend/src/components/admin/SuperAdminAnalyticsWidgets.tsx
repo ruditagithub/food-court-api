@@ -115,9 +115,9 @@ export function SuperAdminAnalyticsWidgets({
       cashierPos: { count: 0, percentage: 0 },
     },
     kitchenSla: {
-      averageCookingTimeMinutes: 14.2,
+      averageCookingTimeMinutes: 0,
       targetMinutes: 20.0,
-      onTimePercentage: 92.4,
+      onTimePercentage: 100,
     },
     paymentComposition: {
       qrisMidtrans: { amount: 0, percentage: 0 },
@@ -133,15 +133,6 @@ export function SuperAdminAnalyticsWidgets({
     { name: 'Kiosk Mandiri', value: operational.channelDistribution.kiosk.count, pct: operational.channelDistribution.kiosk.percentage },
     { name: 'Kasir POS', value: operational.channelDistribution.cashierPos.count, pct: operational.channelDistribution.cashierPos.percentage },
   ].filter((d) => d.value > 0 || d.pct > 0)
-
-  // Empty state fallback for pie if all 0
-  const finalPieData = channelPieData.length > 0
-    ? channelPieData
-    : [
-        { name: 'QR Meja', value: 60, pct: 60 },
-        { name: 'Kiosk Mandiri', value: 25, pct: 25 },
-        { name: 'Kasir POS', value: 15, pct: 15 },
-      ]
 
   return (
     <div className="space-y-6">
@@ -517,29 +508,37 @@ export function SuperAdminAnalyticsWidgets({
               Sebaran order via QR Meja, Kiosk, vs Kasir
             </p>
 
-            <div className="h-44 w-full flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={finalPieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={65}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {finalPieData.map((_, i) => (
-                      <Cell key={`cell-${i}`} fill={CHANNEL_COLORS[i % CHANNEL_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(val: any, name: any) => [`${val} pesanan`, name]}
-                    contentStyle={{ borderRadius: '12px', fontSize: '11px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            {channelPieData.length === 0 ? (
+              <div className="h-44 w-full flex flex-col items-center justify-center text-center p-4">
+                <AlertCircle className="w-7 h-7 text-neutral-300 mb-1.5" />
+                <p className="text-xs font-semibold text-neutral-600">Belum ada data kanal</p>
+                <p className="text-[10px] text-neutral-400">Tidak ada transaksi pada periode ini</p>
+              </div>
+            ) : (
+              <div className="h-44 w-full flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={channelPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={65}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {channelPieData.map((_, i) => (
+                        <Cell key={`cell-${i}`} fill={CHANNEL_COLORS[i % CHANNEL_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(val: any, name: any) => [`${val} pesanan`, name]}
+                      contentStyle={{ borderRadius: '12px', fontSize: '11px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
 
             <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-neutral-100 text-center">
               <div>

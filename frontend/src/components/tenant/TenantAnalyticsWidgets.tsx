@@ -22,6 +22,7 @@ import {
   TrendingDown,
   Clock,
   AlertTriangle,
+  AlertCircle,
   ChevronRight,
   Sparkles,
   Flame,
@@ -134,14 +135,6 @@ export function TenantAnalyticsWidgets({
   }
 
   const recentWithdrawals = stats?.recentWithdrawals || []
-
-  const finalCategoryData =
-    menuIntel.categoryDistribution.length > 0
-      ? menuIntel.categoryDistribution
-      : [
-          { categoryName: 'Makanan Utama', revenue: 70, percentage: 70 },
-          { categoryName: 'Minuman', revenue: 30, percentage: 30 },
-        ]
 
   return (
     <div className="space-y-6">
@@ -559,47 +552,57 @@ export function TenantAnalyticsWidgets({
               Komposisi omzet per jenis hidangan
             </p>
 
-            <div className="h-40 w-full flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={finalCategoryData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={38}
-                    outerRadius={58}
-                    paddingAngle={4}
-                    dataKey="revenue"
-                    nameKey="categoryName"
-                  >
-                    {finalCategoryData.map((_, i) => (
-                      <Cell key={`cat-${i}`} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(val: any) => [formatRupiah(Number(val)), 'Omzet']}
-                    contentStyle={{ borderRadius: '12px', fontSize: '11px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="space-y-1.5 mt-2">
-              {menuIntel.categoryDistribution.map((cat, i) => (
-                <div key={cat.categoryName} className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 text-neutral-700">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }}
-                    />
-                    {cat.categoryName}
-                  </span>
-                  <span className="font-mono font-bold text-neutral-900">
-                    {cat.percentage}% ({formatRupiah(cat.revenue)})
-                  </span>
+            {menuIntel.categoryDistribution.length === 0 ? (
+              <div className="h-40 w-full flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-dashed border-neutral-200">
+                <AlertCircle className="w-7 h-7 text-neutral-300 mb-1.5" />
+                <p className="text-xs font-semibold text-neutral-600">Belum ada sebaran kategori</p>
+                <p className="text-[10px] text-neutral-400">Belum ada transaksi menu pada periode ini</p>
+              </div>
+            ) : (
+              <>
+                <div className="h-40 w-full flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={menuIntel.categoryDistribution}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={38}
+                        outerRadius={58}
+                        paddingAngle={4}
+                        dataKey="revenue"
+                        nameKey="categoryName"
+                      >
+                        {menuIntel.categoryDistribution.map((_, i) => (
+                          <Cell key={`cat-${i}`} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(val: any) => [formatRupiah(Number(val)), 'Omzet']}
+                        contentStyle={{ borderRadius: '12px', fontSize: '11px' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
-            </div>
+
+                <div className="space-y-1.5 mt-2">
+                  {menuIntel.categoryDistribution.map((cat, i) => (
+                    <div key={cat.categoryName} className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5 text-neutral-700">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full"
+                          style={{ backgroundColor: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }}
+                        />
+                        {cat.categoryName}
+                      </span>
+                      <span className="font-mono font-bold text-neutral-900">
+                        {cat.percentage}% ({formatRupiah(cat.revenue)})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Stock Alerts Card */}

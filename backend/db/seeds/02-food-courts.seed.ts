@@ -1,5 +1,6 @@
 import { foodCourts } from '../schema'
 import { foodCourtConfigs } from './helpers/indonesian-names'
+import { foodCourtLogos } from './data/image-catalog'
 import { chunkedInsert } from './helpers/batch-inserter'
 import type { SeedUsersResult } from './01-users.seed'
 
@@ -8,7 +9,7 @@ export interface SeedFoodCourtsResult {
 }
 
 export async function seedFoodCourts(usersData: SeedUsersResult): Promise<SeedFoodCourtsResult> {
-  console.log('\n[3/7] [FOOD COURTS] Mempersiapkan 5 cabang Food Court Indonesia...')
+  console.log('\n[3/8] [FOOD COURTS] Mempersiapkan 5 cabang Food Court Indonesia dengan foto & rekening...')
   const startTime = Date.now()
 
   const list: (typeof foodCourts.$inferInsert)[] = foodCourtConfigs.map((fc, idx) => {
@@ -20,8 +21,12 @@ export async function seedFoodCourts(usersData: SeedUsersResult): Promise<SeedFo
       slug: fc.slug,
       address: fc.address,
       phone: fc.phone,
-      logo: `/uploads/food-courts/fc-logo-${idx + 1}.webp`,
+      logo: foodCourtLogos[idx % foodCourtLogos.length],
       status: 'ACTIVE' as const,
+      balance: 0,
+      bankName: 'Bank Central Asia (BCA)',
+      bankAccountNumber: `88301982${String(idx + 1).padStart(3, '0')}`,
+      bankAccountHolder: `PT Amici Boga Sejahtera - ${fc.city}`,
     }
   })
 

@@ -1,13 +1,18 @@
 import { poolConnection } from '../index'
 
 /**
- * Cleanly truncates all database tables in a safe order with FK checks disabled
+ * Cleanly truncates all 24 database tables in safe reverse FK dependency order
+ * with FOREIGN_KEY_CHECKS temporarily disabled.
  */
 export async function cleanDatabase(): Promise<void> {
-  console.log('[1/7] [CLEAN] Menghapus dan mereset seluruh tabel database...')
+  console.log('[1/8] [CLEAN] Menghapus dan mereset seluruh 24 tabel database...')
   const startTime = Date.now()
 
   const tables = [
+    'food_court_balance_logs',
+    'food_court_withdrawals',
+    'tenant_balance_logs',
+    'withdrawal_requests',
     'payments',
     'payment_group_items',
     'payment_groups',
@@ -17,6 +22,7 @@ export async function cleanDatabase(): Promise<void> {
     'order_items',
     'tenant_orders',
     'orders',
+    'discounts',
     'session_participants',
     'dining_sessions',
     'menu_options',

@@ -1,5 +1,6 @@
 import { tenants } from '../schema'
 import { allCuratedThemes, type ThemeTemplate } from './data/index'
+import { tenantLogos } from './data/image-catalog'
 import { chunkedInsert } from './helpers/batch-inserter'
 import type { SeedFoodCourtsResult } from './02-food-courts.seed'
 import type { SeedUsersResult } from './01-users.seed'
@@ -9,11 +10,19 @@ export interface SeedTenantsResult {
   tenantThemeMap: Map<string, ThemeTemplate>
 }
 
+const banks = [
+  'Bank Central Asia (BCA)',
+  'Bank Mandiri',
+  'Bank Rakyat Indonesia (BRI)',
+  'Bank Negara Indonesia (BNI)',
+  'Bank Syariah Indonesia (BSI)',
+]
+
 export async function seedTenants(
   fcData: SeedFoodCourtsResult,
   usersData: SeedUsersResult
 ): Promise<SeedTenantsResult> {
-  console.log('\n[5/7] [TENANTS] Mendaftarkan 105 gerai tenant kuliner (21 per cabang)...')
+  console.log('\n[5/8] [TENANTS] Mendaftarkan 105 gerai tenant kuliner dengan logo Unsplash & rekening...')
   console.log(`      Tersedia ${allCuratedThemes.length} tema kuliner unik (Nusantara, Asian, Western, Healthy, Viral)`)
   const startTime = Date.now()
 
@@ -27,7 +36,7 @@ export async function seedTenants(
     const fcShort = fc.slug.replace('amici-food-court-', '').replace(/-/g, '')
     const branchCity = fc.name.split(' ').pop() || 'Cabang'
 
-    // Offset berbeda per cabang agar 21 stan di 1 food court memiliki tema yang 100% berbeda
+    // Offset berbeda per cabang agar stan di tiap food court memiliki tema yang bervariasi
     const themeOffset = (fcIndex * 7) % allCuratedThemes.length
 
     // 21 Tenant per Cabang
@@ -52,6 +61,7 @@ export async function seedTenants(
           : `${theme.nameTemplate} (${branchCity})`
 
       const slug = `${theme.nameTemplate.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${fcShort}-${t}`
+      const chosenBank = banks[(globalTenantCounter * 3) % banks.length]
 
       const tenantRecord: typeof tenants.$inferInsert = {
         id: tenantId,
@@ -61,10 +71,14 @@ export async function seedTenants(
         slug,
         stallNumber,
         description: theme.descTemplate,
-        logo: `/uploads/tenants/tenant-${((globalTenantCounter - 1) % 25) + 1}.webp`,
+        logo: tenantLogos[themeIndex % tenantLogos.length],
         isOpen: true,
         openingTime: theme.genre.includes('Breakfast') ? '07:30' : '09:30',
         closingTime: theme.genre.includes('Martabak') || theme.genre.includes('Dessert') ? '22:30' : '21:30',
+        balance: 0,
+        bankName: chosenBank,
+        bankAccountNumber: `527189${String(globalTenantCounter).padStart(4, '0')}`,
+        bankAccountHolder: owner?.name || tenantName,
       }
 
       allTenants.push(tenantRecord)

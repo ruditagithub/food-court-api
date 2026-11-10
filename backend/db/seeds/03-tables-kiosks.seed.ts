@@ -11,7 +11,7 @@ export interface SeedTablesKiosksResult {
 export async function seedTablesAndKiosks(
   fcData: SeedFoodCourtsResult
 ): Promise<SeedTablesKiosksResult> {
-  console.log('\n[4/7] [TABLES & KIOSKS] Membuat meja QR (random 25 - 80 per cabang) & perangkat Kiosk...')
+  console.log('\n[4/8] [TABLES & KIOSKS] Membuat meja QR (random 25 - 80 per cabang) & perangkat Kiosk...')
   const startTime = Date.now()
 
   const allTables: (typeof tables.$inferInsert)[] = []

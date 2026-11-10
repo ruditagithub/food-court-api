@@ -11,7 +11,7 @@ export interface SeedUsersResult {
 }
 
 export async function seedUsers(): Promise<SeedUsersResult> {
-  console.log('\n[2/7] [USERS] Melakukan hashing password dan seeding akun pengguna...')
+  console.log('\n[2/8] [USERS] Melakukan hashing password dan seeding 312 akun pengguna...')
   const startTime = Date.now()
 
   // 1. Pre-hash password satu kali untuk seluruh akun pengujian
@@ -20,22 +20,24 @@ export async function seedUsers(): Promise<SeedUsersResult> {
     algorithm: 'argon2id',
   })
 
-  // 2. Akun default pengujian utama
+  // 2. Akun default Super Admin
   const superAdmin: typeof users.$inferInsert = {
     id: 'usr-super-admin-001',
     name: 'Super Admin Amici',
     email: 'admin@foodcourt.com',
     passwordHash,
     role: 'admin',
+    status: 'ACTIVE',
   }
 
-  // 2b. Akun Kasir Pengujian
+  // 2b. Akun default Kasir Food Court
   const cashier: typeof users.$inferInsert = {
     id: 'usr-cashier-001',
     name: 'Kasir Amici',
     email: 'cashier@foodcourt.com',
     passwordHash,
     role: 'cashier',
+    status: 'ACTIVE',
   }
 
   // 3. 5 Akun Manajer Food Court (1 default + 4 regional)
@@ -45,6 +47,7 @@ export async function seedUsers(): Promise<SeedUsersResult> {
     email: fc.managerEmail,
     passwordHash,
     role: 'admin-food-court',
+    status: 'ACTIVE',
   }))
 
   // 4. 105 Akun Pemilik Kios / Tenant Owner
@@ -56,6 +59,7 @@ export async function seedUsers(): Promise<SeedUsersResult> {
     email: 'tenant@foodcourt.com',
     passwordHash,
     role: 'tenant',
+    status: 'ACTIVE',
   })
 
   for (let i = 2; i <= 105; i++) {
@@ -67,6 +71,7 @@ export async function seedUsers(): Promise<SeedUsersResult> {
       email: `tenant.${String(i).padStart(3, '0')}@foodcourt.com`,
       passwordHash,
       role: 'tenant',
+      status: 'ACTIVE',
     })
   }
 
@@ -79,6 +84,7 @@ export async function seedUsers(): Promise<SeedUsersResult> {
     email: 'customer@foodcourt.com',
     passwordHash,
     role: 'customer',
+    status: 'ACTIVE',
   })
 
   for (let i = 2; i <= 200; i++) {
@@ -90,6 +96,7 @@ export async function seedUsers(): Promise<SeedUsersResult> {
       email: `customer.${String(i).padStart(3, '0')}@foodcourt.com`,
       passwordHash,
       role: 'customer',
+      status: 'ACTIVE',
     })
   }
 

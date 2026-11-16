@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'bun:test'
+import { parseSeedCliArgs } from '../db/seed'
+import { buildCustomerRecords } from '../db/seeds/01-users.seed'
 import { allCuratedThemes } from '../db/seeds/data/index'
-import { generateRandomOrderDate, getRandomInt, SEED_START_DATE, SEED_END_DATE } from '../db/seeds/helpers/date-generator'
+import {
+  buildDailyOrderPlan,
+  generateRandomOrderDate,
+  generateTimeInDay,
+  getRandomInt,
+  getSeedDateRange,
+  SEED_END_DATE,
+  SEED_START_DATE,
+} from '../db/seeds/helpers/date-generator'
 
 describe('Seeder Data Bank & Generator Validation', () => {
   it('should have at least 30 unique culinary themes', () => {
@@ -35,11 +45,45 @@ describe('Seeder Data Bank & Generator Validation', () => {
     expect(totalDishes).toBeGreaterThan(150)
   })
 
-  it('should verify date generator bounds between August 2025 and October 2026', () => {
+  it('should verify dynamic seed date range ends near now (~450 days window)', () => {
+    const { startDate, endDate } = getSeedDateRange(450)
+    const diffDays = (endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)
+    expect(diffDays).toBeGreaterThanOrEqual(449)
+    expect(diffDays).toBeLessThanOrEqual(451)
+
     for (let i = 0; i < 50; i++) {
       const d = generateRandomOrderDate()
       expect(d.getTime()).toBeGreaterThanOrEqual(SEED_START_DATE.getTime())
       expect(d.getTime()).toBeLessThanOrEqual(SEED_END_DATE.getTime() + 1000)
+    }
+  })
+
+  it('should allocate exact totalOrders across chronological days with weekend and payday lift', () => {
+    const start = new Date('2025-09-01T00:00:00.000Z')
+    const end = new Date('2026-11-16T18:00:00.000Z')
+    const plan = buildDailyOrderPlan(100000, start, end)
+
+    expect(plan.length).toBeGreaterThan(400)
+    const totalAllocated = plan.reduce((sum, b) => sum + b.targetOrders, 0)
+    expect(totalAllocated).toBe(100000)
+
+    for (let i = 1; i < plan.length; i++) {
+      expect(plan[i].dayStart.getTime()).toBeGreaterThan(plan[i - 1].dayStart.getTime())
+    }
+
+    expect(buildDailyOrderPlan(0, start, end)).toEqual([])
+    const smallPlan = buildDailyOrderPlan(5, start, end)
+    expect(smallPlan.reduce((s, b) => s + b.targetOrders, 0)).toBe(5)
+  })
+
+  it('should clamp generated timestamps to maxAllowedTime within operating hours on the final day', () => {
+    const dayStart = new Date(2026, 10, 16, 0, 0, 0, 0)
+    const openTime = new Date(2026, 10, 16, 9, 30, 0, 0)
+    const maxTime = new Date(2026, 10, 16, 13, 30, 0, 0)
+    for (let i = 0; i < 100; i++) {
+      const ts = generateTimeInDay(dayStart, maxTime)
+      expect(ts.getTime()).toBeGreaterThanOrEqual(openTime.getTime())
+      expect(ts.getTime()).toBeLessThanOrEqual(maxTime.getTime())
     }
   })
 
@@ -57,5 +101,40 @@ describe('Seeder Data Bank & Generator Validation', () => {
       expect(count).toBeGreaterThanOrEqual(25)
       expect(count).toBeLessThanOrEqual(80)
     }
+  })
+
+  it('should generate configurable customer count with default customer@foodcourt.com at index 0', () => {
+    const customers = buildCustomerRecords(1500, 'hashed-pw')
+    expect(customers.length).toBe(1500)
+    expect(customers[0].email).toBe('customer@foodcourt.com')
+    expect(customers[1499].id.length).toBeLessThanOrEqual(36)
+    expect(customers[1499].email).toBe('customer.01500@foodcourt.com')
+
+    const minCustomers = buildCustomerRecords(0, 'hashed-pw')
+    expect(minCustomers.length).toBe(1)
+    expect(minCustomers[0].email).toBe('customer@foodcourt.com')
+  })
+
+  it('should parse CLI flags --orders, --customers, and --resume with env fallbacks', () => {
+    expect(parseSeedCliArgs([], {})).toEqual({
+      totalOrders: 12000,
+      customerCount: 15000,
+      resume: false,
+    })
+    expect(parseSeedCliArgs(['--orders=1000000', '--customers=20000', '--resume'], {})).toEqual({
+      totalOrders: 1000000,
+      customerCount: 20000,
+      resume: true,
+    })
+    expect(parseSeedCliArgs([], { SEED_ORDERS_COUNT: '50000', SEED_CUSTOMERS_COUNT: '5000' })).toEqual({
+      totalOrders: 50000,
+      customerCount: 5000,
+      resume: false,
+    })
+    expect(parseSeedCliArgs(['--orders=invalid', '--customers=-1'], {})).toEqual({
+      totalOrders: 12000,
+      customerCount: 15000,
+      resume: false,
+    })
   })
 })

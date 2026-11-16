@@ -1,7 +1,9 @@
 import { relations } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   foreignKey,
+  index,
   int,
   mysqlEnum,
   mysqlTable,
@@ -53,7 +55,7 @@ export const foodCourts = mysqlTable("food_courts", {
   status: mysqlEnum("status", ["ACTIVE", "INACTIVE"])
     .notNull()
     .default("ACTIVE"),
-  balance: int("balance").notNull().default(0),
+  balance: bigint("balance", { mode: "number" }).notNull().default(0),
   bankName: varchar("bank_name", { length: 50 }),
   bankAccountNumber: varchar("bank_account_number", { length: 50 }),
   bankAccountHolder: varchar("bank_account_holder", { length: 100 }),
@@ -155,7 +157,7 @@ export const tenants = mysqlTable(
     isOpen: boolean("is_open").notNull().default(false),
     openingTime: varchar("opening_time", { length: 8 }),
     closingTime: varchar("closing_time", { length: 8 }),
-    balance: int("balance").notNull().default(0),
+    balance: bigint("balance", { mode: "number" }).notNull().default(0),
     bankName: varchar("bank_name", { length: 50 }),
     bankAccountNumber: varchar("bank_account_number", { length: 50 }),
     bankAccountHolder: varchar("bank_account_holder", { length: 100 }),
@@ -277,35 +279,41 @@ export const menuOptionsRelations = relations(menuOptions, ({ one }) => ({
 // ==========================================
 // 9. Dining Sessions (Sesi Meja / Kiosk)
 // ==========================================
-export const diningSessions = mysqlTable("dining_sessions", {
-  id: varchar("id", { length: 36 }).primaryKey(),
-  foodCourtId: varchar("food_court_id", { length: 36 })
-    .notNull()
-    .references(() => foodCourts.id, { onDelete: "cascade" }),
-  tableId: varchar("table_id", { length: 36 }).references(() => tables.id, {
-    onDelete: "set null",
-  }),
-  kioskId: varchar("kiosk_id", { length: 36 }).references(() => kiosks.id, {
-    onDelete: "set null",
-  }),
-  sessionCode: varchar("session_code", { length: 20 }).notNull().unique(),
-  orderType: mysqlEnum("order_type", ["DINE_IN", "TAKEAWAY"])
-    .notNull()
-    .default("DINE_IN"),
-  status: mysqlEnum("status", [
-    "ACTIVE",
-    "PAYMENT_PENDING",
-    "COMPLETED",
-    "CANCELLED",
-    "EXPIRED",
-  ])
-    .notNull()
-    .default("ACTIVE"),
-  startedAt: timestamp("started_at").defaultNow().notNull(),
-  expiredAt: timestamp("expired_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
-});
+export const diningSessions = mysqlTable(
+  "dining_sessions",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    foodCourtId: varchar("food_court_id", { length: 36 })
+      .notNull()
+      .references(() => foodCourts.id, { onDelete: "cascade" }),
+    tableId: varchar("table_id", { length: 36 }).references(() => tables.id, {
+      onDelete: "set null",
+    }),
+    kioskId: varchar("kiosk_id", { length: 36 }).references(() => kiosks.id, {
+      onDelete: "set null",
+    }),
+    sessionCode: varchar("session_code", { length: 20 }).notNull().unique(),
+    orderType: mysqlEnum("order_type", ["DINE_IN", "TAKEAWAY"])
+      .notNull()
+      .default("DINE_IN"),
+    status: mysqlEnum("status", [
+      "ACTIVE",
+      "PAYMENT_PENDING",
+      "COMPLETED",
+      "CANCELLED",
+      "EXPIRED",
+    ])
+      .notNull()
+      .default("ACTIVE"),
+    startedAt: timestamp("started_at").defaultNow().notNull(),
+    expiredAt: timestamp("expired_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    index("idx_ds_fc_created").on(table.foodCourtId, table.createdAt),
+  ],
+);
 
 export const diningSessionsRelations = relations(
   diningSessions,
@@ -364,40 +372,50 @@ export const sessionParticipantsRelations = relations(
 // ==========================================
 // 11. Orders (Master Order)
 // ==========================================
-export const orders = mysqlTable("orders", {
-  id: varchar("id", { length: 36 }).primaryKey(),
-  sessionId: varchar("session_id", { length: 36 })
-    .notNull()
-    .references(() => diningSessions.id, { onDelete: "cascade" }),
-  orderNumber: varchar("order_number", { length: 30 }).notNull().unique(),
-  subtotal: int("subtotal").notNull().default(0),
-  taxAmount: int("tax_amount").notNull().default(0),
-  serviceFee: int("service_fee").notNull().default(0),
-  discountAmount: int("discount_amount").notNull().default(0),
-  discountId: varchar("discount_id", { length: 36 }).references(() => discounts.id, {
-    onDelete: "set null",
-  }),
-  totalAmount: int("total_amount").notNull().default(0),
-  paymentStatus: mysqlEnum("payment_status", [
-    "PENDING",
-    "PARTIALLY_PAID",
-    "PAID",
-    "REFUNDED",
-  ])
-    .notNull()
-    .default("PENDING"),
-  orderStatus: mysqlEnum("order_status", [
-    "DRAFT",
-    "CONFIRMED",
-    "SENT_TO_KITCHEN",
-    "COMPLETED",
-    "CANCELLED",
-  ])
-    .notNull()
-    .default("DRAFT"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
-});
+export const orders = mysqlTable(
+  "orders",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    sessionId: varchar("session_id", { length: 36 })
+      .notNull()
+      .references(() => diningSessions.id, { onDelete: "cascade" }),
+    orderNumber: varchar("order_number", { length: 30 }).notNull().unique(),
+    subtotal: int("subtotal").notNull().default(0),
+    taxAmount: int("tax_amount").notNull().default(0),
+    serviceFee: int("service_fee").notNull().default(0),
+    discountAmount: int("discount_amount").notNull().default(0),
+    discountId: varchar("discount_id", { length: 36 }).references(
+      () => discounts.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+    totalAmount: int("total_amount").notNull().default(0),
+    paymentStatus: mysqlEnum("payment_status", [
+      "PENDING",
+      "PARTIALLY_PAID",
+      "PAID",
+      "REFUNDED",
+    ])
+      .notNull()
+      .default("PENDING"),
+    orderStatus: mysqlEnum("order_status", [
+      "DRAFT",
+      "CONFIRMED",
+      "SENT_TO_KITCHEN",
+      "COMPLETED",
+      "CANCELLED",
+    ])
+      .notNull()
+      .default("DRAFT"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    index("idx_orders_status_created").on(table.orderStatus, table.createdAt),
+    index("idx_orders_pay_status_created").on(table.paymentStatus, table.createdAt),
+  ],
+);
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   session: one(diningSessions, {
@@ -416,29 +434,39 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
 // ==========================================
 // 12. Tenant Orders (Sub-Order per Kios)
 // ==========================================
-export const tenantOrders = mysqlTable("tenant_orders", {
-  id: varchar("id", { length: 36 }).primaryKey(),
-  orderId: varchar("order_id", { length: 36 })
-    .notNull()
-    .references(() => orders.id, { onDelete: "cascade" }),
-  tenantId: varchar("tenant_id", { length: 36 })
-    .notNull()
-    .references(() => tenants.id, { onDelete: "cascade" }),
-  subtotal: int("subtotal").notNull().default(0),
-  status: mysqlEnum("status", [
-    "WAITING_PAYMENT",
-    "QUEUED",
-    "PREPARING",
-    "READY",
-    "COMPLETED",
-    "CANCELLED",
-  ])
-    .notNull()
-    .default("WAITING_PAYMENT"),
-  sentToKitchenAt: timestamp("sent_to_kitchen_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
-});
+export const tenantOrders = mysqlTable(
+  "tenant_orders",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    orderId: varchar("order_id", { length: 36 })
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    tenantId: varchar("tenant_id", { length: 36 })
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    subtotal: int("subtotal").notNull().default(0),
+    status: mysqlEnum("status", [
+      "WAITING_PAYMENT",
+      "QUEUED",
+      "PREPARING",
+      "READY",
+      "COMPLETED",
+      "CANCELLED",
+    ])
+      .notNull()
+      .default("WAITING_PAYMENT"),
+    sentToKitchenAt: timestamp("sent_to_kitchen_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    index("idx_tord_tenant_status_created").on(
+      table.tenantId,
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
 
 export const tenantOrdersRelations = relations(
   tenantOrders,
@@ -518,22 +546,29 @@ export const orderItemOptionsRelations = relations(
 // ==========================================
 // 15. Kitchen Queues
 // ==========================================
-export const kitchenQueues = mysqlTable("kitchen_queues", {
-  id: varchar("id", { length: 36 }).primaryKey(),
-  tenantOrderId: varchar("tenant_order_id", { length: 36 })
-    .notNull()
-    .unique()
-    .references(() => tenantOrders.id, { onDelete: "cascade" }),
-  queueNumber: varchar("queue_number", { length: 20 }).notNull(),
-  status: mysqlEnum("status", ["QUEUED", "COOKING", "READY", "PICKED_UP"])
-    .notNull()
-    .default("QUEUED"),
-  queuedAt: timestamp("queued_at").defaultNow().notNull(),
-  startedAt: timestamp("started_at"),
-  finishedAt: timestamp("finished_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
-});
+export const kitchenQueues = mysqlTable(
+  "kitchen_queues",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    tenantOrderId: varchar("tenant_order_id", { length: 36 })
+      .notNull()
+      .unique()
+      .references(() => tenantOrders.id, { onDelete: "cascade" }),
+    queueNumber: varchar("queue_number", { length: 20 }).notNull(),
+    status: mysqlEnum("status", ["QUEUED", "COOKING", "READY", "PICKED_UP"])
+      .notNull()
+      .default("QUEUED"),
+    queuedAt: timestamp("queued_at").defaultNow().notNull(),
+    startedAt: timestamp("started_at"),
+    finishedAt: timestamp("finished_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    index("idx_kq_created_finished").on(table.createdAt, table.finishedAt),
+    index("idx_kq_status").on(table.status),
+  ],
+);
 
 export const kitchenQueuesRelations = relations(kitchenQueues, ({ one }) => ({
   tenantOrder: one(tenantOrders, {
@@ -635,42 +670,50 @@ export const paymentGroupItemsRelations = relations(
 // ==========================================
 // 19. Payments Table
 // ==========================================
-export const payments = mysqlTable("payments", {
-  id: varchar("id", { length: 36 }).primaryKey(),
-  paymentGroupId: varchar("payment_group_id", { length: 36 })
-    .notNull()
-    .references(() => paymentGroups.id, { onDelete: "cascade" }),
-  paymentReference: varchar("payment_reference", { length: 120 })
-    .notNull()
-    .unique(),
-  paymentMethod: mysqlEnum("payment_method", [
-    "QRIS",
-    "CASH",
-    "CARD",
-    "E_WALLET",
-    "BANK_TRANSFER",
-  ])
-    .notNull()
-    .default("QRIS"),
-  provider: varchar("provider", { length: 50 }),
-  amount: int("amount").notNull(),
-  cashierId: varchar("cashier_id", { length: 36 }).references(() => users.id, { onDelete: "set null" }),
-  cashReceived: int("cash_received"),
-  cashChange: int("cash_change"),
-  status: mysqlEnum("status", [
-    "PENDING",
-    "SUCCESS",
-    "FAILED",
-    "EXPIRED",
-    "REFUNDED",
-  ])
-    .notNull()
-    .default("PENDING"),
-  paidAt: timestamp("paid_at"),
-  expiredAt: timestamp("expired_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
-});
+export const payments = mysqlTable(
+  "payments",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    paymentGroupId: varchar("payment_group_id", { length: 36 })
+      .notNull()
+      .references(() => paymentGroups.id, { onDelete: "cascade" }),
+    paymentReference: varchar("payment_reference", { length: 120 })
+      .notNull()
+      .unique(),
+    paymentMethod: mysqlEnum("payment_method", [
+      "QRIS",
+      "CASH",
+      "CARD",
+      "E_WALLET",
+      "BANK_TRANSFER",
+    ])
+      .notNull()
+      .default("QRIS"),
+    provider: varchar("provider", { length: 50 }),
+    amount: int("amount").notNull(),
+    cashierId: varchar("cashier_id", { length: 36 }).references(() => users.id, {
+      onDelete: "set null",
+    }),
+    cashReceived: int("cash_received"),
+    cashChange: int("cash_change"),
+    status: mysqlEnum("status", [
+      "PENDING",
+      "SUCCESS",
+      "FAILED",
+      "EXPIRED",
+      "REFUNDED",
+    ])
+      .notNull()
+      .default("PENDING"),
+    paidAt: timestamp("paid_at"),
+    expiredAt: timestamp("expired_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    index("idx_pay_status_created").on(table.status, table.createdAt),
+  ],
+);
 
 export const paymentsRelations = relations(payments, ({ one }) => ({
   paymentGroup: one(paymentGroups, {
@@ -750,10 +793,10 @@ export const tenantBalanceLogs = mysqlTable(
       "WITHDRAWAL_COMPLETED",
       "ADJUSTMENT",
     ]).notNull(),
-    grossAmount: int("gross_amount").notNull().default(0),
-    platformFee: int("platform_fee").notNull().default(0),
-    netAmount: int("net_amount").notNull(),
-    balanceAfter: int("balance_after").notNull(),
+    grossAmount: bigint("gross_amount", { mode: "number" }).notNull().default(0),
+    platformFee: bigint("platform_fee", { mode: "number" }).notNull().default(0),
+    netAmount: bigint("net_amount", { mode: "number" }).notNull(),
+    balanceAfter: bigint("balance_after", { mode: "number" }).notNull(),
     description: text("description"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -763,6 +806,7 @@ export const tenantBalanceLogs = mysqlTable(
       columns: [table.withdrawalRequestId],
       foreignColumns: [withdrawalRequests.id],
     }).onDelete("set null"),
+    index("idx_tbl_tenant_created").on(table.tenantId, table.createdAt),
   ],
 );
 
@@ -787,40 +831,47 @@ export const tenantBalanceLogsRelations = relations(
 // ==========================================
 // 22. Withdrawal Requests (Penarikan Dana)
 // ==========================================
-export const withdrawalRequests = mysqlTable("withdrawal_requests", {
-  id: varchar("id", { length: 36 }).primaryKey(),
-  foodCourtId: varchar("food_court_id", { length: 36 })
-    .notNull()
-    .references(() => foodCourts.id, { onDelete: "cascade" }),
-  tenantId: varchar("tenant_id", { length: 36 })
-    .notNull()
-    .references(() => tenants.id, { onDelete: "cascade" }),
-  amount: int("amount").notNull(),
-  paymentMethod: mysqlEnum("payment_method", ["CASH", "TRANSFER"]).notNull(),
-  bankName: varchar("bank_name", { length: 50 }),
-  bankAccountNumber: varchar("bank_account_number", { length: 50 }),
-  bankAccountHolder: varchar("bank_account_holder", { length: 100 }),
-  status: mysqlEnum("status", [
-    "PENDING",
-    "PROCESSED",
-    "COMPLETED",
-    "REJECTED",
-  ])
-    .notNull()
-    .default("PENDING"),
-  proofReceiptUrl: varchar("proof_receipt_url", { length: 255 }),
-  transferReference: varchar("transfer_reference", { length: 100 }),
-  adminNotes: text("admin_notes"),
-  processedBy: varchar("processed_by", { length: 36 }).references(
-    () => users.id,
-    { onDelete: "set null" },
-  ),
-  requestedAt: timestamp("requested_at").defaultNow().notNull(),
-  processedAt: timestamp("processed_at"),
-  completedAt: timestamp("completed_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
-});
+export const withdrawalRequests = mysqlTable(
+  "withdrawal_requests",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    foodCourtId: varchar("food_court_id", { length: 36 })
+      .notNull()
+      .references(() => foodCourts.id, { onDelete: "cascade" }),
+    tenantId: varchar("tenant_id", { length: 36 })
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    paymentMethod: mysqlEnum("payment_method", ["CASH", "TRANSFER"]).notNull(),
+    bankName: varchar("bank_name", { length: 50 }),
+    bankAccountNumber: varchar("bank_account_number", { length: 50 }),
+    bankAccountHolder: varchar("bank_account_holder", { length: 100 }),
+    status: mysqlEnum("status", [
+      "PENDING",
+      "PROCESSED",
+      "COMPLETED",
+      "REJECTED",
+    ])
+      .notNull()
+      .default("PENDING"),
+    proofReceiptUrl: varchar("proof_receipt_url", { length: 255 }),
+    transferReference: varchar("transfer_reference", { length: 100 }),
+    adminNotes: text("admin_notes"),
+    processedBy: varchar("processed_by", { length: 36 }).references(
+      () => users.id,
+      { onDelete: "set null" },
+    ),
+    requestedAt: timestamp("requested_at").defaultNow().notNull(),
+    processedAt: timestamp("processed_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    index("idx_wd_tenant_status").on(table.tenantId, table.status),
+    index("idx_wd_fc_status").on(table.foodCourtId, table.status),
+  ],
+);
 
 export const withdrawalRequestsRelations = relations(
   withdrawalRequests,
@@ -844,34 +895,40 @@ export const withdrawalRequestsRelations = relations(
 // ==========================================
 // 23. Food Court Withdrawals (Pencairan Dana Cabang Food Court)
 // ==========================================
-export const foodCourtWithdrawals = mysqlTable("food_court_withdrawals", {
-  id: varchar("id", { length: 36 }).primaryKey(),
-  foodCourtId: varchar("food_court_id", { length: 36 })
-    .notNull()
-    .references(() => foodCourts.id, { onDelete: "cascade" }),
-  amount: int("amount").notNull(),
-  paymentMethod: mysqlEnum("payment_method", ["TRANSFER"]).notNull().default("TRANSFER"),
-  bankName: varchar("bank_name", { length: 50 }).notNull(),
-  bankAccountNumber: varchar("bank_account_number", { length: 50 }).notNull(),
-  bankAccountHolder: varchar("bank_account_holder", { length: 100 }).notNull(),
-  status: mysqlEnum("status", ["PENDING", "PROCESSED", "COMPLETED", "REJECTED"])
-    .notNull()
-    .default("PENDING"),
-  proofReceiptUrl: varchar("proof_receipt_url", { length: 255 }),
-  transferReference: varchar("transfer_reference", { length: 100 }),
-  adminNotes: text("admin_notes"),
-  requestedBy: varchar("requested_by", { length: 36 }).references(() => users.id, {
-    onDelete: "set null",
-  }),
-  processedBy: varchar("processed_by", { length: 36 }).references(() => users.id, {
-    onDelete: "set null",
-  }),
-  requestedAt: timestamp("requested_at").defaultNow().notNull(),
-  processedAt: timestamp("processed_at"),
-  completedAt: timestamp("completed_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
-});
+export const foodCourtWithdrawals = mysqlTable(
+  "food_court_withdrawals",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    foodCourtId: varchar("food_court_id", { length: 36 })
+      .notNull()
+      .references(() => foodCourts.id, { onDelete: "cascade" }),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    paymentMethod: mysqlEnum("payment_method", ["TRANSFER"]).notNull().default("TRANSFER"),
+    bankName: varchar("bank_name", { length: 50 }).notNull(),
+    bankAccountNumber: varchar("bank_account_number", { length: 50 }).notNull(),
+    bankAccountHolder: varchar("bank_account_holder", { length: 100 }).notNull(),
+    status: mysqlEnum("status", ["PENDING", "PROCESSED", "COMPLETED", "REJECTED"])
+      .notNull()
+      .default("PENDING"),
+    proofReceiptUrl: varchar("proof_receipt_url", { length: 255 }),
+    transferReference: varchar("transfer_reference", { length: 100 }),
+    adminNotes: text("admin_notes"),
+    requestedBy: varchar("requested_by", { length: 36 }).references(() => users.id, {
+      onDelete: "set null",
+    }),
+    processedBy: varchar("processed_by", { length: 36 }).references(() => users.id, {
+      onDelete: "set null",
+    }),
+    requestedAt: timestamp("requested_at").defaultNow().notNull(),
+    processedAt: timestamp("processed_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    index("idx_fcwd_fc_status").on(table.foodCourtId, table.status),
+  ],
+);
 
 export const foodCourtWithdrawalsRelations = relations(
   foodCourtWithdrawals,
@@ -913,12 +970,12 @@ export const foodCourtBalanceLogs = mysqlTable(
       "WITHDRAWAL_REFUND",
       "WITHDRAWAL_COMPLETED",
     ]).notNull(),
-    subtotalAmount: int("subtotal_amount").notNull().default(0),
-    serviceFee: int("service_fee").notNull().default(0),
-    taxAmount: int("tax_amount").notNull().default(0),
-    platformFee: int("platform_fee").notNull().default(0),
-    netAmount: int("net_amount").notNull(),
-    balanceAfter: int("balance_after").notNull(),
+    subtotalAmount: bigint("subtotal_amount", { mode: "number" }).notNull().default(0),
+    serviceFee: bigint("service_fee", { mode: "number" }).notNull().default(0),
+    taxAmount: bigint("tax_amount", { mode: "number" }).notNull().default(0),
+    platformFee: bigint("platform_fee", { mode: "number" }).notNull().default(0),
+    netAmount: bigint("net_amount", { mode: "number" }).notNull(),
+    balanceAfter: bigint("balance_after", { mode: "number" }).notNull(),
     description: text("description"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -928,6 +985,7 @@ export const foodCourtBalanceLogs = mysqlTable(
       columns: [table.withdrawalId],
       foreignColumns: [foodCourtWithdrawals.id],
     }).onDelete("set null"),
+    index("idx_fcbl_fc_created").on(table.foodCourtId, table.createdAt),
   ],
 );
 

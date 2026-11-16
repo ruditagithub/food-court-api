@@ -69,5 +69,24 @@ describe("Wallet & Withdrawal Schema Definitions", () => {
     expect(foodCourtBalanceLogs.netAmount).toBeDefined();
     expect(foodCourtBalanceLogs.balanceAfter).toBeDefined();
   });
+
+  it("should use bigint (number mode) for cumulative wallet balances and ledger amounts", () => {
+    expect(foodCourts.balance.columnType).toBe("MySqlBigInt53");
+    expect(foodCourts.balance.dataType).toBe("number");
+    expect(tenants.balance.columnType).toBe("MySqlBigInt53");
+    expect(tenants.balance.dataType).toBe("number");
+    expect(tenantBalanceLogs.grossAmount.columnType).toBe("MySqlBigInt53");
+    expect(tenantBalanceLogs.platformFee.columnType).toBe("MySqlBigInt53");
+    expect(tenantBalanceLogs.netAmount.columnType).toBe("MySqlBigInt53");
+    expect(tenantBalanceLogs.balanceAfter.columnType).toBe("MySqlBigInt53");
+    expect(foodCourtBalanceLogs.subtotalAmount.columnType).toBe("MySqlBigInt53");
+    expect(foodCourtBalanceLogs.serviceFee.columnType).toBe("MySqlBigInt53");
+    expect(foodCourtBalanceLogs.taxAmount.columnType).toBe("MySqlBigInt53");
+    expect(foodCourtBalanceLogs.platformFee.columnType).toBe("MySqlBigInt53");
+    expect(foodCourtBalanceLogs.netAmount.columnType).toBe("MySqlBigInt53");
+    expect(foodCourtBalanceLogs.balanceAfter.columnType).toBe("MySqlBigInt53");
+    expect(withdrawalRequests.amount.columnType).toBe("MySqlBigInt53");
+    expect(foodCourtWithdrawals.amount.columnType).toBe("MySqlBigInt53");
+  });
 });
 

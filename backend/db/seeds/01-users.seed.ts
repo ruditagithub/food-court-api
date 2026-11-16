@@ -10,8 +10,42 @@ export interface SeedUsersResult {
   customers: typeof users.$inferInsert[]
 }
 
-export async function seedUsers(): Promise<SeedUsersResult> {
-  console.log('\n[2/8] [USERS] Melakukan hashing password dan seeding 312 akun pengguna...')
+export function buildCustomerRecords(
+  customerCount: number,
+  passwordHash: string
+): (typeof users.$inferInsert)[] {
+  const count = Math.max(1, customerCount)
+  const customers: (typeof users.$inferInsert)[] = [
+    {
+      id: 'usr-customer-001',
+      name: 'Rizky Ramadhan',
+      email: 'customer@foodcourt.com',
+      passwordHash,
+      role: 'customer',
+      status: 'ACTIVE',
+    },
+  ]
+
+  for (let i = 2; i <= count; i++) {
+    const fn = firstNames[(i * 3 + 5) % firstNames.length]
+    const ln = lastNames[(i * 5 + 7) % lastNames.length]
+    const suffix = String(i).padStart(5, '0')
+    customers.push({
+      id: `usr-cust-${suffix}`,
+      name: `${fn} ${ln}`,
+      email: `customer.${suffix}@foodcourt.com`,
+      passwordHash,
+      role: 'customer',
+      status: 'ACTIVE',
+    })
+  }
+
+  return customers
+}
+
+export async function seedUsers(
+  customerCount = Number(process.env.SEED_CUSTOMERS_COUNT) || 15000
+): Promise<SeedUsersResult> {
   const startTime = Date.now()
 
   // 1. Pre-hash password satu kali untuk seluruh akun pengujian
@@ -75,30 +109,8 @@ export async function seedUsers(): Promise<SeedUsersResult> {
     })
   }
 
-  // 5. 200 Akun Pelanggan (Customer)
-  const customers: typeof users.$inferInsert[] = []
-  // Customer pertama adalah akun default 'customer@foodcourt.com'
-  customers.push({
-    id: 'usr-customer-001',
-    name: 'Rizky Ramadhan',
-    email: 'customer@foodcourt.com',
-    passwordHash,
-    role: 'customer',
-    status: 'ACTIVE',
-  })
-
-  for (let i = 2; i <= 200; i++) {
-    const fn = firstNames[(i * 3 + 5) % firstNames.length]
-    const ln = lastNames[(i * 5 + 7) % lastNames.length]
-    customers.push({
-      id: `usr-customer-${String(i).padStart(3, '0')}`,
-      name: `${fn} ${ln}`,
-      email: `customer.${String(i).padStart(3, '0')}@foodcourt.com`,
-      passwordHash,
-      role: 'customer',
-      status: 'ACTIVE',
-    })
-  }
+  // 5. Akun Pelanggan (Customer)
+  const customers = buildCustomerRecords(customerCount, passwordHash)
 
   const allUsers: typeof users.$inferInsert[] = [
     superAdmin,
@@ -108,9 +120,11 @@ export async function seedUsers(): Promise<SeedUsersResult> {
     ...customers,
   ]
 
-  await chunkedInsert(users, allUsers, 500, 'Akun Pengguna', false)
+  console.log(`\n[2/8] [USERS] Melakukan hashing password dan seeding ${allUsers.length.toLocaleString()} akun pengguna...`)
+
+  await chunkedInsert(users, allUsers, 1000, 'Akun Pengguna', false)
   const durationSec = ((Date.now() - startTime) / 1000).toFixed(2)
-  console.log(`      [OK] ${allUsers.length} akun pengguna berhasil disimpan (${durationSec} detik)`)
+  console.log(`      [OK] ${allUsers.length.toLocaleString()} akun pengguna berhasil disimpan (${durationSec} detik)`)
 
   return {
     superAdmin,

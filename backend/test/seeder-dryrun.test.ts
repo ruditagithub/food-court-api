@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'bun:test'
 import { parseSeedCliArgs } from '../db/seed'
-import { buildCustomerRecords } from '../db/seeds/01-users.seed'
 import { allCuratedThemes } from '../db/seeds/data/index'
 import {
   buildDailyOrderPlan,
@@ -103,37 +102,21 @@ describe('Seeder Data Bank & Generator Validation', () => {
     }
   })
 
-  it('should generate configurable customer count with default customer@foodcourt.com at index 0', () => {
-    const customers = buildCustomerRecords(1500, 'hashed-pw')
-    expect(customers.length).toBe(1500)
-    expect(customers[0].email).toBe('customer@foodcourt.com')
-    expect(customers[1499].id.length).toBeLessThanOrEqual(36)
-    expect(customers[1499].email).toBe('customer.01500@foodcourt.com')
-
-    const minCustomers = buildCustomerRecords(0, 'hashed-pw')
-    expect(minCustomers.length).toBe(1)
-    expect(minCustomers[0].email).toBe('customer@foodcourt.com')
-  })
-
-  it('should parse CLI flags --orders, --customers, and --resume with env fallbacks', () => {
+  it('should parse CLI flags --orders and --resume with env fallbacks', () => {
     expect(parseSeedCliArgs([], {})).toEqual({
       totalOrders: 12000,
-      customerCount: 15000,
       resume: false,
     })
-    expect(parseSeedCliArgs(['--orders=1000000', '--customers=20000', '--resume'], {})).toEqual({
+    expect(parseSeedCliArgs(['--orders=1000000', '--resume'], {})).toEqual({
       totalOrders: 1000000,
-      customerCount: 20000,
       resume: true,
     })
-    expect(parseSeedCliArgs([], { SEED_ORDERS_COUNT: '50000', SEED_CUSTOMERS_COUNT: '5000' })).toEqual({
+    expect(parseSeedCliArgs([], { SEED_ORDERS_COUNT: '50000' })).toEqual({
       totalOrders: 50000,
-      customerCount: 5000,
       resume: false,
     })
-    expect(parseSeedCliArgs(['--orders=invalid', '--customers=-1'], {})).toEqual({
+    expect(parseSeedCliArgs(['--orders=invalid'], {})).toEqual({
       totalOrders: 12000,
-      customerCount: 15000,
       resume: false,
     })
   })

@@ -46,3 +46,7 @@ package-lock.json
 # local uploads
 uploads/
 backend/uploads/
+
+# seeder checkpoint
+**/.seed-checkpoint.json
+**/.seed-checkpoint.json.tmp

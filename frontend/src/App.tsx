@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/auth/LoginPage'
-import { RegisterPage } from './pages/auth/RegisterPage'
 import { ProfilePage } from './pages/auth/ProfilePage'
 import { ActivateAccountPage } from './pages/auth/ActivateAccountPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
@@ -53,7 +52,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/app/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/register" element={<Navigate to="/login" replace />} />
         <Route path="/activate-account" element={<ActivateAccountPage />} />
         <Route path="/app/profile" element={<ProfilePage />} />
 

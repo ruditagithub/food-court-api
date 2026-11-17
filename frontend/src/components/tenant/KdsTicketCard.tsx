@@ -53,7 +53,7 @@ export function KdsTicketCard({
               {orderNumber}
             </span>
             <span className="text-xs text-[#737373]">
-              {customerName ? `Atas Nama: ${customerName}` : 'Tamu Meja'}
+              {customerName ? `Atas Nama: ${customerName}` : 'Pelanggan'}
             </span>
           </div>
 

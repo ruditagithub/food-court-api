@@ -143,7 +143,7 @@ export function AdminOrdersPage() {
                 ) : (
                   filteredOrders.map((ord) => {
                     const orderNum = ord.orderNumber || ord.order?.orderNumber || 'ORD-...'
-                    const custName = ord.customerName || ord.order?.customerName || 'Tamu'
+                    const custName = ord.customerName || ord.order?.customerName || 'Pelanggan'
                     const tableNum = ord.table?.tableNumber || ord.order?.session?.table?.tableNumber
                     const isTakeaway =
                       ord.order?.session?.orderType === 'TAKEAWAY' ||

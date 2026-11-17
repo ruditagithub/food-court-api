@@ -213,12 +213,12 @@ export class OrderService {
           .set({ status: "occupied", updatedAt: new Date() })
           .where(eq(tables.id, tableRecord.id));
 
-        // Create host participant
+        // Create host participant (semua pelanggan adalah satu entitas tanpa login)
         await db.insert(sessionParticipants).values({
           id: crypto.randomUUID(),
           sessionId,
-          userId: currentUser?.id ?? null,
-          name: data.customerName ?? (currentUser ? currentUser.name : "Host"),
+          userId: null,
+          name: data.customerName?.trim() || "Pelanggan",
           isHost: true,
           joinedAt: new Date(),
         });
@@ -253,8 +253,8 @@ export class OrderService {
       await db.insert(sessionParticipants).values({
         id: crypto.randomUUID(),
         sessionId,
-        userId: currentUser?.id ?? null,
-        name: data.customerName ?? (currentUser ? currentUser.name : "Guest"),
+        userId: null,
+        name: data.customerName?.trim() || "Pelanggan",
         isHost: true,
         joinedAt: new Date(),
       });
@@ -277,8 +277,8 @@ export class OrderService {
       await db.insert(sessionParticipants).values({
         id: crypto.randomUUID(),
         sessionId,
-        userId: currentUser?.id ?? null,
-        name: data.customerName ?? (currentUser ? currentUser.name : "Guest"),
+        userId: null,
+        name: data.customerName?.trim() || "Pelanggan",
         isHost: true,
         joinedAt: new Date(),
       });
@@ -286,7 +286,7 @@ export class OrderService {
 
     // Fetch or create participant for bill allocation matching customerName
     const desiredName =
-      data.customerName?.trim() || (currentUser ? currentUser.name : "Guest");
+      data.customerName?.trim() || "Pelanggan";
     let participant = await db.query.sessionParticipants.findFirst({
       where: and(
         eq(sessionParticipants.sessionId, sessionId!),
@@ -299,7 +299,7 @@ export class OrderService {
       await db.insert(sessionParticipants).values({
         id: participantId,
         sessionId: sessionId!,
-        userId: currentUser?.id ?? null,
+        userId: null,
         name: desiredName,
         isHost: false,
         joinedAt: new Date(),
@@ -710,7 +710,7 @@ export class OrderService {
         id: pg.id,
         orderId: pg.orderId,
         participantId: pg.participantId,
-        participantName: pg.participant?.name ?? "Tamu",
+        participantName: pg.participant?.name ?? "Pelanggan",
         subtotal: groupSubtotal,
         discountAmount: groupDiscount,
         discountedSubtotal: groupDiscountedSubtotal,
@@ -829,7 +829,7 @@ export class OrderService {
           id: pg.id,
           orderId: pg.orderId,
           participantId: pg.participantId,
-          participantName: pg.participant?.name ?? "Tamu",
+          participantName: pg.participant?.name ?? "Pelanggan",
           subtotal: groupSubtotal,
           discountAmount: groupDiscount,
           discountedSubtotal: groupDiscountedSubtotal,
@@ -901,7 +901,7 @@ export class OrderService {
     await db.insert(sessionParticipants).values({
       id: participantId,
       sessionId: session.id,
-      userId: currentUser?.id ?? null,
+      userId: null,
       name: data.name,
       deviceToken: data.deviceToken ?? null,
       isHost: false,

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/ui/Toast'
@@ -66,10 +66,8 @@ export function LoginPage() {
         navigate('/app/tenant/kds', { replace: true })
       } else if (user.role === 'cashier') {
         navigate('/app/cashier', { replace: true })
-      } else if (user.role === 'admin-food-court' || user.role === 'admin') {
-        navigate('/app/dashboard', { replace: true })
       } else {
-        navigate('/app/profile', { replace: true })
+        navigate('/app/dashboard', { replace: true })
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Kombinasi email dan kata sandi salah'
@@ -262,15 +260,6 @@ export function LoginPage() {
             >
               Kendala masuk akun? Hubungi Admin
             </a>
-            <div className="text-[#737373]">
-              Belum punya akun pelanggan?{' '}
-              <Link
-                to="/register"
-                className="text-[#0a0a0a] font-semibold underline underline-offset-2 hover:opacity-80"
-              >
-                Daftar di sini
-              </Link>
-            </div>
           </div>
         </div>
       </div>

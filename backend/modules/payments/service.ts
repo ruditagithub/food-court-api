@@ -92,7 +92,7 @@ export class PaymentService {
       with: { participant: true },
     });
     const currentGroupWithParticipant = allGroups.find((g) => g.id === group.id);
-    const payerName = currentGroupWithParticipant?.participant?.name ?? "Customer";
+    const payerName = currentGroupWithParticipant?.participant?.name ?? "Pelanggan";
 
     const allPaid = allGroups.every(
       (g) => g.id === group.id || g.status === "PAID",
@@ -479,7 +479,7 @@ export class PaymentService {
           orderId: ord.id,
           orderNumber: ord.orderNumber,
           tableNumber: ord.session?.table?.tableNumber ?? "Takeaway",
-          participantName: pg.participant?.name ?? ord.session?.participants?.[0]?.name ?? "Tamu",
+          participantName: pg.participant?.name ?? ord.session?.participants?.[0]?.name ?? "Pelanggan",
           items: itemsList,
           subtotal,
           serviceFee,
@@ -697,7 +697,7 @@ export class PaymentService {
       orderId: ord.id,
       orderNumber: ord.orderNumber,
       tableNumber: ord.session?.table?.tableNumber ?? "Takeaway",
-      participantName: pg.participant?.name ?? ord.session?.participants?.[0]?.name ?? "Tamu",
+      participantName: pg.participant?.name ?? ord.session?.participants?.[0]?.name ?? "Pelanggan",
       items: itemsList,
       subtotal,
       serviceFee,
@@ -784,7 +784,7 @@ export class PaymentService {
       orderId: pGroup.orderId,
       orderNumber: ord?.orderNumber ?? "N/A",
       tableNumber: ord?.session?.table?.tableNumber ?? "Takeaway",
-      participantName: participant?.name ?? "Tamu",
+      participantName: participant?.name ?? "Pelanggan",
       items: itemsList,
       subtotal,
       serviceFee,
@@ -833,7 +833,7 @@ export class PaymentService {
         orderId: p.paymentGroup?.orderId,
         orderNumber: p.paymentGroup?.order?.orderNumber ?? "N/A",
         tableNumber: p.paymentGroup?.order?.session?.table?.tableNumber ?? "Takeaway",
-        participantName: p.paymentGroup?.participant?.name ?? "Tamu",
+        participantName: p.paymentGroup?.participant?.name ?? "Pelanggan",
         amount: p.amount,
         cashReceived: p.cashReceived ?? p.amount,
         cashChange: p.cashChange ?? 0,

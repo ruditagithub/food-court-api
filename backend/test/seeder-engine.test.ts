@@ -141,10 +141,7 @@ describe('Bulk SQL Builder & Checkpoint Persistence', () => {
         cashier: { id: 'csh-1', name: 'Cashier', email: 'c@b.c', passwordHash: 'h', role: 'cashier', status: 'ACTIVE' },
         managers: [],
         tenantOwners: [],
-        customers: [
-          { id: 'cust-1', name: 'Cust 1', email: 'c1@b.c', passwordHash: 'h', role: 'customer', status: 'ACTIVE' },
-          { id: 'cust-2', name: 'Cust 2', email: 'c2@b.c', passwordHash: 'h', role: 'customer', status: 'ACTIVE' },
-        ],
+        customers: [],
       },
       discountsData: {
         discountsList: [
@@ -239,6 +236,13 @@ describe('Bulk SQL Builder & Checkpoint Persistence', () => {
       // Verify occupied tables sync SQL ran
       expect(queries.some((q) => q.includes("UPDATE `tables` SET `status` = 'occupied'"))).toBe(true)
 
+      // All participants must be unified non-login customers (user_id NULL, no 'Tamu'/'Guest' prefix)
+      const partInserts = insertSqls.filter((q) => q.startsWith('INSERT INTO `session_participants` '))
+      const partSql = partInserts.join('\n')
+      expect(partSql).not.toContain("'Tamu ")
+      expect(partSql).not.toContain("'Pengunjung ")
+      expect(partSql).not.toContain("'cust-1'")
+
       // Checkpoint must be cleared on completion
       expect(await loadCheckpoint(cpPath)).toBeNull()
 
@@ -315,7 +319,7 @@ describe('Bulk SQL Builder & Checkpoint Persistence', () => {
           cashier: { id: 'csh-1', name: 'C', email: 'c@b.c', passwordHash: 'h', role: 'cashier', status: 'ACTIVE' },
           managers: [],
           tenantOwners: [],
-          customers: [{ id: 'cust-1', name: 'U1', email: 'u1@b.c', passwordHash: 'h', role: 'customer', status: 'ACTIVE' }],
+          customers: [],
         },
         discountsData: { discountsList: [], discountsByFcMap: new Map() },
       }

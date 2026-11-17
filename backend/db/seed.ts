@@ -30,7 +30,6 @@ import { foodCourtConfigs } from './seeds/helpers/indonesian-names'
 
 export interface SeedCliOptions {
   totalOrders: number
-  customerCount: number
   resume: boolean
 }
 
@@ -45,7 +44,6 @@ export function parseSeedCliArgs(
   env: Record<string, string | undefined> = process.env
 ): SeedCliOptions {
   let totalOrders = parsePositiveInt(env.SEED_ORDERS_COUNT, 12000)
-  let customerCount = parsePositiveInt(env.SEED_CUSTOMERS_COUNT, 15000)
   let resume = false
 
   for (let i = 0; i < argv.length; i++) {
@@ -56,14 +54,10 @@ export function parseSeedCliArgs(
       totalOrders = parsePositiveInt(arg.slice('--orders='.length), totalOrders)
     } else if (arg === '--orders' && i + 1 < argv.length) {
       totalOrders = parsePositiveInt(argv[++i], totalOrders)
-    } else if (arg.startsWith('--customers=')) {
-      customerCount = parsePositiveInt(arg.slice('--customers='.length), customerCount)
-    } else if (arg === '--customers' && i + 1 < argv.length) {
-      customerCount = parsePositiveInt(argv[++i], customerCount)
     }
   }
 
-  return { totalOrders, customerCount, resume }
+  return { totalOrders, resume }
 }
 
 async function loadContextFromDatabase(): Promise<OrdersHistorySeedContext> {
@@ -130,7 +124,7 @@ async function loadContextFromDatabase(): Promise<OrdersHistorySeedContext> {
       cashier,
       managers: allUsers.filter((u) => u.role === 'admin-food-court'),
       tenantOwners: allUsers.filter((u) => u.role === 'tenant'),
-      customers: allUsers.filter((u) => u.role === 'customer'),
+      customers: [],
     },
     foodCourtsData: { foodCourtsList: fcList },
     tablesData: { tablesList: tblList, kiosksList: kskList },
@@ -146,7 +140,7 @@ async function loadContextFromDatabase(): Promise<OrdersHistorySeedContext> {
 }
 
 async function runMasterSeed() {
-  const { totalOrders, customerCount, resume } = parseSeedCliArgs(process.argv.slice(2))
+  const { totalOrders, resume } = parseSeedCliArgs(process.argv.slice(2))
 
   console.log('====================================================================')
   console.log('AMICI FOOD COURT - MASTER DATABASE SEEDER (450-DAY REAL-CASE ENGINE)')
@@ -179,8 +173,8 @@ async function runMasterSeed() {
     // 1. Reset Bersih Seluruh 24 Tabel Database
     await cleanDatabase()
 
-    // 2. Akun Pengguna (Super Admin, Kasir, 5 Manajer FC, 105 Pemilik Kios, Pelanggan)
-    const usersData = await seedUsers(customerCount)
+    // 2. Akun Pengguna Staf (Super Admin, Kasir, 5 Manajer FC, 105 Pemilik Kios)
+    const usersData = await seedUsers()
 
     // 3. 5 Cabang Food Court di Indonesia (Surabaya, Jakarta, Bandung, Bali, Jogja)
     const foodCourtsData = await seedFoodCourts(usersData)
@@ -227,7 +221,7 @@ async function runMasterSeed() {
     console.log('  Stan Tenant       : 105 Gerai Kios (21 per cabang, STAN-A01 s/d STAN-C07)')
     console.log(`  Katalog Menu      : ${menusData.menusList.length.toLocaleString()} Menu Sajian Kuliner (Foto HD)`)
     console.log(`  Voucher Diskon    : ${discountsData.discountsList.length} Kode Promo (Platform & Tenant)`)
-    console.log(`  Pelanggan         : ${usersData.customers.length.toLocaleString()} Akun Terdaftar + Guest Walk-In/QR`)
+    console.log('  Pelanggan         : Tanpa login (entitas pelanggan tunggal langsung di sesi pesanan)')
     console.log(`  Total Pesanan     : ${totalOrders.toLocaleString()} Transaksi (QR, Kiosk, Kasir, Split-Bill)`)
     console.log('  Ledger Mutasi     : Sinkron (Tenant Balance Logs & Food Court Balance Logs)')
     console.log('--------------------------------------------------------------------')
@@ -236,7 +230,6 @@ async function runMasterSeed() {
     console.log('  - Kasir FoodCourt : cashier@foodcourt.com (Kasir Amici)')
     console.log('  - Manajer Cabang  : manager@foodcourt.com (Grand City Surabaya)')
     console.log('  - Mitra Tenant    : tenant@foodcourt.com (Warung Rawon Bu Siti)')
-    console.log('  - Pelanggan       : customer@foodcourt.com (Rizky Ramadhan)')
     console.log('====================================================================\n')
 
     process.exit(0)

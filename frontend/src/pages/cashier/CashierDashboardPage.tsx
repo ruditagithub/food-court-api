@@ -343,7 +343,7 @@ export function CashierDashboardPage() {
                     <Icons.Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#a3a3a3]" />
                     <Input
                       type="text"
-                      placeholder="Cari No. Pesanan / Meja / Nama Tamu..."
+                      placeholder="Cari No. Pesanan / Meja / Nama Pelanggan..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-9 h-9 text-xs rounded-[14px]"
@@ -663,7 +663,7 @@ export function CashierDashboardPage() {
                       <th className="py-3 px-4">Referensi Bayar</th>
                       <th className="py-3 px-4">No. Pesanan</th>
                       <th className="py-3 px-4">Meja</th>
-                      <th className="py-3 px-4">Tamu / Pembayar</th>
+                      <th className="py-3 px-4">Pelanggan / Pembayar</th>
                       <th className="py-3 px-4 text-right">Total Bayar</th>
                       <th className="py-3 px-4 text-right">Uang Diterima</th>
                       <th className="py-3 px-4 text-right">Kembalian</th>

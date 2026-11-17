@@ -25,6 +25,7 @@ import {
   deterministicRankSort,
   distributeDayAcrossBranches,
 } from './helpers/real-case-distributions'
+import { firstNames, lastNames } from './helpers/indonesian-names'
 import type { SeedUsersResult } from './01-users.seed'
 import type { SeedFoodCourtsResult } from './02-food-courts.seed'
 import type { SeedTablesKiosksResult } from './03-tables-kiosks.seed'
@@ -297,8 +298,6 @@ export async function seedOrdersHistory(
   const endDateIso = endDate.toISOString()
   const threeHoursAgoMs = endDate.getTime() - 3 * 60 * 60 * 1000
   const endMs = endDate.getTime()
-  const customers = ctx.usersData.customers
-  const customerCount = customers.length
 
   // Bounded Producer-Consumer queue (max 2 batches buffered)
   const MAX_QUEUE = 2
@@ -671,24 +670,14 @@ export async function seedOrdersHistory(
               const alloc = allocations[pIdx]
               const participantId = ids.participantId(pIdx + 1)
 
-              let userId: string | null = null
-              let participantName: string
-              if (isCashierCounter) {
-                participantName = `Pelanggan Walk-In #${orderSeq}`
-              } else if (Math.random() < 0.40) {
-                participantName = isKiosk
-                  ? `Pengunjung Kiosk #${(orderSeq % 900) + 100}`
-                  : `Tamu ${table?.tableNumber || 'Meja'}`
-              } else {
-                const cust = customers[(orderSeq + pIdx * 13) % customerCount]
-                userId = cust.id
-                participantName = cust.name
-              }
+              const fn = firstNames[(orderSeq * 3 + pIdx * 7) % firstNames.length]
+              const ln = lastNames[(orderSeq * 5 + pIdx * 11) % lastNames.length]
+              const participantName = `${fn} ${ln}`
 
               batch.participants.push([
                 participantId,
                 ids.sessionId,
-                userId,
+                null,
                 participantName,
                 pIdx === 0,
                 orderDate,

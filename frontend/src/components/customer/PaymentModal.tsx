@@ -100,7 +100,7 @@ export function PaymentModal({
         new Set(
           groups
             .map((g: any) => g.participantName?.trim())
-            .filter((n: string) => Boolean(n) && n !== 'Tamu Meja')
+            .filter((n: string) => Boolean(n) && n !== 'Pelanggan' && n !== 'Tamu Meja')
         )
       ) as string[]
 

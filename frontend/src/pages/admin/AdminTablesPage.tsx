@@ -278,7 +278,7 @@ export function AdminTablesPage() {
                       className="!h-8 !text-xs !py-1"
                     >
                       <option value="available">Tersedia (Ready)</option>
-                      <option value="occupied">Terisi Tamu (In Use)</option>
+                      <option value="occupied">Terisi Pelanggan (In Use)</option>
                       <option value="disabled">Nonaktif (Disabled)</option>
                     </Select>
                   </div>

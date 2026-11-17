@@ -35,7 +35,7 @@ export function OrderDetailDialog({
   const isTenantOrder = !!order.order || !order.tenantOrders
   const orderNumber = order.orderNumber || order.order?.orderNumber || 'ORD-...'
   const currentStatus = order.orderStatus || order.status || 'CONFIRMED'
-  const customerName = order.customerName || order.order?.customerName || 'Tamu Meja'
+  const customerName = order.customerName || order.order?.customerName || 'Pelanggan'
   const tableNumber =
     order.table?.tableNumber ||
     order.tableNumber ||

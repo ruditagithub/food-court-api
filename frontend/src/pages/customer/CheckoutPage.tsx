@@ -1,7 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { apiFetch, getToken } from '../../api/client'
-import { useAuth } from '../../context/AuthContext'
+import { apiFetch } from '../../api/client'
 import { useToast } from '../../components/ui/Toast'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -18,14 +17,13 @@ import type { CartItem } from './CustomerMenuPage'
 export function CheckoutPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
   const { error: toastError, success: toastSuccess } = useToast()
 
   const qrToken = searchParams.get('qrToken') || ''
   const [activeTable, setActiveTable] = useState<any>(null)
   const [cartItems, setCartItems] = useState<CartItem[]>([])
 
-  const [customerName, setCustomerName] = useState(user?.name || '')
+  const [customerName, setCustomerName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
 
@@ -245,7 +243,6 @@ export function CheckoutPage() {
 
     setIsSubmitting(true)
     try {
-      const token = getToken()
       const payload = {
         tableId: activeTable?.tableId || undefined,
         customerName: customerName.trim(),
@@ -262,7 +259,6 @@ export function CheckoutPage() {
 
       const res = await apiFetch<{ data: any }>('/api/orders', {
         method: 'POST',
-        token: token || undefined,
         body: payload,
       })
 

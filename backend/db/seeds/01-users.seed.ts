@@ -10,42 +10,7 @@ export interface SeedUsersResult {
   customers: typeof users.$inferInsert[]
 }
 
-export function buildCustomerRecords(
-  customerCount: number,
-  passwordHash: string
-): (typeof users.$inferInsert)[] {
-  const count = Math.max(1, customerCount)
-  const customers: (typeof users.$inferInsert)[] = [
-    {
-      id: 'usr-customer-001',
-      name: 'Rizky Ramadhan',
-      email: 'customer@foodcourt.com',
-      passwordHash,
-      role: 'customer',
-      status: 'ACTIVE',
-    },
-  ]
-
-  for (let i = 2; i <= count; i++) {
-    const fn = firstNames[(i * 3 + 5) % firstNames.length]
-    const ln = lastNames[(i * 5 + 7) % lastNames.length]
-    const suffix = String(i).padStart(5, '0')
-    customers.push({
-      id: `usr-cust-${suffix}`,
-      name: `${fn} ${ln}`,
-      email: `customer.${suffix}@foodcourt.com`,
-      passwordHash,
-      role: 'customer',
-      status: 'ACTIVE',
-    })
-  }
-
-  return customers
-}
-
-export async function seedUsers(
-  customerCount = Number(process.env.SEED_CUSTOMERS_COUNT) || 15000
-): Promise<SeedUsersResult> {
+export async function seedUsers(): Promise<SeedUsersResult> {
   const startTime = Date.now()
 
   // 1. Pre-hash password satu kali untuk seluruh akun pengujian
@@ -109,15 +74,14 @@ export async function seedUsers(
     })
   }
 
-  // 5. Akun Pelanggan (Customer)
-  const customers = buildCustomerRecords(customerCount, passwordHash)
+  // 5. Pelanggan memesan langsung tanpa akun/login (tidak ada akun customer di tabel users)
+  const customers: typeof users.$inferInsert[] = []
 
   const allUsers: typeof users.$inferInsert[] = [
     superAdmin,
     cashier,
     ...managers,
     ...tenantOwners,
-    ...customers,
   ]
 
   console.log(`\n[2/8] [USERS] Melakukan hashing password dan seeding ${allUsers.length.toLocaleString()} akun pengguna...`)

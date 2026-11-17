@@ -27,7 +27,7 @@ export function UserRegisterDialog({
   open,
   onOpenChange,
   onSuccess,
-  allowedRoles = ['admin-food-court', 'tenant', 'admin', 'customer'],
+  allowedRoles = ['admin-food-court', 'tenant', 'admin', 'cashier'],
 }: UserRegisterDialogProps) {
   const { error: toastError, success: toastSuccess } = useToast()
 
@@ -174,8 +174,8 @@ export function UserRegisterDialog({
             {allowedRoles.includes('admin') && (
               <option value="admin">Super Admin (Platform)</option>
             )}
-            {allowedRoles.includes('customer') && (
-              <option value="customer">Customer (Pelanggan)</option>
+            {allowedRoles.includes('cashier') && (
+              <option value="cashier">Cashier (Kasir POS)</option>
             )}
           </Select>
         </div>
